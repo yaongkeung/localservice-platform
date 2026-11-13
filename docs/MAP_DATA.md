@@ -35,6 +35,7 @@ SDK 인증 실패·네트워크 실패·12초 로딩 시간 초과 시 안내와
 1. 로컬: `.dev.vars.example`을 `.dev.vars`로 복사하고 Client ID를 설정합니다. `npm run dev`에서만 읽으며 Git에서 제외합니다.
 2. Cloudflare: 배포 시 같은 이름의 런타임 변수를 등록합니다. 이 작업에서는 Cloudflare 설정/배포를 수행하지 않았습니다.
 3. 네이버 Maps Application의 Dynamic Map 및 Web 서비스 URL을 확인합니다. 운영 주소 `https://gongsa8282.xyz`, 로컬 확인용 `http://localhost`를 각각 등록해야 합니다.
-4. 현재 로컬에서는 네이버의 `navermap_authFailure` 응답을 확인했습니다. 등록 주소를 확인한 뒤 실제 배경지도와 경계 클릭을 재검증해야 합니다. 인증 실패 시 SVG 복귀 및 선택 기능은 브라우저에서 확인했습니다. 실제 도메인 검증은 배포 후 필요합니다.
+4. 로컬에서 실제 네이버 타일, 25개 구와 선택 구의 동 경계, 구/동 선택에 따른 확대, 모바일 표시를 검증했습니다. `Data` 레이어는 지도의 `init` 이벤트 이후 명시적으로 `setMap`하여 연결합니다. 운영 도메인 검증은 배포 후 필요합니다.
+5. 로컬 HTTP 페이지에서 SDK가 HTTP 인증·지도 요청을 사용하므로, `http://localhost`와 `http://127.0.0.1`로 요청받은 HTML에만 네이버의 필요한 HTTP 호스트를 추가 허용합니다. 운영 도메인과 HTTPS 페이지에는 적용하지 않습니다. 초기 로컬 실패에는 이 CSP 차단도 포함되어 있었으며 수정했습니다.
 
 참고: [네이버 데이터 레이어 가이드](https://navermaps.github.io/maps.js.ncp/docs/tutorial-2-DataLayer.html).

@@ -61,14 +61,15 @@ export function portalClient() {
     const container=root.querySelector('#naver-map');
     const fallback=root.querySelector('.area-map');
     const reset=root.querySelector('#map-reset');
-    let failed=false;
+    let failed=false,rejectInitialization;
     function restore(message,reason='auth') {
       failed=true;
       root.dataset.mapState=reason;
       mapAdapter=undefined;
       container.hidden=true;
       reset.hidden=true;
-      fallback.hidden=false;
+      fallback.removeAttribute('hidden');
+      rejectInitialization?.(Error(reason));
       status.textContent=message;
     }
     try {
@@ -103,8 +104,16 @@ export function portalClient() {
       const maps=window.naver.maps;
       container.hidden=false;
       const map=new maps.Map(container,{center:new maps.LatLng(37.5665,126.978),zoom:11,zoomControl:true,scrollWheel:false,scaleControl:true,logoControl:true,mapDataControl:true});
-      const guLayer=new maps.Data({map});
-      const dongLayer=new maps.Data({map});
+      await new Promise((resolve,reject)=>{
+        const timer=setTimeout(()=>reject(Error('map-init-timeout')),12000);
+        rejectInitialization=error=>{clearTimeout(timer);reject(error);};
+        maps.Event.once(map,'init',()=>{clearTimeout(timer);rejectInitialization=undefined;resolve();});
+      });
+      if(failed) return;
+      const guLayer=new maps.Data();
+      const dongLayer=new maps.Data();
+      guLayer.setMap(map);
+      dongLayer.setMap(map);
       const collection=features=>({type:'FeatureCollection',features});
       guLayer.addGeoJson(collection(geometry.features.filter(f=>f.properties.level==='district')));
       let currentDongs;
@@ -137,7 +146,7 @@ export function portalClient() {
       dongLayer.addListener('click',event=>{selectDong(String(event.feature.getId()));mapAdapter?.focusDong();});
       reset.addEventListener('click',()=>{selectDong('');map.setCenter(new maps.LatLng(37.5665,126.978));map.setZoom(11);});
       showDistrict();
-      fallback.hidden=true;
+      fallback.setAttribute('hidden','');
       reset.hidden=false;
       status.textContent='구를 누르면 확대됩니다. 동을 선택한 뒤 지역 글 보기를 눌러주세요.';
       root.dataset.mapState='ready';

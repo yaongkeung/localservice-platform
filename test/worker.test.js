@@ -58,3 +58,13 @@ test('Naver geometry is WGS84, closed, finite and covers every gu/dong',async()=
   }
  }
 });
+test('HTTP map endpoints are allowed only for loopback development',async()=>{
+ for(const host of ['localhost','127.0.0.1']){
+  const res=await worker.fetch(new Request('http://'+host+':8787/'));
+  assert.match(res.headers.get('content-security-policy'),/http:\/\/oapi\.map\.naver\.com/);
+ }
+ for(const url of ['https://gongsa8282.xyz/','http://gongsa8282.xyz/','https://localhost/']){
+  const res=await worker.fetch(new Request(url));
+  assert.doesNotMatch(res.headers.get('content-security-policy'),/http:\/\//);
+ }
+});

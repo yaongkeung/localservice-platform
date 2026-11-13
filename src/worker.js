@@ -38,4 +38,12 @@ export default {async fetch(request,env={}){const url=new URL(request.url);if(![
 if(url.pathname==='/assets/portal.js'||url.pathname==='/assets/boundaries.json'){
   const isScript=url.pathname.endsWith('.js');
   return new Response(request.method==='HEAD'?null:isScript?'('+portalClient.toString()+')();':JSON.stringify(boundaries),{headers:{'content-type':isScript?'text/javascript; charset=utf-8':'application/json; charset=utf-8','cache-control':isScript?'no-store':'public, max-age=3600','x-content-type-options':'nosniff'}});
-}if(!url.pathname.endsWith('/')&&!url.pathname.includes('.')){url.pathname+='/';return Response.redirect(url.href,308);}const response=render(url);return request.method==='HEAD'?new Response(null,{status:response.status,headers:response.headers}):response;}};
+}if(!url.pathname.endsWith('/')&&!url.pathname.includes('.')){url.pathname+='/';return Response.redirect(url.href,308);}const response=render(url);
+if(url.protocol==='http:' && ['localhost','127.0.0.1'].includes(url.hostname)) {
+  const csp=response.headers.get('content-security-policy');
+  response.headers.set('content-security-policy',csp
+    .replace("script-src 'self'", "script-src 'self' http://oapi.map.naver.com http://*.map.naver.net")
+    .replace("connect-src 'self'", "connect-src 'self' http://*.map.naver.com http://*.map.naver.net")
+    .replace("img-src 'self'", "img-src 'self' http://*.map.naver.com http://*.map.naver.net http://static.naver.net"));
+}
+return request.method==='HEAD'?new Response(null,{status:response.status,headers:response.headers}):response;}};
