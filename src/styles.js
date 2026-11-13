@@ -66,6 +66,41 @@ footer strong{color:#ffd166}
 .count{font-size:13px;color:#52647a}
 .all-link{color:#173e62;font-size:14px;font-weight:700}
 .company-name{font-size:26px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.map-layout{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);background:white;border:1px solid #d7e0e9;border-radius:14px;overflow:hidden}
+.map-overview{background:#eaf0f6;padding:24px;min-width:0}
+.map-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;color:#52647a}
+.map-toolbar strong{font-size:20px;color:#14283f}
+.area-map{display:block;width:100%;height:430px;overflow:visible}
+.district-shape{fill:#c3d1df;stroke:#f9fbff;stroke-width:2;cursor:pointer;transform-box:fill-box;transform-origin:center}
+.district-shape.active{fill:#173e62;stroke:#ffd166;stroke-width:3}
+.district-shape:hover,.district-shape:focus-visible{fill:#285b7d;stroke:#ffd166;stroke-width:3;transform:scale(1.025);outline:none}
+.map-detail{padding:24px;border-left:1px solid #d7e0e9;min-width:0}
+.map-detail-top h3{font-size:27px;margin:6px 0}
+.map-detail-top p{font-size:12px;margin:5px 0;min-height:20px}
+.dong-map{display:block;width:100%;height:215px;background:#f7f9fc;border-radius:10px;margin:10px 0}
+.dong-map path{fill:#bbdfe9;stroke:white;stroke-width:3;cursor:pointer;transform-box:fill-box;transform-origin:center}
+.dong-map path:hover,.dong-map path:focus-visible,.dong-map path[aria-pressed="true"]{fill:#ffd166;stroke:#9b680a;stroke-width:3;transform:scale(1.025);outline:none}
+.map-selectors{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.map-selectors select{margin-top:4px}
+.map-apply{display:block;text-align:center;margin-top:12px}
+.map-detail>p{font-size:11px;margin-bottom:0}
+.map-legend{font-size:12px;color:#52647a;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.map-legend i{width:10px;height:10px;background:#173e62;border:1px solid #a57109;display:inline-block}
+.map-legend span{margin-left:auto;font-size:11px}
+.map-credit{font-size:11px;color:#52647a;margin:12px 0 0}
+.map-credit a{text-decoration:underline}
+.post-board{background:white;border:1px solid #d7e0e9;border-top:3px solid #173e62;border-radius:8px;overflow:hidden}
+.post-board table{width:100%;border-collapse:collapse;text-align:left;font-size:13px}
+.post-board th{padding:12px 18px;background:#eaf0f6;color:#52647a;font-size:12px;font-weight:600}
+.post-board td{padding:16px 18px;border-top:1px solid #e3e9f0;color:#52647a;white-space:nowrap}
+.post-board td:first-child{white-space:normal;width:61%}
+.post-board tr:hover td{background:#f5f9fc}
+.board-category{display:inline-block;font-size:11px;font-weight:700;background:#e2f5fa;color:#205a70;padding:2px 6px;border-radius:3px;margin:0 8px 5px 0}
+.board-title{font-size:15px;font-weight:650;color:#172b42}
+.board-type{display:block;font-size:11px;color:#52647a}
+.board-summary{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+@media(prefers-reduced-motion:no-preference){.district-shape,.dong-map path{transition:fill .15s,transform .15s}}
  @media(max-width:760px){.wrap{padding:0 18px}
 .header{min-height:76px;gap:12px;flex-wrap:wrap;padding-top:15px;padding-bottom:15px}
 nav{gap:18px;font-size:13px}
@@ -79,7 +114,24 @@ button:hover,.button:hover{background:#ffe09a}
 .service{display:block;padding:20px}
 .icon{float:right;margin:0}
 .section{padding:28px 0}
-.section-head{align-items:center}
+.section-head{align-items:center;flex-wrap:wrap}
+.map-layout{grid-template-columns:1fr}
+.map-overview{padding:16px}
+.area-map{height:310px}
+.map-detail{padding:18px;border-left:0;border-top:1px solid #d7e0e9}
+.map-toolbar{font-size:11px;flex-wrap:wrap}
+.map-toolbar strong{font-size:18px}
+.map-legend span{margin-left:0}
+.dong-map{height:245px}
+.post-board table,.post-board tbody{display:block}
+.post-board thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+.post-board tr{display:flex;flex-wrap:wrap;padding:15px 16px;border-top:1px solid #e3e9f0;gap:3px 12px}
+.post-board tr:first-child{border-top:0}
+.post-board td{display:block;border:0;padding:0;font-size:11px}
+.post-board td:first-child{width:100%;margin-bottom:7px}
+.board-title{display:block;font-size:15px}
+.board-category{margin-bottom:5px}
+.board-type{display:inline;font-size:11px}
 h2{font-size:22px}
 .detail{grid-template-columns:1fr}
 .prose{padding:22px}

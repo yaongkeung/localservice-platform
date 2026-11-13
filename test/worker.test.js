@@ -20,3 +20,20 @@ test('a registered phone renders a working tel CTA on profile and article',async
  try {companies[0].phone='+82-10-0000-0000';for(const path of ['/company/1/','/post/101/']){const html=await(await get(path)).text();assert.match(html,/href="tel:\+82-10-0000-0000"/);}}
  finally {companies[0].phone=old;}
 });
+test('map district filter returns only assigned posts; unassigned dongs stay empty',async()=>{
+ const html=await(await get('/?district=11440')).text();
+ assert.match(html,/샘플 1건/);assert.match(html,/href="\/post\/101\/"/);assert.doesNotMatch(html,/href="\/post\/102\/"/);
+ for(const query of ['district=11470&dong=11470510','district=11440&dong=11470510','district=not-a-code']) {
+   const empty=await(await get('/?'+query)).text();assert.match(empty,/조건에 맞는 사례가 없습니다/);
+ }
+});
+test('map assets expose attributed real boundary shapes and a same-origin client',async()=>{
+ const res=await get('/assets/boundaries.json');assert.equal(res.status,200);const data=await res.json();
+ assert.equal(data.districts.length,25);assert.equal(data.districts.reduce((n,d)=>n+d.dongs.length,0),425);
+ const yangcheon=data.districts.find(d=>d.name==='양천구');assert.ok(yangcheon.dongs.some(d=>d.name==='목1동'));
+ for(const gu of data.districts){assert.match(gu.path,/^M/);assert.doesNotMatch(gu.path,/NaN|Infinity/);assert.ok(gu.dongs.every(d=>d.code.startsWith(gu.code)));}
+ const script=await get('/assets/portal.js');assert.match(script.headers.get('content-type'),/javascript/);assert.match(await script.text(),/pointerover/);
+ assert.equal(await(await get('/assets/portal.js','HEAD')).text(),'');
+ const home=await get('/');assert.match(home.headers.get('content-security-policy'),/script-src 'self'/);
+ const html=await home.text();assert.match(html,/class="post-board"/);assert.ok(html.indexOf('id="region-map"')<html.indexOf('class="post-board"'));assert.match(html,/2023.10.31/);
+});

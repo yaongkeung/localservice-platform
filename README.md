@@ -25,6 +25,7 @@ npm test
 ```
 
 - 모바일 우선 메인, 지역 게시판, 업종 게시판, 숫자 ID 게시글 상세, 업체 프로필
+- 메인 검색 아래 서울 구·행정동 선택 지도와 게시판형 최신 글 목록. 지도는 서울시 공개 경계 기반 SVG이며 네이버 배경지도는 아직 연결되지 않았습니다. 구 호버/선택 시 동별 지도를 보여주며, 지역 글 보기를 누르면 검색 결과를 필터링합니다. [출처·기준일·연동 상태](docs/MAP_DATA.md)
 - 지역 상위/하위 조회, 업종 및 키워드 검색, 빈 검색 결과, 404
 - 서버 렌더링 HTML, 페이지별 title/description/canonical/OG 및 게시글 Article 구조화데이터
 - 샘플 업체 3개, 게시글 3개. 실제 연락처가 없어 전화 CTA는 준비 중으로 표시합니다. 검증된 `phone`을 등록하면 게시글과 프로필에서 `tel:` 링크가 활성화됩니다.
@@ -35,6 +36,7 @@ npm test
 - `src/data.js`: 스키마의 관계 ID를 따르는 샘플 데이터 (PUBLISHED만 공개)
 - `src/worker.js`: Cloudflare Workers Fetch 핸들러, 라우팅, HTML 렌더링
 - `src/styles.js`: 반응형 스타일
+- `src/map.js`, `src/client.js`, `src/boundaries.js`: 지역 지도 HTML, 선택 동작, 출처가 있는 표시용 경계
 - `scripts/dev.mjs`: 로컬 HTTP 어댑터
 - `test/worker.test.js`: 실제 Fetch 핸들러 통합 테스트
 - `.github/workflows/check.yml`: push/PR 문법 검사 및 테스트. 자동 배포 없음
