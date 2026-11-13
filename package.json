@@ -1,0 +1,1 @@
+{"name":"localservice-platform","private":true,"type":"module","scripts":{"dev":"node scripts/dev.mjs","test":"node --test","check":"node --check src/worker.js"},"engines":{"node":">=22"}}
