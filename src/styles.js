@@ -67,6 +67,11 @@ footer strong{color:#ffd166}
 .all-link{color:#173e62;font-size:14px;font-weight:700}
 .company-name{font-size:26px}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+[hidden]{display:none!important}
+.naver-map{width:100%;height:430px;border-radius:10px;margin:12px 0;isolation:isolate;background:#eaf0f6}
+.map-reset{width:auto;font-size:12px;margin:0 0 14px;padding:7px 12px;background:#173e62;color:white}
+.map-reset:hover{background:#285b7d}
+#map-status{font-size:12px;margin:8px 0}
 .map-layout{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);background:white;border:1px solid #d7e0e9;border-radius:14px;overflow:hidden}
 .map-overview{background:#eaf0f6;padding:24px;min-width:0}
 .map-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;color:#52647a}
@@ -118,6 +123,7 @@ button:hover,.button:hover{background:#ffe09a}
 .map-layout{grid-template-columns:1fr}
 .map-overview{padding:16px}
 .area-map{height:310px}
+.naver-map{height:350px}
 .map-detail{padding:18px;border-left:0;border-top:1px solid #d7e0e9}
 .map-toolbar{font-size:11px;flex-wrap:wrap}
 .map-toolbar strong{font-size:18px}

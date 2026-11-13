@@ -9,6 +9,9 @@ export function mapSection(params) {
   return `<section class="section" id="region-map" aria-labelledby="map-heading">
     <div class="section-head"><div><span class="eyebrow">EXPLORE YOUR NEIGHBORHOOD</span><h2 id="map-heading">지도에서 우리 동네를 찾아보세요</h2></div><span class="count">서울 · 구 → 행정동</span></div>
     <div class="map-layout"><div class="map-overview"><div class="map-toolbar"><strong>서울특별시</strong><span>구에 마우스를 올리거나 눌러보세요</span></div>
+      <p id="map-status" class="muted" role="status">구·동을 선택해 지역의 글을 찾아보세요.</p>
+      <div id="naver-map" class="naver-map" aria-label="네이버 지도에서 서울 구·동 선택" hidden></div>
+      <button type="button" id="map-reset" class="map-reset" hidden>서울 전체 보기</button>
       <svg class="area-map" viewBox="0 0 600 600" role="group" aria-label="서울 25개 구 선택 지도">${boundaries.districts.map(d=>`<path d="${d.path}" data-district="${d.code}" class="district-shape ${d.code===district.code?'active':''}" role="button" tabindex="0" aria-label="${d.name} 동별 지도 보기" aria-pressed="${d.code===district.code}" fill-rule="evenodd"><title>${d.name}</title></path>`).join('')}</svg>
       <div class="map-legend"><i></i> 선택한 구 <span>키보드 Tab·Enter로도 선택할 수 있습니다</span></div></div>
     <aside class="map-detail"><div class="map-detail-top"><span class="tag">동별 자세히 보기</span><h3 id="district-title">${district.name}</h3><p id="map-hint" class="muted" aria-live="polite">동에 마우스를 올리면 해당 경계가 강조됩니다.</p></div>

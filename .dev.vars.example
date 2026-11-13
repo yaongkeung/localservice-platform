@@ -1,0 +1,3 @@
+# Copy to .dev.vars for local preview. Set the browser Maps Client ID only.
+# Never add a Client Secret here or in browser code.
+NAVER_MAP_CLIENT_ID=

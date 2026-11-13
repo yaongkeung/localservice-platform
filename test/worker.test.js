@@ -37,3 +37,24 @@ test('map assets expose attributed real boundary shapes and a same-origin client
  const home=await get('/');assert.match(home.headers.get('content-security-policy'),/script-src 'self'/);
  const html=await home.text();assert.match(html,/class="post-board"/);assert.ok(html.indexOf('id="region-map"')<html.indexOf('class="post-board"'));assert.match(html,/2023.10.31/);
 });
+test('Naver runtime config exposes only the client ID and is never cached',async()=>{
+ const url='https://gongsa8282.xyz/assets/map-config.json';
+ const res=await worker.fetch(new Request(url),{NAVER_MAP_CLIENT_ID:'test-client-id',NAVER_MAP_CLIENT_SECRET:'do-not-expose'});
+ assert.equal(res.headers.get('cache-control'),'no-store');
+ assert.deepEqual(await res.json(),{clientId:'test-client-id'});
+ const empty=await worker.fetch(new Request(url));assert.deepEqual(await empty.json(),{clientId:null});
+ const invalid=await worker.fetch(new Request(url),{NAVER_MAP_CLIENT_ID:'"><script>'});assert.deepEqual(await invalid.json(),{clientId:null});
+ const head=await worker.fetch(new Request(url,{method:'HEAD'}),{NAVER_MAP_CLIENT_ID:'test-client-id'});assert.equal(await head.text(),'');
+});
+test('Naver geometry is WGS84, closed, finite and covers every gu/dong',async()=>{
+ const geo=await(await get('/assets/map-geometry.json')).json();
+ assert.equal(geo.features.filter(f=>f.properties.level==='district').length,25);
+ assert.equal(geo.features.filter(f=>f.properties.level==='dong').length,425);
+ for(const feature of geo.features) {
+  assert.equal(feature.geometry.type,'MultiPolygon');
+  for(const polygon of feature.geometry.coordinates) for(const ring of polygon) {
+   assert.ok(ring.length>=4);assert.deepEqual(ring[0],ring.at(-1));
+   for(const [lon,lat] of ring) {assert.ok(lon>126&&lon<128);assert.ok(lat>37&&lat<38);}
+  }
+ }
+});
