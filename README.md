@@ -26,6 +26,8 @@ npm test
 
 - 모바일 우선 메인, 지역 게시판, 업종 게시판, 숫자 ID 게시글 상세, 업체 프로필
 - 지도 없는 게시판형 메인: 상단 검색, 글 종류 메뉴, 전국 시·도 → 시·군·구 → 읍·면·동 선택, 중앙 최신 글 목록, 업종/지역 바로가기. 지도 SDK·경계 파일·지도 설정 응답과 외부 지도 호출을 제거했습니다. [지역 목록 출처와 동작](docs/REGION_DATA.md)
+- 게시글 대표 사진 썸네일, ‘오늘의 업종 한 컷’ 사진 영역, 상세 사진을 같은 `postImages` 데이터에 연결했습니다. 현재 사진 3장은 AI 생성 샘플로 표시합니다. 한국 날짜 기준으로 공개 글의 사진에서 업종별 한 장을 선택하며, 각 업종에 후보가 하나뿐이면 날짜가 바뀌어도 같은 사진을 표시합니다. 실제 업로드 사진을 등록하면 같은 구조로 대체할 수 있습니다.
+- 사진은 Cloudflare Static Assets의 `ASSETS` 바인딩(`public/media/`)으로 제공합니다. 지도 API/바인딩은 사용하지 않습니다. Node 로컬 어댑터에서도 같은 경로로 제공합니다.
 - 지역 상위/하위 조회, 업종 및 키워드 검색, 빈 검색 결과, 404
 - 서버 렌더링 HTML, 페이지별 title/description/canonical/OG 및 게시글 Article 구조화데이터
 - 샘플 업체 3개, 게시글 3개. 실제 연락처가 없어 전화 CTA는 준비 중으로 표시합니다. 검증된 `phone`을 등록하면 게시글과 프로필에서 `tel:` 링크가 활성화됩니다.
@@ -37,6 +39,7 @@ npm test
 - `src/worker.js`: Cloudflare Workers Fetch 핸들러, 라우팅, HTML 렌더링
 - `src/styles.js`: 반응형 스타일
 - `src/home.js`: 게시판형 메인, 검색·글 종류·업종 메뉴, 바로가기
+- `src/photos.js`, `public/media/`: 게시글 사진 관계와 대표 사진 선택, 날짜별 업종 사진, 최적화된 커버/썸네일 샘플
 - `src/regions.js`, `src/regions-data.js`, `src/client.js`: 전국 지역 선택 HTML, 이름·코드, 단계 선택 동작
 - `scripts/dev.mjs`: 로컬 HTTP 어댑터
 - `test/worker.test.js`: 실제 Fetch 핸들러 통합 테스트

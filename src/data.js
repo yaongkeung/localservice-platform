@@ -7,9 +7,9 @@ export const regions = [
   {id:5,name:'수원시',slug:'gyeonggi/suwon',parent_id:4}
 ];
 export const services = [
-  {id:1,name:'배관·누수',slug:'plumbing',icon:'↗',description:'누수 점검부터 배관 수리까지'},
-  {id:2,name:'전기·조명',slug:'electrical',icon:'ϟ',description:'안전한 전기 점검과 조명 교체'},
-  {id:3,name:'에어컨·청소',slug:'cleaning',icon:'✧',description:'쾌적한 공간을 위한 관리'}
+  {id:1,name:'배관·누수',slug:'plumbing',icon:'🔧',tone:'sky',description:'누수 점검부터 배관 수리까지'},
+  {id:2,name:'전기·조명',slug:'electrical',icon:'💡',tone:'peach',description:'안전한 전기 점검과 조명 교체'},
+  {id:3,name:'에어컨·청소',slug:'cleaning',icon:'🫧',tone:'mint',description:'쾌적한 공간을 위한 관리'}
 ];
 export const companies = [
   {id:1,name:'우리동네 설비',phone:null,description:'원인을 먼저 살피고 필요한 작업을 설명하는 배관·누수 전문 업체입니다.',area:'서울 마포구·인근 지역',hours:'평일 09:00–18:00',sample:true},
