@@ -1,9 +1,9 @@
 // Sample content only. A real company phone must be verified before enabling calls.
 export const regions = [
-  {id:1,name:'서울',slug:'seoul',parent_id:null},
+  {id:1,name:'서울',slug:'seoul',parent_id:null,admin_code:'11'},
   {id:2,name:'마포구',slug:'seoul/mapo',parent_id:1,admin_code:'11440'},
   {id:3,name:'강남구',slug:'seoul/gangnam',parent_id:1,admin_code:'11680'},
-  {id:4,name:'경기',slug:'gyeonggi',parent_id:null},
+  {id:4,name:'경기',slug:'gyeonggi',parent_id:null,admin_code:'41'},
   {id:5,name:'수원시',slug:'gyeonggi/suwon',parent_id:4}
 ];
 export const services = [

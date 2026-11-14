@@ -1,25 +1,29 @@
-import {boundaries} from './boundaries.js';
-export const adminCodeForPost = (post, regions) => regions.find(r=>r.id===post.region_id)?.admin_code;
-export const districtForPost = (post, regions) => {
-  const code=adminCodeForPost(post, regions);
-  return code?.length>=5?code.slice(0,5):undefined;
+import {mapIndex} from './map-index.js';
+const e=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+export const adminCodeForPost=(post,regions)=>regions.find(r=>r.id===post.region_id)?.admin_code;
+export const districtForPost=(post,regions)=>{const code=adminCodeForPost(post,regions);return code?.length>=5?code.slice(0,5):undefined;};
+export const provinceForPost=(post,regions)=>{
+  let region=regions.find(r=>r.id===post.region_id);
+  while(region){if(region.admin_code)return region.admin_code.slice(0,2);region=regions.find(r=>r.id===region.parent_id);}
 };
-export function mapSection(params) {
-  const district=boundaries.districts.find(d=>d.code===params.get('district')) || boundaries.districts.find(d=>d.code==='11470');
-  return `<section class="section" id="region-map" aria-labelledby="map-heading">
-    <div class="section-head"><div><span class="eyebrow">EXPLORE YOUR NEIGHBORHOOD</span><h2 id="map-heading">지도에서 우리 동네를 찾아보세요</h2></div><span class="count">서울 · 구 → 행정동</span></div>
-    <div class="map-layout"><div class="map-overview"><div class="map-toolbar"><strong>서울특별시</strong><span>구에 마우스를 올리거나 눌러보세요</span></div>
-      <p id="map-status" class="muted" role="status">구·동을 선택해 지역의 글을 찾아보세요.</p>
-      <div id="naver-map" class="naver-map" aria-label="네이버 지도에서 서울 구·동 선택" hidden></div>
-      <button type="button" id="map-reset" class="map-reset" hidden>서울 전체 보기</button>
-      <svg class="area-map" viewBox="0 0 600 600" role="group" aria-label="서울 25개 구 선택 지도">${boundaries.districts.map(d=>`<path d="${d.path}" data-district="${d.code}" class="district-shape ${d.code===district.code?'active':''}" role="button" tabindex="0" aria-label="${d.name} 동별 지도 보기" aria-pressed="${d.code===district.code}" fill-rule="evenodd"><title>${d.name}</title></path>`).join('')}</svg>
-      <div class="map-legend"><i></i> 선택한 구 <span>키보드 Tab·Enter로도 선택할 수 있습니다</span></div></div>
-    <aside class="map-detail"><div class="map-detail-top"><span class="tag">동별 자세히 보기</span><h3 id="district-title">${district.name}</h3><p id="map-hint" class="muted" aria-live="polite">동에 마우스를 올리면 해당 경계가 강조됩니다.</p></div>
-      <svg class="dong-map" viewBox="0 0 600 600" role="group" aria-label="${district.name} 행정동 선택 지도">${district.dongs.map(d=>`<path d="${d.path}" data-dong="${d.code}" role="button" tabindex="0" aria-label="${d.name} 선택" aria-pressed="false" fill-rule="evenodd"><title>${d.name}</title></path>`).join('')}</svg>
-      <div class="map-selectors"><label>구 선택<select id="district-select">${boundaries.districts.map(d=>`<option value="${d.code}" ${d.code===district.code?'selected':''}>${d.name}</option>`).join('')}</select></label><label>행정동 선택<select id="dong-select"><option value="">구 전체</option>${district.dongs.map(d=>`<option value="${d.code}">${d.name}</option>`).join('')}</select></label></div>
-      <a class="button map-apply" id="map-apply" href="/?district=${district.code}#cases">${district.name} 글 보기</a><p class="muted">등록된 글이 없는 동네는 빈 결과로 안내합니다.</p>
+export function mapSection(params){
+  const district=mapIndex.districts.find(d=>d.code===params.get('district'));
+  const province=mapIndex.provinces.find(p=>p.code===(params.get('province')||district?.province));
+  const groups=mapIndex.districts.filter(d=>d.province===province?.code);
+  return `<section class="section" id="region-map" aria-labelledby="map-heading" data-province-initial="${province?.code||''}" data-district-initial="${district&&province&&district.province===province.code?district.code:''}">
+    <div class="section-head"><div><span class="eyebrow">EXPLORE YOUR NEIGHBORHOOD</span><h2 id="map-heading">전국 지도에서 우리 동네를 찾아보세요</h2></div><span class="count">시·도 → 시·군·구 → 읍·면·동</span></div>
+    <div class="map-layout"><div class="map-overview"><div class="map-toolbar"><strong id="map-area-title">전국</strong><span>지역을 눌러 자세히 살펴보세요</span></div>
+      <p id="map-status" class="muted" role="status">시·도부터 선택하면 시·군·구와 읍·면·동을 볼 수 있습니다.</p>
+      <div id="naver-map" class="naver-map" aria-label="네이버 전국 행정구역 선택 지도" hidden></div>
+      <div class="map-actions"><button type="button" id="map-back" class="map-reset" hidden>상위 지역 보기</button><button type="button" id="map-reset" class="map-reset" hidden>전국 전체 보기</button></div>
+      <svg class="area-map" viewBox="0 0 600 600" role="group" aria-label="전국 시·도 선택 지도">${mapIndex.provinces.map(p=>`<g><path d="${p.path}" data-province="${p.code}" class="district-shape" role="button" tabindex="0" aria-label="${e(p.name)} 선택" fill-rule="evenodd"><title>${e(p.name)}</title></path><text x="${p.label[0]}" y="${p.label[1]}" class="svg-area-label">${e(p.name)}</text></g>`).join('')}</svg>
+      <div class="map-legend"><i></i> 청록색 경계 · 투명하게 표시 <span>지도 확대 시 더 많은 지역 이름이 보입니다</span></div></div>
+    <aside class="map-detail"><div class="map-detail-top"><span class="tag">우리 동네 자세히 보기</span><h3 id="district-title">${e(province?.name||'전국')}</h3><p id="map-hint" class="muted" aria-live="polite">시·도와 시·군·구를 선택해 주세요.</p></div>
+      <svg class="dong-map" viewBox="0 0 600 600" role="group" aria-label="선택 지역의 경계와 이름"></svg>
+      <div class="map-selectors"><label class="province-field">시·도 선택<select id="province-select"><option value="">전국 전체</option>${mapIndex.provinces.map(p=>`<option value="${p.code}" ${province?.code===p.code?'selected':''}>${e(p.name)}</option>`).join('')}</select></label><label>시·군·구 선택<select id="district-select" ${province?'':'disabled'}><option value="">시·군·구 전체</option>${groups.map(d=>`<option value="${d.code}" ${d.code===district?.code?'selected':''}>${e(d.name)}</option>`).join('')}</select></label><label>읍·면·동 선택<select id="dong-select" disabled><option value="">읍·면·동 전체</option></select></label></div>
+      <a class="button map-apply" id="map-apply" href="/#cases">${e(province?.name||'전국')} 글 보기</a><p class="muted">이름이 겹치는 곳은 지도를 확대해 주세요. 글이 없는 지역은 빈 결과로 안내합니다.</p>
     </aside></div>
-    <p class="map-credit">경계 출처: <a href="${boundaries.sourceUrl}" target="_blank" rel="noopener">서울특별시·서울신용보증재단</a> · 공공누리 제1유형 · 원본 파일 2023.10.31. · 표시용 경계 단순화 · 현재 행정구역과 다를 수 있습니다.</p>
-    <noscript><p>지도 선택에는 JavaScript가 필요합니다. 아래 지역 링크나 상단 검색을 이용할 수 있습니다.</p></noscript>
+    <p class="map-credit">경계 기준 ${mapIndex.date} · 원자료 <a href="https://sgis.kostat.go.kr" target="_blank" rel="noopener">SGIS</a>(공공누리 제1유형), 가공 <a href="${mapIndex.sourceUrl}" target="_blank" rel="noopener">vuski/admdongkor</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> · 표시용 단순화·라벨 추가. 법적 경계 확인용이 아닙니다.</p>
+    <noscript><p>지도 선택에는 JavaScript가 필요합니다. 상단 지역 검색과 게시글의 지역 링크도 이용할 수 있습니다.</p></noscript>
   </section>`;
 }
