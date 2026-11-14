@@ -25,7 +25,7 @@ npm test
 ```
 
 - 모바일 우선 메인, 지역 게시판, 업종 게시판, 숫자 ID 게시글 상세, 업체 프로필
-- 메인 검색 아래 전국 시·도 → 시·군·구 → 읍·면·동 지도와 게시판형 최신 글 목록. `NAVER_MAP_CLIENT_ID` 설정 시 네이버 배경지도에 투명한 청록색 경계와 지역 이름을 표시하며, 연결에 실패하면 SVG 지도로 대체합니다. 지역별 상세 경계를 필요한 만큼 불러옵니다. [출처·기준일·설정·검증 상태](docs/MAP_DATA.md)
+- 지도 없는 게시판형 메인: 상단 검색, 글 종류 메뉴, 전국 시·도 → 시·군·구 → 읍·면·동 선택, 중앙 최신 글 목록, 업종/지역 바로가기. 지도 SDK·경계 파일·지도 설정 응답과 외부 지도 호출을 제거했습니다. [지역 목록 출처와 동작](docs/REGION_DATA.md)
 - 지역 상위/하위 조회, 업종 및 키워드 검색, 빈 검색 결과, 404
 - 서버 렌더링 HTML, 페이지별 title/description/canonical/OG 및 게시글 Article 구조화데이터
 - 샘플 업체 3개, 게시글 3개. 실제 연락처가 없어 전화 CTA는 준비 중으로 표시합니다. 검증된 `phone`을 등록하면 게시글과 프로필에서 `tel:` 링크가 활성화됩니다.
@@ -36,7 +36,8 @@ npm test
 - `src/data.js`: 스키마의 관계 ID를 따르는 샘플 데이터 (PUBLISHED만 공개)
 - `src/worker.js`: Cloudflare Workers Fetch 핸들러, 라우팅, HTML 렌더링
 - `src/styles.js`: 반응형 스타일
-- `src/map.js`, `src/client.js`, `src/map-index.js`, `public/maps/`: 전국 지도 HTML, 선택·라벨 동작, 경계 색인과 지역별 정적 자료
+- `src/home.js`: 게시판형 메인, 검색·글 종류·업종 메뉴, 바로가기
+- `src/regions.js`, `src/regions-data.js`, `src/client.js`: 전국 지역 선택 HTML, 이름·코드, 단계 선택 동작
 - `scripts/dev.mjs`: 로컬 HTTP 어댑터
 - `test/worker.test.js`: 실제 Fetch 핸들러 통합 테스트
 - `.github/workflows/check.yml`: push/PR 문법 검사 및 테스트. 자동 배포 없음
