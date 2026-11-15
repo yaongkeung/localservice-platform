@@ -1,3 +1,4 @@
+import {descendantServiceIds} from './services.js';
 import {published,services} from './data.js';
 // Illustrative sample imagery. Replace with verified post uploads when CMS is added.
 export const postImages=[
@@ -14,7 +15,7 @@ export function dailyHighlights(date=seoulDate(),posts=published,categories=serv
   const day=Math.floor(Date.parse(date+'T00:00:00+09:00')/86400000);
   if(!Number.isFinite(day))throw Error('Invalid highlight date');
   return categories.flatMap(service=>{
-    const candidates=posts.filter(post=>post.status==='PUBLISHED'&&post.service_id===service.id&&post.published_at<=date&&postImage(post.id,images)).sort((a,b)=>b.published_at.localeCompare(a.published_at)||b.id-a.id);
+    const candidates=posts.filter(post=>post.status==='PUBLISHED'&&descendantServiceIds(service,categories).includes(post.service_id)&&post.published_at<=date&&postImage(post.id,images)).sort((a,b)=>b.published_at.localeCompare(a.published_at)||b.id-a.id);
     if(!candidates.length)return [];
     const post=candidates[(day+service.id)%candidates.length];
     return [{service,post,image:postImage(post.id,images)}];

@@ -1,3 +1,4 @@
+import {descendantServiceIds} from './services.js';
 import {sampleDataset} from './store.js';
 import {regionFilter} from './regions.js';
 import {regionData} from './regions-data.js';
@@ -47,7 +48,7 @@ export function homePage(params,posts,data=sampleDataset()){
         <nav class="service-tabs" aria-label="업종 필터">${[{slug:'',name:'전체 업종',icon:'✨',tone:'lilac'},...services].map(s=>`<a href="${e(filterUrl(params,{service:s.slug}))}" ${params.get('service')===s.slug||(!s.slug&&!params.get('service'))?'aria-current="page"':''}>${icon(s.icon,s.tone)}${e(s.name)}</a>`).join('')}</nav>
         <p class="board-notice"><span>안내</span>${published.every(p=>p.sample)?'업체·게시글·사진은 샘플입니다. 실제 상담 연결은 준비 중입니다.':'글의 작업 내용과 업체 정보를 확인한 후 상담해 주세요.'}</p>${board(posts,data)}<div class="board-bottom"><span>사진이나 제목을 누르면 작업 내용과 업체 정보를 볼 수 있습니다.</span><span class="page-current" aria-label="현재 페이지 1">1</span></div>
       </section>
-      <section class="latest-section" id="services" aria-labelledby="latest-heading"><div class="section-head"><h2 id="latest-heading">업종별 최근 글</h2><span class="count">관심 있는 분야부터 살펴보세요</span></div><div class="mini-boards">${services.map(s=>`<section class="mini-board tone-${s.tone}"><div><h3>${icon(s.icon,s.tone)}${e(s.name)}</h3>${a('/service/'+s.slug+'/','더보기 →','all-link')}</div><ul>${published.filter(p=>p.service_id===s.id).slice(0,3).map(p=>`<li>${a('/post/'+p.id+'/',p.title)}</li>`).join('')}</ul></section>`).join('')}</div></section>
+      <section class="latest-section" id="services" aria-labelledby="latest-heading"><div class="section-head"><h2 id="latest-heading">업종별 최근 글</h2><span class="count">관심 있는 분야부터 살펴보세요</span></div><div class="mini-boards">${services.map(s=>`<section class="mini-board tone-${s.tone}"><div><h3>${icon(s.icon,s.tone)}${e(s.name)}</h3>${a('/service/'+s.slug+'/','더보기 →','all-link')}</div><ul>${published.filter(p=>descendantServiceIds(s,services).includes(p.service_id)).slice(0,3).map(p=>`<li>${a('/post/'+p.id+'/',p.title)}</li>`).join('')}</ul></section>`).join('')}</div></section>
     </div><aside class="portal-sidebar" aria-label="빠른 탐색">
       <section class="sidebar-panel"><div class="sidebar-heading"><h2>${icon('🧰','lilac')}업종 게시판</h2><span class="accent-dot"></span></div><ul class="service-links">${services.map(s=>`<li><a href="/service/${s.slug}/">${icon(s.icon,s.tone)}<span>${e(s.name)}</span><span class="service-arrow" aria-hidden="true">→</span></a></li>`).join('')}</ul></section>
       <section class="sidebar-panel"><div class="sidebar-heading"><h2>${icon('🧭','mint')}지역 바로가기</h2><a href="#regions" class="all-link">전체</a></div><div class="region-shortcuts">${quickProvinces.map(p=>a(filterUrl(params,{province:p.code,district:'',dong:'',region:''}),p.name)).join('')}</div></section>

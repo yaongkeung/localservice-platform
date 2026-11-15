@@ -9,7 +9,7 @@ export async function publicDataset(db){
  const [regions,services,companies,posts,images]=await Promise.all([
   all(db,'SELECT * FROM regions'),all(db,'SELECT * FROM services'),all(db,"SELECT * FROM companies WHERE status='ACTIVE'"),
   all(db,"SELECT p.* FROM posts p JOIN companies c ON c.id=p.company_id WHERE p.status='PUBLISHED' AND p.published_at<=? AND c.status='ACTIVE' ORDER BY p.published_at DESC,p.id DESC",seoulDate()),
-  all(db,"SELECT i.* FROM post_images i JOIN posts p ON p.id=i.post_id WHERE p.status='PUBLISHED' AND p.published_at<=?",seoulDate())
+  all(db,"SELECT i.* FROM post_images i JOIN posts p ON p.id=i.post_id WHERE p.status='PUBLISHED' AND p.published_at<=? AND i.excluded=0",seoulDate())
  ]);
- return {regions,services,companies,published:posts.map(decodePost),postImages:images.map(i=>({...i,thumbnail_key:i.thumbnail_key||i.storage_key,sample:!!i.sample}))};
+ return {regions,services,companies:companies.map(c=>({...c,phone:c.phone_verified?c.phone:null})),published:posts.map(decodePost),postImages:images.map(i=>({...i,thumbnail_key:i.thumbnail_key||i.storage_key,sample:!!i.sample}))};
 }
