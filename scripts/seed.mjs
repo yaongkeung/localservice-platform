@@ -8,7 +8,7 @@ export async function seed(db){
  for(const r of regions)add('regions',{...r,level:r.parent_id?2:1,admin_code:r.admin_code||null});
  for(const s of services)add('services',s);
  for(const c of companies)add('companies',{...c,sample:1});
- for(const p of posts)add('posts',{...p,content:JSON.stringify(p.content),sample:1,title_hash:await digest(p.title.normalize('NFKC').replace(/\s+/g,'').toLowerCase()),content_hash:await digest(p.content.join('\n\n').normalize('NFKC').replace(/\s+/g,'').toLowerCase())});
+ for(const p of posts)add('posts',{...p,content:JSON.stringify(p.content),sample:1,published_once:p.status==='PUBLISHED'?1:0,title_hash:await digest(p.title.normalize('NFKC').replace(/\s+/g,'').toLowerCase()),content_hash:await digest(p.content.join('\n\n').normalize('NFKC').replace(/\s+/g,'').toLowerCase())});
  for(const image of postImages)add('post_images',{...image,sample:1});
  await db.batch(inserts);
 }

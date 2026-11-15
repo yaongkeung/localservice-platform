@@ -106,6 +106,7 @@ test('upload re-encodes pixels, strips metadata and keeps drafts private; public
   assert.equal((await f.call(image.storage_key)).status,200);assert.equal((await f.call(image.storage_key)).headers.get('content-type'),'image/jpeg');
   assert.ok((await(await f.call('/')).text()).includes(image.thumbnail_key));const detail=await(await f.call('/post/'+id+'/')).text();assert.ok(detail.includes(image.storage_key));assert.doesNotMatch(detail,/AI 생성 샘플 이미지/);
   assert.equal((await f.upload(id,bytes)).status,409);
+  assert.equal((await f.transition(id,'withdraw')).status,303);assert.equal((await f.call(image.storage_key)).status,404);assert.equal((await f.call('/post/'+id+'/')).status,404);
  }finally{f.DB.close();}
 });
 test('representative choice, reversible exclusion and photo duplicate checks preserve a single thumbnail source',async()=>{

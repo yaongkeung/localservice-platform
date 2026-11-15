@@ -8,7 +8,7 @@ const get=(path,method='GET')=>worker.fetch(new Request('https://gongsa8282.xyz'
 const boardHtml=html=>html.match(/<div class="post-board">[\s\S]*?<\/table><\/div>/)?.[0]||'';
 test('all internal links resolve, pages contain HTML and a canonical',async()=>{
  const queue=['/'];const seen=new Set();
- while(queue.length){const path=queue.shift();const key=path.split('?')[0];if(seen.has(key))continue;seen.add(key);const res=await get(path);assert.equal(res.status,200,path);const html=await res.text();assert.match(html,/<html lang="ko">/);assert.equal((html.match(/rel="canonical"/g)||[]).length,1);for(const [,href]of html.matchAll(/href="(\/[^"#]*)(?:#[^"]*)?"/g)){if(!seen.has(href.split('?')[0]))queue.push(href.replaceAll('&amp;','&'));}}
+ while(queue.length){const path=queue.shift();const key=path.split('?')[0];if(seen.has(key))continue;seen.add(key);const res=await get(path);assert.equal(res.status,200,path);const html=await res.text();if(!res.headers.get('content-type').includes('text/html')){assert.ok(['/rss.xml','/sitemap.xml'].includes(key));continue;}assert.match(html,/<html lang="ko">/);assert.equal((html.match(/rel="canonical"/g)||[]).length,1);for(const [,href]of html.matchAll(/href="(\/[^"#]*)(?:#[^"]*)?"/g)){if(!seen.has(href.split('?')[0]))queue.push(href.replaceAll('&amp;','&'));}}
  assert.ok(seen.has('/post/101/'));assert.ok(seen.has('/company/1/'));assert.ok(seen.has('/region/seoul/mapo/'));assert.ok(seen.has('/service/plumbing/'));
 });
 test('region hierarchy, service and query combine correctly',async()=>{
