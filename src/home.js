@@ -1,4 +1,5 @@
 import {descendantServiceIds} from './services.js';
+import {brandMark,siteName} from './brand.js';
 import {sampleDataset} from './store.js';
 import {regionFilter} from './regions.js';
 import {regionData} from './regions-data.js';
@@ -11,7 +12,7 @@ export function filterUrl(params,changes){const next=new URLSearchParams(params)
 export function portalHeader(params=new URLSearchParams()){
   const nav=[['','전체 글'],...Object.entries(postKinds)];
   const navIcons={'':'🗂️',case:'🔧',guide:'📌',local:'📍',tip:'💡'};
-  return `<header class="masthead"><div class="wrap header"><a class="brand" href="/">공사<span>8282</span><small>우리 동네 출장서비스 포털</small></a>
+  return `<header class="masthead"><div class="wrap header">${brandMark()}
     <form class="header-search" action="/" method="get" role="search"><label class="sr-only" for="portal-q">게시글 검색</label><input id="portal-q" name="q" maxlength="100" value="${e(params.get('q')||'')}" placeholder="지역, 업종, 작업사례 검색">${[...params].filter(([key])=>['province','district','dong','region','service','kind'].includes(key)).map(([key,value])=>`<input type="hidden" name="${key}" value="${e(value)}">`).join('')}<button type="submit" aria-label="게시글 검색">검색</button></form>
     <span class="header-note"><span aria-hidden="true">✨</span> 작업 경험으로 연결되는 우리 동네</span></div>
     <div class="nav-band"><nav class="wrap main-nav" aria-label="주 메뉴">${nav.map(([kind,name])=>`<a href="${e(filterUrl(params,{kind}))}" ${params.get('kind')===kind||(!kind&&!params.get('kind'))?'aria-current="page"':''}><span class="nav-emoji" aria-hidden="true">${navIcons[kind]}</span>${e(name)}</a>`).join('')}</nav></div></header>`;
@@ -50,7 +51,7 @@ export function homePage(params,posts,data=sampleDataset()){
       </section>
       <section class="latest-section" id="services" aria-labelledby="latest-heading"><div class="section-head"><h2 id="latest-heading">업종별 최근 글</h2><span class="count">관심 있는 분야부터 살펴보세요</span></div><div class="mini-boards">${services.map(s=>`<section class="mini-board tone-${s.tone}"><div><h3>${icon(s.icon,s.tone)}${e(s.name)}</h3>${a('/service/'+s.slug+'/','더보기 →','all-link')}</div><ul>${published.filter(p=>descendantServiceIds(s,services).includes(p.service_id)).slice(0,3).map(p=>`<li>${a('/post/'+p.id+'/',p.title)}</li>`).join('')}</ul></section>`).join('')}</div></section>
     </div><aside class="portal-sidebar" aria-label="빠른 탐색">
-      <section class="sidebar-guide expert-guide" aria-labelledby="expert-guide-heading"><div class="expert-portrait" aria-hidden="true"><img src="/media/expert-mascot.png" alt="" width="1254" height="1254" loading="lazy" decoding="async"></div><div class="expert-guide-copy"><span class="guide-label">우리 동네 출장 전문가</span><h2 id="expert-guide-heading">필요한 순간,<br> 가까운 전문가를 찾아보세요.</h2><p>작업 이야기부터 살펴보고<br> 우리 동네 업체를 만나보세요.</p>${a('/#cases','작업사례 둘러보기 →')}</div></section>
+      <section class="sidebar-guide expert-guide" aria-labelledby="expert-guide-heading"><div class="expert-portrait" aria-hidden="true"><img src="/media/expert-mascot.png" alt="" width="1254" height="1254" loading="lazy" decoding="async"></div><div class="expert-guide-copy"><span class="guide-label">${siteName}의 동네 안내</span><h2 id="expert-guide-heading">필요한 순간,<br> 가까운 전문가를 찾아보세요.</h2><p>작업 이야기부터 살펴보고<br> 우리 동네 업체를 만나보세요.</p>${a('/#cases','작업사례 둘러보기 →')}</div></section>
       <section class="sidebar-panel"><div class="sidebar-heading"><h2>${icon('🧰','lilac')}업종 게시판</h2><span class="accent-dot"></span></div><ul class="service-links">${services.map(s=>`<li><a href="/service/${s.slug}/">${icon(s.icon,s.tone)}<span>${e(s.name)}</span><span class="service-arrow" aria-hidden="true">→</span></a></li>`).join('')}</ul></section>
       <section class="sidebar-panel"><div class="sidebar-heading"><h2>${icon('🧭','mint')}지역 바로가기</h2><a href="#regions" class="all-link">전체</a></div><div class="region-shortcuts">${quickProvinces.map(p=>a(filterUrl(params,{province:p.code,district:'',dong:'',region:''}),p.name)).join('')}</div></section>
     </aside></div></div>`;

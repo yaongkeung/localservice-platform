@@ -8,6 +8,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{ou
 .masthead{background:white}.header{display:flex;align-items:center;gap:42px;min-height:112px}
 .brand{font-size:32px;font-weight:900;letter-spacing:-1.7px;line-height:1.1;flex-shrink:0;color:#142c48}.brand span{color:#197b98}
 .brand small{display:block;font-size:11px;letter-spacing:.4px;font-weight:500;color:#6c7888;margin-top:7px}.brand:hover{text-decoration:none}
+.brand{display:inline-flex;align-items:center;gap:9px}.brand .brand-copy{color:inherit}.brand-pin{color:#197b98;flex-shrink:0;width:30px;height:34px}
 .header-search{display:flex;border:2px solid #224666;width:470px;height:44px;background:white;min-width:0}
 .header-search input{border:0;flex:1;min-width:0;font-size:14px;border-radius:0;padding:10px 14px;background:white}
 .header-search button{width:68px;border:0;border-radius:0;background:#224666;color:white;font-size:14px;padding:8px}

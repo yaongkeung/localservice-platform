@@ -44,7 +44,8 @@ Miniflare 5의 `resourcePersistencePath`를 사용해 두 인스턴스 사이의
 - 실제 계정/DB ID와 전용 버킷 이름을 넣은 무시 파일 `wrangler.staging.jsonc`가 배포 전 정적 검사를 통과했습니다.
 - 최초 R2 API는 이용 신청 필요(10042)를 반환했고 사용자가 [R2 신청 화면](https://dash.cloudflare.com/?to=/:account/r2/overview)에서 직접 활성화를 완료했습니다. [Cloudflare 시작 안내](https://developers.cloudflare.com/r2/get-started/)에 무료 포함량과 사용량 기준 과금이 설명되어 있습니다.
 - `localservice-platform-staging-photos`를 APAC/Standard로 생성했습니다. `r2.dev` 직접 공개는 꺼져 있고 연결된 사용자 도메인은 없습니다. `localservice-platform-staging` Worker에 DB/PHOTOS/ASSETS와 APP_ENV=staging을 연결했습니다.
-- 시험 주소: https://localservice-platform-staging.ogog7401.workers.dev . 현재 배포 버전 `1eb1dc48-fdee-4cd0-b306-021971108d9c`(7자 조건·메인 캐릭터 반영). 기존 `gongsa8282.xyz`·Worker·기존 저장소는 변경하지 않았습니다.
+- 시험 주소: https://localservice-platform-staging.ogog7401.workers.dev . 현재 배포 버전 `8a86033c-0c10-49ad-acba-cc69973fc35c`(이웃핀 브랜드·핀 로고 반영). 기존 `gongsa8282.xyz`·Worker·기존 저장소는 변경하지 않았습니다.
+- 서비스 표시 이름을 이웃핀으로 변경했습니다. 공개/관리 로고, 제목, OG site_name, WebSite 이름, RSS 채널/링크 안내, 푸터와 캐릭터 안내 문구를 반영했습니다. URL·데이터·계정·Cloudflare 자원 이름은 유지하고 320/390px 및 PC 화면을 확인했습니다.
 - 사용자의 기존 캐릭터 중 투명 PNG 한 장을 메인 안내 카드에 적용했습니다. PC 오른쪽/모바일 하단 가로형 배치, 320/390px에서 본문 너비 초과 없음, 안내 링크 이동을 확인했습니다. 원격 이미지 200/image/png와 원본 SHA-256 일치, health 200과 staging noindex를 확인했습니다. 작업 사진 데이터나 DB는 변경하지 않았습니다.
 - 실제 HTTPS에서 health 200, 메인·지역·업종·상세·업체·검색·정적 사진 200, 비로그인 관리자 303과 staging의 noindex/nofollow를 확인했습니다. 모바일 브라우저에서 썸네일과 상세/업체 링크 이동도 확인했습니다.
 - 임시 무작위 자격증명의 검증 계정으로 로그인 → 전국 읍면동 글 저장 → JPEG 업로드 → 미공개 사진의 비로그인 404/인증 200 → 검수·승인·공개 → 글/사진/피드 반영 → 공개 해제·사진 차단·이력 → 같은 URL 재공개 → 최종 공개 해제를 통과했습니다. 도구의 첫 사진 주소 판독 오류를 수정한 후 전체 흐름을 재실행했습니다. 두 시험 글은 DRAFT, 임시 계정은 DISABLED/세션 폐기/비밀번호 해시 제거, 시험 사진은 제외 상태로 보관했습니다. 샘플 공개 글 3개는 유지했습니다.

@@ -33,7 +33,8 @@ test('map district filter returns only assigned posts; unassigned dongs stay emp
 test('board home has no map, credentials endpoint, SDK permissions or geometry',async()=>{
  const response=await get('/');const html=await response.text();
  assert.match(html,/class="post-board"/);assert.match(html,/aria-label="지역 필터"/);assert.match(html,/업종 게시판/);
- assert.doesNotMatch(html,/naver|region-map|<svg|class="hero"|map-config/i);
+ const withoutBrand=html.replace(/<svg class="brand-pin"[\s\S]*?<\/svg>/g,'');
+ assert.doesNotMatch(withoutBrand,/naver|region-map|<svg|class="hero"|map-config/i);
  assert.doesNotMatch(response.headers.get('content-security-policy'),/naver|pstatic|http:/);
  const js=await(await get('/assets/portal.js')).text();assert.doesNotMatch(js,/naver|ncpKeyId|map-config|geometry/);
  assert.equal((await get('/assets/map-config.json')).status,404);assert.equal((await get('/maps/provinces.json')).status,404);
