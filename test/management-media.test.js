@@ -50,6 +50,22 @@ test('company management validates confirmed phones, reflects edits and hides in
   assert.equal((await f.call('/admin/companies/'+c.id+'/',{as:1,form:{...company,version:c.version}})).status,409);
  }finally{f.DB.close();}
 });
+test('a real company without posts is discoverable with a verified phone, keyword search and no invented work',async()=>{
+ const f=await fixture();try{
+  const details={...company,name:'긴상호의유리창호방범창방충망전문업체',description:'유리와 창호, 방범창과 방충망 관련 상담을 제공합니다.',area:'김포 북변동·사우동·운양동, 한강신도시',hours:'',phone:'010-0000-0000',phone_verified:'1',sample:''};
+  assert.equal((await f.call('/admin/companies/new/',{as:1,form:details})).status,303);
+  const c=await f.DB.prepare('SELECT * FROM companies ORDER BY id DESC LIMIT 1').first();
+  const path='/company/'+c.id+'/';
+  const home=await(await f.call('/')).text();assert.match(home,/등록 업체 안내/);assert.ok(home.includes('href="'+path+'"'));assert.match(home,/href="tel:01000000000"/);assert.match(home,/010-0000-0000/);assert.doesNotMatch(home,/모든 업체와 작업사례는 샘플/);
+  const profile=await(await f.call(path)).text();assert.match(profile,/아직 등록된 작업사례가 없습니다/);assert.match(profile,/전화로 문의해 주세요/);assert.match(profile,/김포 북변동/);
+  assert.equal((await f.DB.prepare('SELECT count(*) n FROM posts WHERE company_id=?').bind(c.id).first()).n,0);
+  assert.equal((await f.DB.prepare('SELECT count(*) n FROM contracts WHERE company_id=?').bind(c.id).first()).n,0);
+  assert.ok((await(await f.call('/?q='+encodeURIComponent('한강 신도시'))).text()).includes('href="'+path+'"'));
+  assert.ok(!(await(await f.call('/?q='+encodeURIComponent('에어컨'))).text()).includes('href="'+path+'"'));
+  await f.DB.prepare('UPDATE companies SET phone_verified=0 WHERE id=?').bind(c.id).run();assert.doesNotMatch(await(await f.call('/')).text(),/href="tel:/);
+  await f.DB.prepare("UPDATE companies SET status='DISABLED' WHERE id=?").bind(c.id).run();assert.ok(!(await(await f.call('/')).text()).includes('href="'+path+'"'));assert.equal((await f.call(path)).status,404);
+ }finally{f.DB.close();}
+});
 test('new industries and sub-industries join public navigation; slugs are stable and cycles rejected',async()=>{
  const f=await fixture();try{
   const service={name:'창호 수리',slug:'window-repair',description:'창문과 창호 관리',icon:'🪟',tone:'mint',parent_id:1};

@@ -44,7 +44,7 @@ Miniflare 5의 `resourcePersistencePath`를 사용해 두 인스턴스 사이의
 - 실제 계정/DB ID와 전용 버킷 이름을 넣은 무시 파일 `wrangler.staging.jsonc`가 배포 전 정적 검사를 통과했습니다.
 - 최초 R2 API는 이용 신청 필요(10042)를 반환했고 사용자가 [R2 신청 화면](https://dash.cloudflare.com/?to=/:account/r2/overview)에서 직접 활성화를 완료했습니다. [Cloudflare 시작 안내](https://developers.cloudflare.com/r2/get-started/)에 무료 포함량과 사용량 기준 과금이 설명되어 있습니다.
 - `localservice-platform-staging-photos`를 APAC/Standard로 생성했습니다. `r2.dev` 직접 공개는 꺼져 있고 연결된 사용자 도메인은 없습니다. `localservice-platform-staging` Worker에 DB/PHOTOS/ASSETS와 APP_ENV=staging을 연결했습니다.
-- 시험 주소: https://localservice-platform-staging.ogog7401.workers.dev . 현재 배포 버전 `4cdf6904-1d08-48b0-8200-85fefbb71c39`(브라우저 사진 변환·JPEG 커버/썸네일 쌍 검증 반영). 기존 `gongsa8282.xyz`·Worker·기존 저장소는 변경하지 않았습니다.
+- 시험 주소: https://localservice-platform-staging.ogog7401.workers.dev . 현재 배포 버전 `b0e981d6-c846-4eb0-826a-994e2bbbfccb`(첫 실제 업체 안내·전화 CTA·업종 펼침 메뉴 반영). 기존 `gongsa8282.xyz`·Worker·기존 저장소는 변경하지 않았습니다.
 - 로고는 사용자 사진을 참고한 빨간 압정과 Gmarket Sans Bold 글자 윤곽 그래픽으로 조정했습니다. 이름은 이웃핀을 유지합니다. 글꼴 파일/외부 폰트 요청 없이 공개/관리 화면에 동일하게 표시하며 [서체 출처와 디자인](BRAND.md)을 기록했습니다. PC·390/320px 너비와 접근성 링크 이름을 확인했습니다.
 - 서비스 표시 이름을 이웃핀으로 변경했습니다. 공개/관리 로고, 제목, OG site_name, WebSite 이름, RSS 채널/링크 안내, 푸터와 캐릭터 안내 문구를 반영했습니다. URL·데이터·계정·Cloudflare 자원 이름은 유지하고 320/390px 및 PC 화면을 확인했습니다.
 - 사용자의 기존 캐릭터 중 투명 PNG 한 장을 메인 안내 카드에 적용했습니다. PC 오른쪽/모바일 하단 가로형 배치, 320/390px에서 본문 너비 초과 없음, 안내 링크 이동을 확인했습니다. 원격 이미지 200/image/png와 원본 SHA-256 일치, health 200과 staging noindex를 확인했습니다. 작업 사진 데이터나 DB는 변경하지 않았습니다.
@@ -75,3 +75,13 @@ Miniflare 5의 `resourcePersistencePath`를 사용해 두 인스턴스 사이의
 - 현재 시험 사이트는 health 200, 기존 게시글 12개/공개 3개/활성 관리자 1개를 유지합니다. 기존 `localsite-platform`과 `gongsa8282.xyz`는 변경하지 않았습니다.
 
 이는 [D1 공식 가져오기/내보내기](https://developers.cloudflare.com/d1/best-practices/import-export-data/) 방식의 **별도 자원 복원 검증**입니다. 현재 DB 되돌리기·복원본으로 서비스 전환·복원본 HTTP 동작까지 시험한 것은 아닙니다. 복원 자원은 연결 없이 비공개로 유지하고 SQL·파일·구체적 자원 설정/검증 기록은 Git에서 제외한 `.local/`에만 보관합니다. 정기 실행·보존 기간·장애 대응과 서비스 전환 절차는 운영 정책으로 추가 확정해야 합니다.
+
+### 첫 실제 업체 등록과 전화 CTA
+
+2026-11-16 사용자가 제공한 업체명·공개 상담 번호·업종 키워드 10개·김포 서비스 지역을 시험 DB에 등록했습니다. 업체 ID는 4이며 sample=0/ACTIVE입니다. 기존 CMS 검증을 별도 로컬 DB에서 통과한 뒤 Cloudflare 운영자 권한으로 시험 DB에만 추가했습니다. 사용자가 공개할 번호로 직접 제공한 값을 확인 상태로 등록한 것이며 실제 통화나 사업자 자격 검증을 수행했다는 뜻은 아닙니다. 상담 시간은 제공받지 않아 입력하지 않았습니다.
+
+‘유리·창호’ 대표 업종과 세부 업종 10개를 추가했습니다. ‘한강신도시’는 행정동으로 만들지 않고 업체의 서비스 지역 문구에 보존했습니다. 북변동 역시 행정동 코드로 임의 대응하지 않았습니다. 업체 등록으로 게시글·작업사진·계약이나 지역별 유사 글을 생성하지 않았고 기존 공개 샘플 3개도 유지했습니다.
+
+메인 등록 업체 안내 → 업체 프로필과 전화 CTA, 상호/서비스/지역 키워드 검색, 하위 업종 펼침을 확인했습니다. 지역/업종 필터는 게시글을 대상으로 하며 등록 업체 안내는 서비스 지역을 별도로 명시합니다. 320/390px 모바일과 PC에서 긴 상호·화면 너비·링크를 확인했습니다. 실제 통화를 걸지는 않았습니다. 47개 Node 검사·14개 로컬 workerd 검사와 원격 업체/검색/11개 업종 게시판을 통과했습니다. 업체 정보는 DB에서 관리하며 공개 전화번호를 소스나 테스트 데이터에 고정하지 않습니다.
+
+Cloudflare 대시보드에서 현재 gongsa8282.xyz가 기존 gongsa8282 Worker에 연결된 것을 읽기 전용으로 확인했습니다. 이 작업은 별도 시험 Worker에만 배포했고 기존 도메인·Worker·localsite-platform 저장소는 변경하지 않았습니다.
