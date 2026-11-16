@@ -1,0 +1,12 @@
+{
+  "name": "localservice-platform-staging",
+  "account_id": "SET_ACTUAL_ACCOUNT_ID",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-11-13",
+  "workers_dev": true,
+  "preview_urls": false,
+  "vars": {"APP_ENV": "staging"},
+  "assets": {"directory": "./public", "binding": "ASSETS", "run_worker_first": true},
+  "d1_databases": [{"binding": "DB", "database_name": "localservice-platform-staging-db", "database_id": "SET_ACTUAL_D1_DATABASE_ID", "migrations_dir": "migrations"}],
+  "r2_buckets": [{"binding": "PHOTOS", "bucket_name": "set-private-project-bucket-name"}]
+}

@@ -22,22 +22,25 @@ export function sessionCookie(request,token,maxAge=28800){
 export async function session(db,request){
  const token=request.headers.get('cookie')?.match(/(?:^|;\s*)ls_session=([a-f0-9]{64})(?:;|$)/)?.[1];
  if(!token)return null;
- return first(db,"SELECT u.id,u.name,u.role,s.csrf,s.token_hash FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? AND u.status='ACTIVE'",await digest(token),Date.now());
+ return first(db,"SELECT u.id,u.name,u.role,u.credential_version,u.must_change_password,s.csrf,s.token_hash FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? AND u.status='ACTIVE' AND s.credential_version=u.credential_version",await digest(token),Date.now());
 }
 export async function login(db,request,loginId,password){
- const ip=request.headers.get('cf-connecting-ip')||'local';
- const key=await digest(ip);const now=Date.now();
+ const ip=request.headers.get('cf-connecting-ip')||'local',now=Date.now();
  await run(db,'DELETE FROM sessions WHERE expires_at<=?',now);
- await run(db,'DELETE FROM login_attempts WHERE reset_at<=?',now);
- const attempt=await first(db,'SELECT * FROM login_attempts WHERE key=?',key);
- if(attempt?.attempts>=10)return null;
- await run(db,'INSERT INTO login_attempts(key,attempts,reset_at) VALUES(?,1,?) ON CONFLICT(key) DO UPDATE SET attempts=attempts+1',key,now+900000);
+ if(!await consumeAttempt(db,'login:'+ip,10))return null;
  const user=await first(db,"SELECT * FROM users WHERE login_id=? AND status='ACTIVE'",loginId);
  // Run the same password derivation for unknown users to avoid a cheap account probe.
  const fallback='pbkdf2:100000:'+'0'.repeat(64)+':'+'0'.repeat(64);
  const valid=await verifyPassword(password,user?.password_hash||fallback);
  if(!user||!valid)return null;
  const token=randomToken();
- await run(db,'INSERT INTO sessions(token_hash,user_id,csrf,expires_at) VALUES(?,?,?,?)',await digest(token),user.id,randomToken(),now+28800000);
+ await run(db,'INSERT INTO sessions(token_hash,user_id,csrf,expires_at,credential_version) VALUES(?,?,?,?,?)',await digest(token),user.id,randomToken(),now+28800000,user.credential_version);
  return token;
+}
+
+export async function consumeAttempt(db,scope,limit){
+ const key=await digest(scope),now=Date.now(),until=now+900000;
+ await run(db,'DELETE FROM login_attempts WHERE reset_at<=?',now);
+ const result=await first(db,'INSERT INTO login_attempts(key,attempts,reset_at) VALUES(?,1,?) ON CONFLICT(key) DO UPDATE SET attempts=CASE WHEN reset_at<=? THEN 1 ELSE attempts+1 END,reset_at=CASE WHEN reset_at<=? THEN ? ELSE reset_at END WHERE attempts<? OR reset_at<=? RETURNING attempts',key,until,now,now,until,limit,now);
+ return !!result;
 }

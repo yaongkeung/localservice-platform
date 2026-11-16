@@ -51,3 +51,10 @@ id, user_id, company_id
 - posts.published_once와 기존 공개 이벤트를 통해 최초 공개 이력을 보존하고 재공개를 중복 집계하지 않습니다. 최초 업체·계약은 공개 이력이 있으면 불변입니다.
 - post_snapshots에 공개 해제 직전 본문과 사진 메타데이터를 보관합니다. PUBLISHED → DRAFT를 허용하되 앱에서 관리자만 실행할 수 있습니다.
 - 공개 해제는 기존 계약 사용 수량을 환급하지 않고, 기존 글의 수정 재공개도 추가 차감하지 않습니다.
+
+## migration 0005·0006
+
+- users: credential_version/must_change_password/password_changed_at, sessions: credential_version을 추가합니다.
+- credential_events에는 자격증명 변경·재발급·로컬 복구의 주체/세대/시각만 저장합니다. 비밀번호나 토큰을 기록하지 않습니다.
+- login_attempts 만료 인덱스와 원자적 UPSERT로 시도 제한을 적용하고 만료 행을 정리합니다.
+- 재발급과 세션 폐기·이력은 사용자/실행자 인증 세대와 버전을 검사하는 한 batch에서 처리합니다.

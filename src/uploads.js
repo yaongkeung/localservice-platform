@@ -66,7 +66,7 @@ export async function uploadedPhoto(request,env){
  const path=new URL(request.url).pathname;if(!/^\/uploads\/\d+\/[a-f0-9]{64}-(?:cover|thumb)\.jpg$/.test(path)||!env.DB||!env.PHOTOS)return new Response('Not found',{status:404,headers:{'cache-control':'no-store'}});
  const image=await first(env.DB,'SELECT i.*,p.writer_id,p.company_id,p.status,p.published_at,c.status AS company_status FROM post_images i JOIN posts p ON p.id=i.post_id JOIN companies c ON c.id=p.company_id WHERE i.storage_key=? OR i.thumbnail_key=?',path,path);
  const publicImage=image&&!image.excluded&&image.status==='PUBLISHED'&&image.published_at<=seoulDate()&&image.company_status==='ACTIVE';
- if(!publicImage){const user=await session(env.DB,request);if(!image||!user||!await canManagePost(env.DB,user,image))return new Response('Not found',{status:404,headers:{'cache-control':'no-store'}});}
+ if(!publicImage){const user=await session(env.DB,request);if(!image||!user||user.must_change_password||!await canManagePost(env.DB,user,image))return new Response('Not found',{status:404,headers:{'cache-control':'no-store'}});}
  const object=await env.PHOTOS.get(path.slice('/uploads/'.length));if(!object)return new Response('Not found',{status:404});
  return new Response(request.method==='HEAD'?null:object.body,{headers:{'content-type':'image/jpeg','cache-control':'private, no-store','x-content-type-options':'nosniff','content-disposition':'inline','vary':'Cookie'}});
 }

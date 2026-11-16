@@ -1,3 +1,4 @@
+import {accountPage,resetWorkerPassword} from './account.js';
 import {cmsRegionPicker,registerRegion} from './cms-regions.js';
 import {all,first,run,decodePost} from './store.js';
 import {session,login,isAdmin,digest,sessionCookie} from './auth.js';
@@ -72,9 +73,12 @@ export async function cms(request,env){
  }
  const user=await session(db,request);
  if(!user)return request.method==='POST'?page('로그인 필요','<p>다시 로그인해 주세요.</p>',null,401):redirect('/admin/login/');
+ if(user.must_change_password&&!['/admin/account/','/admin/logout/'].includes(path))return request.method==='POST'?page('비밀번호 변경 필요','<p>임시 비밀번호를 변경한 후 이용해 주세요.</p><a href="/admin/account/">비밀번호 변경</a>',user,403):redirect('/admin/account/');
  if(photoMatch)return photoActions(request,env,user,Number(photoMatch[1]));
  if(form&&form.get('csrf')!==user.csrf)return page('요청 확인 실패','<p>페이지를 새로 열고 다시 시도해 주세요.</p>',user,403);
  if(path==='/admin/logout/'&&form){await run(db,'DELETE FROM sessions WHERE token_hash=?',user.token_hash);const response=redirect('/admin/login/');response.headers.set('set-cookie',sessionCookie(request,'',0));return response;}
+ if(path==='/admin/account/')return accountPage(request,db,user,form);
+ const resetMatch=path.match(/^\/admin\/users\/(\d+)\/reset-password\/$/);if(resetMatch)return resetWorkerPassword(db,user,Number(resetMatch[1]),form);
  if(/^\/admin\/(companies|users|services|contracts)\//.test(path))return management(db,user,url,form);
  if(path==='/admin/'&&!form)return dashboard(db,user,url);
  const match=path.match(/^\/admin\/posts\/(new|\d+)\/(status\/|history\/)?$/);

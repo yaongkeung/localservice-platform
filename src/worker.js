@@ -1,3 +1,4 @@
+import {storageReady,health} from './readiness.js';
 import {descendantServiceIds} from './services.js';
 import {sampleDataset,publicDataset} from './store.js';
 import {cms} from './cms.js';
@@ -56,8 +57,10 @@ const path=url.pathname;const params=url.searchParams;
   const c=companies.find(c=>companyUrl(c)===path);if(c)return shell({title:c.name+' 업체 프로필',description:c.description,path,body:`<div class="wrap">${crumbs([{name:'업체 프로필'}])}<div class="detail"><section class="panel"><span class="tag">${c.sample?'샘플 업체':'업체 프로필'}</span><h1 class="page-title">${e(c.name)}</h1><p>${e(c.description)}</p><p><strong>서비스 지역</strong><br>${e(c.area)}</p><p><strong>상담 시간${c.sample?' (예시)':''}</strong><br>${e(c.hours)}</p></section><aside class="panel aside"><h2>작업 상담 안내</h2><p>증상과 현장 상황을 정리하면 상담에 도움이 됩니다.</p>${phone(c)}</aside></div><section class="section"><div class="section-head"><h2>이 업체의 작업 이야기</h2></div>${cards(published.filter(p=>p.company_id===c.id))}</section></div>`});
   return shell({title:'페이지를 찾을 수 없습니다',description:'주소를 확인하거나 메인에서 작업사례를 찾아보세요.',path,status:404,noindex:true,body:'<div class="wrap section"><h1>페이지를 찾을 수 없습니다</h1><p>주소가 변경되었거나 등록되지 않은 페이지입니다.</p><a class="button" href="/">메인으로 돌아가기</a></div>'});
 }
-export default {async fetch(request,env={}){
+async function handle(request,env={}){
   const url=new URL(request.url);
+  if(url.pathname==='/healthz'){if(!['GET','HEAD'].includes(request.method))return new Response(null,{status:405});return health(request,env);}
+  if(['staging','production'].includes(env.APP_ENV)&&!storageReady(env))return new Response('서비스 준비 중입니다.',{status:503,headers:{'cache-control':'no-store'}});
   if(url.pathname==='/admin'||url.pathname.startsWith('/admin/')){
     if(url.pathname==='/admin')return Response.redirect(url.origin+'/admin/',308);
     const response=await cms(request,env);return request.method==='HEAD'?new Response(null,{status:response.status,headers:response.headers}):response;
@@ -87,4 +90,8 @@ export default {async fetch(request,env={}){
   if(!url.pathname.endsWith('/')&&!url.pathname.includes('.')){url.pathname+='/';return Response.redirect(url.href,308);}
   const response=render(url,env.DB?await publicDataset(env.DB):sampleDataset());
   return request.method==='HEAD'?new Response(null,{status:response.status,headers:response.headers}):response;
+}
+export default {async fetch(request,env={}){
+ try{const response=await handle(request,env);if(env.APP_ENV!=='staging')return response;const headers=new Headers(response.headers);headers.set('x-robots-tag','noindex, nofollow');return new Response(response.body,{status:response.status,statusText:response.statusText,headers});}
+ catch(error){console.error('Worker request failed',error?.name||'Error');return new Response('서비스 준비 중입니다. 잠시 후 다시 시도해 주세요.',{status:503,headers:{'cache-control':'no-store','x-robots-tag':'noindex, nofollow'}});}
 }};

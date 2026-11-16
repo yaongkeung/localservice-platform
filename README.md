@@ -24,6 +24,7 @@ npm run dev
 npm run check
 npm test
 npm run build:check # 실제 배포 없는 빌드 검사
+npm run test:runtime # 로컬 실제 workerd + D1/R2 검증
 # 최초 1회: 로컬 관리자 발급 (생성된 비밀번호를 안전하게 보관)
 npm run admin:create -- myadmin
 # http://localhost:8787/admin/
@@ -48,6 +49,13 @@ npm run admin:create -- myadmin
 - 제목·본문 정확 중복, 관계 누락, 글 길이, 상태 전이와 편집 버전을 검사합니다. 비밀번호는 솔트와 PBKDF2 해시로, 세션 토큰은 SHA-256 해시로 저장합니다. 세션 만료·로그아웃·로그인 실패 제한·요청 출처/CSRF 검사와 관리 화면 no-store/noindex를 적용합니다.
 - 사진 업로드·대표 지정·제외/복원·동일 사진 검사를 지원합니다. 업체·업종은 관리 화면에서 추가할 수 있고, 기본 샘플은 3업체·5지역·3업종입니다. 글쓰기에서 전국 시·도/시·군·구/읍·면·동을 고르면 선택한 경로만 등록합니다. 기존 지역 URL과 집계 지역도 보존합니다. [관리자 사용 안내](docs/CMS.md) · [관리·사진·계약의 동작과 검증 범위](docs/MANAGEMENT_MEDIA.md)
 
+### 계정과 운영 준비
+
+- 내 계정의 비밀번호 변경, 관리자의 작업자 임시 비밀번호 재발급, 첫 로그인 변경과 기존 세션 종료를 제공합니다. 로컬 최고 관리자 복구 명령도 추가했습니다.
+- `npm run backup:local`, `backup:verify`, `backup:restore`는 로컬 DB와 등록 사진을 검증하며 복원은 새 폴더에만 준비합니다. 원본 데이터와 원격 자원을 덮어쓰지 않습니다.
+- staging/production 저장 바인딩 누락은 503으로 닫고 `/healthz`로 migration 상태를 확인합니다. staging은 noindex입니다.
+- [계정·백업·workerd·배포 전 준비](docs/OPERATIONS.md)를 참고하세요. 이 PC의 개발 도구 계정 로그인 확인은 미인증 상태였으며, 실제 시험 배포는 Cloudflare 로그인과 자원 확인 후 진행해야 합니다.
+
 ### 파일 구성
 
 - `src/data.js`: 스키마의 관계 ID를 따르는 샘플 데이터 (PUBLISHED만 공개)
@@ -68,26 +76,28 @@ npm run admin:create -- myadmin
 - `src/cms-regions.js`: 전국 지역 단계 선택과 선택 경로 등록
 - `src/seo.js`, `src/public-shell.js`: sitemap/RSS/robots·페이지 메타/구조화데이터
 - `migrations/0004_editing_regions.sql`: 지역 코드 고유 제약·공개 이력/보관·재공개 수량 제약
+- `src/account.js`, `src/readiness.js`, `migrations/0005_credentials.sql`, `0006_attempt_expiry.sql`: 자격증명 복구·인증 세대·시도 제한·상태 확인
+- `scripts/runtime-check.mjs`, `scripts/backups.mjs`, `scripts/recover-admin.mjs`, `scripts/deploy-check.mjs`: 실제 엔진 검사·백업/복원·복구·시험 배포 검사
 - `.github/workflows/check.yml`: push/PR 문법 검사 및 테스트. 자동 배포 없음
 
 ### 배포 전 확인
 
 `wrangler.jsonc`는 신규 `localservice-platform` Worker용 설정 초안이며, routes/custom domain을 지정하지 않습니다. 기존 Worker명/계정과 도메인 연결을 먼저 확인한 뒤 해당 설정을 맞춰야 합니다. `localsite-platform` 저장소와 기존 Worker는 이 구현에서 변경하지 않습니다.
 
-현재 로컬 Node SQLite 어댑터와 브라우저에서 검증했습니다. Wrangler 4.162.0의 dry-run 빌드는 통과했습니다. 실제 D1/R2 생성·바인딩·migration 적용, workerd 실행·부하 검증과 시험 배포는 아직 수행하지 않았습니다. `wrangler.jsonc`에는 계정/DB ID를 임의로 넣지 않았습니다. 원격 DB와 R2는 연결하지 않았습니다.
+Node SQLite/브라우저 검증, Wrangler 4.162.0 dry-run과 실제 workerd 엔진의 로컬 D1/R2 검증을 통과했습니다. 로컬 백업·별도 폴더 복원도 확인했습니다. 원격 D1/R2 연결·부하·시험 배포는 아직 수행하지 않았습니다. `wrangler.jsonc`에는 계정/DB ID를 임의로 넣지 않았습니다. 원격 DB와 R2는 연결하지 않았습니다.
 
 ## 전체 운영 목표와 남은 작업
 
-명세의 전체 운영 가능 목표 기준 추정 **85%** (기능 단계 기반 추정이며 실측 일정 비율 아님).
+명세의 전체 운영 가능 목표 기준 추정 **90%** (기능 단계 기반 추정이며 실측 일정 비율 아님).
 
 | 단계 | 비중 | 현재 |
 | --- | ---: | --- |
 | 명세·데이터 관계·프로젝트 분리 | 15% | 완료 |
 | 공개 화면·탐색·반응형·샘플 데이터 | 25% | 완료 |
 | 자동 검증·SEO·배포 준비 | 15% | 13% 반영 (사이트맵/RSS·메타/구조화데이터·통합 테스트·dry-run, 실제 검색엔진 검증 미수행) |
-| D1/R2·인증·권한 | 15% | 9% 반영 (D1/R2 인터페이스·로컬 영속성·인증/권한, 원격 미연결) |
-| 업체·계약·작업자 CMS | 15% | 14% 반영 (업체·업종·작업자/배정·계약·전국 지역 관리, 계정 복구 미구현) |
+| D1/R2·인증·권한 | 15% | 12% 반영 (D1/R2 실제 로컬 엔진·인증/복구·영속성, 원격 미연결) |
+| 업체·계약·작업자 CMS | 15% | 15% 반영 (업체·업종·작업자/배정·계약·전국 지역·계정 복구) |
 | 글쓰기·중복 검사·검수·승인·공개 흐름 | 10% | 9% 반영 (본문·사진·정확 중복·검수/공개·수정/보관, 의미 유사도/운영 검증 미수행) |
-| 실제 배포·운영 점검 | 5% | 미수행 |
+| 실제 배포·운영 점검 | 5% | 1% 반영 (로컬 백업/복원·상태/배포 전 검사, 원격/도메인 미수행) |
 
-실데이터/전화번호 확인, 원격 D1/R2·workerd·백업/복구 검증, 계정 복구/교체와 실제 배포·검색엔진 검증이 운영 전 필요합니다. 자동 메타/피드 생성이 실제 검색 노출을 보장하지는 않습니다. 스키마 변경은 migration으로 관리합니다.
+실데이터/전화번호 확인, 원격 D1/R2·부하·원격 백업/복구 검증과 실제 배포·검색엔진 검증이 운영 전 필요합니다. 자동 메타/피드 생성이 실제 검색 노출을 보장하지는 않습니다. 스키마 변경은 migration으로 관리합니다.
