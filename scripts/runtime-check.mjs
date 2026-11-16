@@ -7,6 +7,7 @@ import {seed} from './seed.mjs';
 import {hashPassword,randomToken} from '../src/auth.js';
 import {localMedia} from './local-media.mjs';
 import {preparePhoto} from './prepare-photo.mjs';
+import {runInNewContext} from 'node:vm';
 const root=resolve('.local');await mkdir(root,{recursive:true});const directory=await mkdtemp(join(root,'runtime-'));
 const origin='https://gongsa8282.xyz',password=randomToken(),options=convertV4MiniflareOptions({modules:true,scriptPath:resolve('.local/worker-build/worker.js'),compatibilityDate:'2026-11-13',cf:false,bindings:{APP_ENV:'staging'},host:'127.0.0.1',port:0,d1Databases:{DB:'localservice-runtime-db'},r2Buckets:['PHOTOS'],resourcePersistencePath:directory,serviceBindings:{ASSETS:request=>localMedia.fetch(request)}});
 let mf,checks=0;
@@ -18,6 +19,14 @@ try{
   await DB.batch([...statements.map(sql=>DB.prepare(sql)),DB.prepare('INSERT INTO d1_migrations(name) VALUES(?)').bind(name)]);
  }
  assert.equal((await mf.dispatchFetch(origin+'/healthz',{redirect:'manual'})).status,200);checks++;
+ // Execute bundled browser scripts, including nested handlers. Source imports and
+ // HTTP status checks alone miss build-time helper dependencies in serialized code.
+ for(const path of ['/assets/upload.js','/assets/cms-regions.js']){
+  const select={value:'catalog',addEventListener(){},replaceChildren(){},append(){}};
+  const group={querySelector:()=>select};
+  const document={querySelector:()=>null,querySelectorAll:selector=>selector==='[data-cms-regions]'?[group]:[]};
+  const source=await(await mf.dispatchFetch(origin+path)).text();runInNewContext(source,{document,URLSearchParams,Option:function(){}},{timeout:1000});checks++;
+ }
  await seed(DB);await DB.prepare("INSERT INTO users(id,name,login_id,password_hash,role) VALUES(1,'실행 시험 관리자','runtime-admin',?,'ADMIN')").bind(await hashPassword(password)).run();
  await DB.prepare("INSERT INTO contracts(id,company_id,package_name,contract_quantity,start_date,end_date) VALUES(1,1,'Runtime single post',1,'2020-01-01','2030-12-31')").run();
  const call=(path,{cookie,form,body,headers={},method=form||body?'POST':'GET'}={})=>mf.dispatchFetch(origin+path,{method,redirect:'manual',headers:{...(cookie?{cookie}:{}),...((form||body)?{origin}:{}),...(form?{'content-type':'application/x-www-form-urlencoded'}:{}),...headers},body:form?new URLSearchParams(form).toString():body});

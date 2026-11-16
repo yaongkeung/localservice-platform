@@ -1,4 +1,5 @@
 import {storageReady,health} from './readiness.js';
+import {browserScript} from './browser-script.js';
 import {placeCard} from './place.js';
 import {postContent} from './post-content.js';
 import {displayPhone} from './companies.js';
@@ -79,9 +80,9 @@ async function handle(request,env={}){
     return env.ASSETS?env.ASSETS.fetch(request):new Response('Image assets not configured',{status:503});
   }
   let body,type;
-  if(url.pathname==='/assets/cms-regions.js'){body='('+cmsRegionClient.toString()+')();';type='text/javascript';}
-  else if(url.pathname==='/assets/upload.js'){body='('+uploadClient.toString()+')();';type='text/javascript';}
-  else if(url.pathname==='/assets/portal.js'){body='('+portalClient.toString()+')();';type='text/javascript';}
+  if(url.pathname==='/assets/cms-regions.js'){body=browserScript(cmsRegionClient);type='text/javascript';}
+  else if(url.pathname==='/assets/upload.js'){body=browserScript(uploadClient);type='text/javascript';}
+  else if(url.pathname==='/assets/portal.js'){body=browserScript(portalClient);type='text/javascript';}
   else if(url.pathname==='/assets/regions.json'){body=JSON.stringify({provinces:regionData.provinces,districts:regionData.districts});type='application/json';}
   else if(/^\/assets\/regions\/\d{5}\.json$/.test(url.pathname)){
     const items=regionData.dongs[url.pathname.split('/').at(-1).slice(0,5)];

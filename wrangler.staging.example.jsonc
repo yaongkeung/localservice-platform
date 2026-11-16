@@ -6,6 +6,8 @@
   "workers_dev": true,
   "preview_urls": false,
   "vars": {"APP_ENV": "staging"},
+  // Optional photo-to-draft inference. Verify the account plan/free allocation before enabling.
+  "ai": {"binding": "AI"},
   "assets": {"directory": "./public", "binding": "ASSETS", "run_worker_first": true},
   "d1_databases": [{"binding": "DB", "database_name": "localservice-platform-staging-db", "database_id": "SET_ACTUAL_D1_DATABASE_ID", "migrations_dir": "migrations"}],
   "r2_buckets": [{"binding": "PHOTOS", "bucket_name": "set-private-project-bucket-name"}]
