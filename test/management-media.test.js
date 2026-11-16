@@ -91,6 +91,19 @@ test('imported photos belong to one blog post across boards and profile, and leg
   assert.equal((await f.transition(id,'withdraw')).status,303);assert.equal((await f.call(cover)).status,404);
  }finally{f.DB.close();}
 });
+test('one company place record is reflected in its posts and profile without overwriting phones or post content',async()=>{
+ const f=await fixture();try{
+  const values={...company,phone:'010-0000-0000',phone_verified:'1',naver_place_url:'https://naver.me/Test1234',naver_place_name:'플레이스 등록명 <시험>',naver_place_address:'시험 도로 1',naver_place_hours:'상담 시간 확인'};
+  assert.equal((await f.call('/admin/companies/new/',{as:1,form:{...values,naver_place_url:'https://naver.me.evil.example/Test1234'}})).status,409);
+  assert.equal((await f.call('/admin/companies/new/',{as:1,form:values})).status,303);let c=await f.DB.prepare('SELECT * FROM companies ORDER BY id DESC LIMIT 1').first();const id=await f.create({company_id:c.id,post_type:'서비스안내'},1);
+  for(const action of ['submit','approve','publish'])assert.equal((await f.transition(id,action)).status,303);const original=(await f.row(id)).content;
+  for(const path of ['/post/'+id+'/','/company/'+c.id+'/']){const html=await(await f.call(path)).text();assert.match(html,/href="https:\/\/naver\.me\/Test1234"/);assert.match(html,/플레이스 등록명 &lt;시험&gt;/);assert.match(html,/시험 도로 1/);assert.match(html,/href="tel:01000000000"/);assert.doesNotMatch(html,/<iframe/);}
+  const edit=await(await f.call('/admin/companies/'+c.id+'/',{as:1})).text();assert.match(edit,/name="naver_place_url"/);
+  // A form opened before these optional fields existed must not silently erase them.
+  assert.equal((await f.call('/admin/companies/'+c.id+'/',{as:1,form:{...company,phone:values.phone,phone_verified:'1',version:c.version}})).status,303);c=await f.DB.prepare('SELECT * FROM companies WHERE id=?').bind(c.id).first();assert.equal(c.naver_place_url,values.naver_place_url);assert.equal(c.phone,'01000000000');assert.equal((await f.row(id)).content,original);
+  assert.equal((await f.call('/admin/companies/'+c.id+'/',{as:1,form:{...values,naver_place_url:'',version:c.version}})).status,303);assert.doesNotMatch(await(await f.call('/post/'+id+'/')).text(),/class="place-card"/);
+ }finally{f.DB.close();}
+});
 test('new industries and sub-industries join public navigation; slugs are stable and cycles rejected',async()=>{
  const f=await fixture();try{
   const service={name:'창호 수리',slug:'window-repair',description:'창문과 창호 관리',icon:'🪟',tone:'mint',parent_id:1};

@@ -1,4 +1,4 @@
-export const currentMigration='0007_company_images.sql';
+export const currentMigration='0008_naver_place.sql';
 export function storageReady(env){return typeof env.DB?.prepare==='function'&&typeof env.DB?.batch==='function'&&typeof env.PHOTOS?.get==='function'&&typeof env.PHOTOS?.put==='function'&&typeof env.ASSETS?.fetch==='function';}
 export async function health(request,env){
  let ready=false;
