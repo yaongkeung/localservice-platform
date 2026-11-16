@@ -14,6 +14,7 @@
 - Service: 업종 > 세부서비스
 - Post: 작업사례/서비스안내/지역정보/작업팁
 - PostImage: 게시글 이미지
+- CompanyImage: 업체 소개 사진. 게시글·계약과 별도로 관리자가 등록하며 활성 업체의 프로필과 메인 대표 사진에 표시한다.
 - CompanyAssignment: 작업자-업체 배정
 
 ## 3. 공개 URL

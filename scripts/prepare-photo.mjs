@@ -12,10 +12,10 @@ function resize(image,maxWidth,maxHeight){
  }
  return {data,width,height};
 }
-export function preparePhoto(bytes){
+export function preparePhoto(bytes,{maxInputSide=1280,maxInputMegapixels=1280*1280/1000000}={}){
  if(bytes.length<4||bytes[0]!==255||bytes[1]!==216||bytes[2]!==255)throw Error('사진을 JPG 형식으로 선택해 주세요. PNG는 화면에서 자동 변환합니다.');
- let decoded;try{decoded=jpeg.decode(bytes,{useTArray:true,formatAsRGBA:true,tolerantDecoding:false,maxResolutionInMP:1280*1280/1000000,maxMemoryUsageInMB:64});}catch{throw Error('사진을 읽지 못했습니다. 정상적인 JPG 사진이나 더 작은 사진으로 다시 시도해 주세요.');}
- if(!decoded.width||!decoded.height||Math.max(decoded.width,decoded.height)>1280)throw Error('사진 크기를 줄인 뒤 다시 등록해 주세요.');
+ let decoded;try{decoded=jpeg.decode(bytes,{useTArray:true,formatAsRGBA:true,tolerantDecoding:false,maxResolutionInMP:maxInputMegapixels,maxMemoryUsageInMB:64});}catch{throw Error('사진을 읽지 못했습니다. 정상적인 JPG 사진이나 더 작은 사진으로 다시 시도해 주세요.');}
+ if(!decoded.width||!decoded.height||Math.max(decoded.width,decoded.height)>maxInputSide)throw Error('사진 크기를 줄인 뒤 다시 등록해 주세요.');
  // Re-encode pixels only: EXIF/GPS, comments, original name and appended payloads are never retained.
  const resized=resize(decoded,1280,1280),cover=jpeg.encode(resized,80).data,thumb=jpeg.encode(resize(decoded,240,160),75).data;
  return {cover,thumb,width:resized.width,height:resized.height};

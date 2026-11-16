@@ -5,6 +5,7 @@ import {session,login,isAdmin,digest,sessionCookie} from './auth.js';
 import {seoulDate} from './photos.js';
 import {page,csrf,redirect,e} from './admin-ui.js';
 import {management} from './management.js';
+import {companyPhotoActions} from './company-photos.js';
 import {photoActions,photoPanel} from './uploads.js';
 const labels={DRAFT:'초안',REVIEW:'검수 대기',APPROVED:'승인 완료',PUBLISHED:'공개 중'};
 const kinds=['작업사례','서비스안내','지역정보','작업팁'];
@@ -55,6 +56,7 @@ async function dashboard(db,user,url){
 }
 export async function cms(request,env){
  const url=new URL(request.url),path=url.pathname,db=env.DB;
+ const companyPhotoMatch=path.match(/^\/admin\/companies\/(\d+)\/photos\/$/);
  const photoMatch=path.match(/^\/admin\/posts\/(\d+)\/photos\/$/);
  if(url.protocol!=='https:'&&!['localhost','127.0.0.1'].includes(url.hostname))return page('보안 연결 필요','<p>HTTPS 주소로 접속해 주세요.</p>',null,403);
  if(!db)return page('관리 준비 중','<h1>관리 기능 준비 중</h1><p>데이터베이스 연결 후 사용할 수 있습니다.</p>',null,503);
@@ -62,7 +64,7 @@ export async function cms(request,env){
  let form;
  if(request.method==='POST'){
   if(request.headers.get('origin')!==url.origin)return page('요청 확인 실패','<p>페이지를 새로 열고 다시 시도해 주세요.</p>',null,403);
-  try{if(!photoMatch)form=await body(request);}catch(error){return page('입력 오류',`<p>${e(error.message)}</p>`,null,400);}
+  try{if(!photoMatch&&!companyPhotoMatch)form=await body(request);}catch(error){return page('입력 오류',`<p>${e(error.message)}</p>`,null,400);}
  }
  if(path==='/admin/login/'){
   if(request.method!=='POST')return loginPage();
@@ -74,6 +76,7 @@ export async function cms(request,env){
  const user=await session(db,request);
  if(!user)return request.method==='POST'?page('로그인 필요','<p>다시 로그인해 주세요.</p>',null,401):redirect('/admin/login/');
  if(user.must_change_password&&!['/admin/account/','/admin/logout/'].includes(path))return request.method==='POST'?page('비밀번호 변경 필요','<p>임시 비밀번호를 변경한 후 이용해 주세요.</p><a href="/admin/account/">비밀번호 변경</a>',user,403):redirect('/admin/account/');
+ if(companyPhotoMatch)return companyPhotoActions(request,env,user,Number(companyPhotoMatch[1]));
  if(photoMatch)return photoActions(request,env,user,Number(photoMatch[1]));
  if(form&&form.get('csrf')!==user.csrf)return page('요청 확인 실패','<p>페이지를 새로 열고 다시 시도해 주세요.</p>',user,403);
  if(path==='/admin/logout/'&&form){await run(db,'DELETE FROM sessions WHERE token_hash=?',user.token_hash);const response=redirect('/admin/login/');response.headers.set('set-cookie',sessionCookie(request,'',0));return response;}

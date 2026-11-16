@@ -44,7 +44,7 @@ Miniflare 5의 `resourcePersistencePath`를 사용해 두 인스턴스 사이의
 - 실제 계정/DB ID와 전용 버킷 이름을 넣은 무시 파일 `wrangler.staging.jsonc`가 배포 전 정적 검사를 통과했습니다.
 - 최초 R2 API는 이용 신청 필요(10042)를 반환했고 사용자가 [R2 신청 화면](https://dash.cloudflare.com/?to=/:account/r2/overview)에서 직접 활성화를 완료했습니다. [Cloudflare 시작 안내](https://developers.cloudflare.com/r2/get-started/)에 무료 포함량과 사용량 기준 과금이 설명되어 있습니다.
 - `localservice-platform-staging-photos`를 APAC/Standard로 생성했습니다. `r2.dev` 직접 공개는 꺼져 있고 연결된 사용자 도메인은 없습니다. `localservice-platform-staging` Worker에 DB/PHOTOS/ASSETS와 APP_ENV=staging을 연결했습니다.
-- 시험 주소: https://localservice-platform-staging.ogog7401.workers.dev . 현재 배포 버전 `b0e981d6-c846-4eb0-826a-994e2bbbfccb`(첫 실제 업체 안내·전화 CTA·업종 펼침 메뉴 반영). 기존 `gongsa8282.xyz`·Worker·기존 저장소는 변경하지 않았습니다.
+- 시험 주소: https://localservice-platform-staging.ogog7401.workers.dev . 현재 배포 버전 `67b7cc17-e6d0-4c51-98ad-d42af29dc706`(업체 사진 갤러리·대표 사진·관리자 사진 관리 반영). 기존 `gongsa8282.xyz`·Worker·기존 저장소는 변경하지 않았습니다.
 - 로고는 사용자 사진을 참고한 빨간 압정과 Gmarket Sans Bold 글자 윤곽 그래픽으로 조정했습니다. 이름은 이웃핀을 유지합니다. 글꼴 파일/외부 폰트 요청 없이 공개/관리 화면에 동일하게 표시하며 [서체 출처와 디자인](BRAND.md)을 기록했습니다. PC·390/320px 너비와 접근성 링크 이름을 확인했습니다.
 - 서비스 표시 이름을 이웃핀으로 변경했습니다. 공개/관리 로고, 제목, OG site_name, WebSite 이름, RSS 채널/링크 안내, 푸터와 캐릭터 안내 문구를 반영했습니다. URL·데이터·계정·Cloudflare 자원 이름은 유지하고 320/390px 및 PC 화면을 확인했습니다.
 - 사용자의 기존 캐릭터 중 투명 PNG 한 장을 메인 안내 카드에 적용했습니다. PC 오른쪽/모바일 하단 가로형 배치, 320/390px에서 본문 너비 초과 없음, 안내 링크 이동을 확인했습니다. 원격 이미지 200/image/png와 원본 SHA-256 일치, health 200과 staging noindex를 확인했습니다. 작업 사진 데이터나 DB는 변경하지 않았습니다.
@@ -85,3 +85,11 @@ Miniflare 5의 `resourcePersistencePath`를 사용해 두 인스턴스 사이의
 메인 등록 업체 안내 → 업체 프로필과 전화 CTA, 상호/서비스/지역 키워드 검색, 하위 업종 펼침을 확인했습니다. 지역/업종 필터는 게시글을 대상으로 하며 등록 업체 안내는 서비스 지역을 별도로 명시합니다. 320/390px 모바일과 PC에서 긴 상호·화면 너비·링크를 확인했습니다. 실제 통화를 걸지는 않았습니다. 47개 Node 검사·14개 로컬 workerd 검사와 원격 업체/검색/11개 업종 게시판을 통과했습니다. 업체 정보는 DB에서 관리하며 공개 전화번호를 소스나 테스트 데이터에 고정하지 않습니다.
 
 Cloudflare 대시보드에서 현재 gongsa8282.xyz가 기존 gongsa8282 Worker에 연결된 것을 읽기 전용으로 확인했습니다. 이 작업은 별도 시험 Worker에만 배포했고 기존 도메인·Worker·localsite-platform 저장소는 변경하지 않았습니다.
+
+### 업체 제공 사진 5장 반영
+
+2026-11-16 사용자 요청으로 기존 업체 ID 4에 사진 5장을 추가했습니다. 원본은 수정하지 않고 로컬에서 긴 변 1,280px 커버/240×160px 이내 썸네일을 만들었습니다. 서버와 같은 JPEG 컨테이너 검증/메타데이터 제거 후 비공개 R2의 새 무작위 경로에 10객체를 저장하고 company_images에 연결했습니다. 원본 이름·사진 폴더·원본 이미지 파일은 Git이나 공개 URL에 넣지 않았습니다. 현장 주소·작업일·시공 과정은 추정하지 않았고 게시글·계약도 생성하지 않았습니다.
+
+추가 migration 0007은 company_images와 companies.photo_mutation_token을 생성합니다. 현재 시험 DB migration은 7개이며 별도 복원 시험의 과거 migration 6개 기록과 구분합니다. Node 검사 49개, workerd 검사 16개에서 사진 공개/제외/복원·대표 지정·관리자 권한·CSRF·동시 수정/정리·최대 수량·재시작 후 저장 유지를 확인했습니다. 로컬 백업 검사는 제외된 업체 사진도 포함합니다. 원격 사진 커버/썸네일 10개 모두 HTTP 200/image/jpeg/nosniff이고 커버 해시는 등록 전 파일과 일치합니다.
+
+실제 브라우저에서 사진 5장 로딩, 메인 대표 사진 → 프로필 갤러리 링크, 320/390px 화면 너비와 전화 CTA를 확인했습니다. 최신 원격 D1과 게시글/업체 사진 총 36객체를 백업하고 별도 로컬 SQLite 복원에서 migration 7개·게시글 12개·업체 사진 5개·외래키/무결성·커버 해시를 확인했습니다. 이번 업체 사진을 과거 원격 복원본에 다시 가져오거나 도메인을 전환하지 않았습니다.

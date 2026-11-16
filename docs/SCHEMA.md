@@ -24,6 +24,12 @@ id, post_id, storage_key, alt_text, sort_order
 ## company_assignments
 id, user_id, company_id
 
+## company_images (migration 0007)
+
+id, company_id, storage_key, thumbnail_key, alt_text, sort_order, content_hash, width, height, excluded, created_at
+
+업체 소개 사진이며 게시글 이미지와 별개입니다. 활성 업체의 제외되지 않은 사진만 공개하고 대표 순서는 sort_order/id를 따릅니다. 업체당 활성 사진 최대 8장, 업체 내 활성 이미지 해시 중복과 제외/복원 시 수량 제약을 DB에서 검사합니다. companies.photo_mutation_token과 version을 한 batch에서 비교하여 사진 변경 중 충돌을 막습니다. 사진 공개는 관리자 등록 시 적용되며 글 작성·검수·계약 사용 수량은 만들거나 변경하지 않습니다. 사진별 현장 위치와 작업일은 이 테이블로 추정하지 않습니다.
+
 ## 저장 구현 (migration 0001)
 
 기본 관계는 위 명세를 유지합니다. 실제 SQL 정의는 `migrations/0001_cms.sql`을 기준으로 합니다.

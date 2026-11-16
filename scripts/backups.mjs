@@ -4,12 +4,21 @@ import {createReadStream,constants} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {resolve,relative,dirname,sep,isAbsolute} from 'node:path';
 import {pathToFileURL} from 'node:url';
-const root=resolve('.local'),photoPattern=/^photos\/\d+\/[a-f0-9]{64}-(?:cover|thumb)\.jpg$/;
+const root=resolve('.local'),photoPattern=/^photos\/(?:company-)?\d+\/[a-f0-9]{64}-(?:cover|thumb)\.jpg$/;
 function inside(parent,path){const rel=relative(parent,resolve(path));if(isAbsolute(rel)||rel==='..'||rel.startsWith('..'+sep)||resolve(parent,rel)!==resolve(path))throw Error('Path is outside local data directory.');return resolve(path);}
 async function checkedFile(parent,path){inside(root,parent);inside(parent,path);if((await lstat(path)).isSymbolicLink())throw Error('Symbolic links are not supported.');inside(parent,await realpath(path));return path;}
 async function freshDirectory(path){inside(root,path);if(resolve(path)===root)throw Error('Cannot overwrite local data root.');await mkdir(dirname(path),{recursive:true});inside(root,await realpath(dirname(path)));await mkdir(path);}
 async function checksum(path){const hash=createHash('sha256');for await(const chunk of createReadStream(path))hash.update(chunk);return hash.digest('hex');}
-function references(db){const files=new Set(['portal.sqlite']);for(const row of db.prepare('SELECT storage_key,thumbnail_key FROM post_images').all())for(const key of [row.storage_key,row.thumbnail_key]){if(!key||key.startsWith('/media/'))continue;const path='photos/'+key.slice('/uploads/'.length);if(!key.startsWith('/uploads/')||!photoPattern.test(path))throw Error('Unsupported stored image path.');files.add(path);}return [...files];}
+function references(db){
+ const files=new Set(['portal.sqlite']),rows=db.prepare('SELECT storage_key,thumbnail_key FROM post_images').all();
+ if(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='company_images'").get())rows.push(...db.prepare('SELECT storage_key,thumbnail_key FROM company_images').all());
+ for(const row of rows)for(const key of [row.storage_key,row.thumbnail_key]){
+  if(!key||key.startsWith('/media/'))continue;
+  const path=key.startsWith('/uploads/')?'photos/'+key.slice('/uploads/'.length):key.replace(/^\/company-photos\/(\d+)\//,'photos/company-$1/');
+  if(!photoPattern.test(path))throw Error('Unsupported stored image path.');files.add(path);
+ }
+ return [...files];
+}
 export async function createBackup(source= root,destination=resolve(root,'backups',new Date().toISOString().replace(/[:.]/g,'-'))){
  await mkdir(root,{recursive:true});if(await realpath(root)!==root)throw Error('Local root must not be a symbolic link.');inside(root,source);inside(root,destination);await checkedFile(source,resolve(source,'portal.sqlite'));await freshDirectory(destination);
  const live=new DatabaseSync(resolve(source,'portal.sqlite'),{readOnly:true});try{await backup(live,resolve(destination,'portal.sqlite'));}finally{live.close();}
