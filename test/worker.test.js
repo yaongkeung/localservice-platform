@@ -90,4 +90,5 @@ test('photo files, thumbnails and detail pages refer to the same real local asse
   const detail=await(await get('/post/'+image.post_id+'/')).text();assert.ok(detail.includes('src="'+image.storage_key+'"'));assert.match(detail,/AI 생성 샘플 이미지/);
  }
  assert.equal((await get('/media/missing.jpg')).status,404);assert.equal((await get('/media/invalid.svg')).status,404);
+ const mascot=await get('/media/expert-mascot.png');assert.equal(mascot.status,200);assert.equal(mascot.headers.get('content-type'),'image/png');assert.deepEqual([...new Uint8Array(await mascot.arrayBuffer()).slice(0,8)],[137,80,78,71,13,10,26,10]);assert.equal(await(await get('/media/expert-mascot.png','HEAD')).text(),'');
 });

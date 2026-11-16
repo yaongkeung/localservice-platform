@@ -73,7 +73,7 @@ async function handle(request,env={}){
   }
   if(url.pathname.startsWith('/uploads/'))return uploadedPhoto(request,env);
   if(url.pathname.startsWith('/media/')){
-    if(!/^\/media\/[a-z0-9-]+\.jpg$/.test(url.pathname))return new Response('Not found',{status:404});
+    if(!/^\/media\/[a-z0-9-]+\.(?:jpg|png)$/.test(url.pathname))return new Response('Not found',{status:404});
     return env.ASSETS?env.ASSETS.fetch(request):new Response('Image assets not configured',{status:503});
   }
   let body,type;
