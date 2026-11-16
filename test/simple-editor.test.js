@@ -8,12 +8,13 @@ import {regionData} from '../src/regions-data.js';
 import {townshipGroups,townshipName} from '../src/township-groups.js';
 import {registerRegion} from '../src/cms-regions.js';
 import {titleFor} from '../src/editor-title.js';
+import {initialDraftText} from '../src/draft-state.js';
 const origin='https://gongsa8282.xyz';
 async function fixture(){
  const DB=sqliteDatabase();await migrate(DB);await seed(DB);const token=randomToken(),csrf=randomToken();
  await DB.prepare("INSERT INTO users(id,name,login_id,password_hash,role) VALUES(1,'간단 작성 시험','simple-test','not-a-password','ADMIN')").run();
  await DB.prepare('INSERT INTO sessions(token_hash,user_id,csrf,expires_at) VALUES(?,?,?,?)').bind(await digest(token),1,csrf,Date.now()+600000).run();
- const call=(path,form)=>worker.fetch(new Request(origin+path,{method:form?'POST':'GET',headers:{cookie:'ls_session='+token,...(form?{origin,'content-type':'application/x-www-form-urlencoded'}:{})},body:form?new URLSearchParams({csrf,...form}):undefined}),{DB});
+ const call=(path,form,headers={})=>worker.fetch(new Request(origin+path,{method:form?'POST':'GET',headers:{cookie:'ls_session='+token,...(form?{origin,'content-type':'application/x-www-form-urlencoded'}:{}),...headers},body:form?new URLSearchParams({csrf,...form}):undefined}),{DB});
  const row=id=>DB.prepare('SELECT * FROM posts WHERE id=?').bind(id).first();return {DB,call,row};
 }
 test('every original dong remains in exactly one local group; only numbered dong suffixes merge',()=>{
@@ -48,5 +49,18 @@ test('simple editor derives service/title/summary without visible management fie
   // Existing published post keeps its first company/contract through the normal withdrawal flow.
   const old=await f.row(id);await f.call('/admin/posts/'+id+'/status/',{action:'withdraw',version:old.version});const draft=await f.row(id);
   const response=await f.call('/admin/posts/'+id+'/',{simple_editor:1,company_id:2,region_id:draft.region_id,region_mode:'keep',search_region:'응암동',search_keyword:'조명 교체',title:draft.title,content:JSON.parse(draft.content).join('\n\n'),version:draft.version});assert.equal(response.status,303,await response.clone().text());assert.equal((await f.row(id)).contract_id,90);
+ }finally{f.DB.close();}
+});
+test('photo-first draft has no manual body step, autosaves metadata with version checks, and cannot publish its waiting message',async()=>{
+ const f=await fixture();try{
+  const fields={simple_editor:1,action:'prepare',company_id:1,region_mode:'catalog',province:'11',district:'11380',dong:'11380:응암동',search_region:'응암동',search_keyword:'누수 점검'};
+  const created=await f.call('/admin/posts/new/',fields);assert.equal(created.status,303);const id=Number(created.headers.get('location').split('/')[3]),before=await f.row(id);
+  const page=await(await f.call('/admin/posts/'+id+'/')).text();assert.doesNotMatch(page,/<label[^>]*>본문/);assert.doesNotMatch(page,/<h2>[^<]*사진으로 본문 작성/);assert.doesNotMatch(page,/id="generated-post"/);assert.doesNotMatch(page,/name="(?:auto_generate|alt_text)"/);
+  const update={...fields,action:'',region_mode:'keep',region_id:before.region_id,search_keyword:'배관 점검',title:before.title,content:initialDraftText,version:before.version};
+  const saved=await f.call('/admin/posts/'+id+'/',update,{'x-editor-save':'1'});assert.equal(saved.status,200);assert.equal((await saved.json()).version,before.version+1);assert.equal((await f.row(id)).search_keyword,'배관 점검');
+  assert.equal((await f.call('/admin/posts/'+id+'/',update,{'x-editor-save':'1'})).status,409);
+  await f.DB.prepare('UPDATE posts SET generation_reviewed=1 WHERE id=?').bind(id).run();
+  const review=await f.call('/admin/posts/'+id+'/status/',{action:'submit',version:(await f.row(id)).version});assert.equal(review.status,409);assert.match(await review.text(),/사진을 먼저 등록/);
+  assert.equal((await f.call('/post/'+id+'/')).status,404);
  }finally{f.DB.close();}
 });

@@ -3,7 +3,7 @@ export function inlineText(value){
  return String(value).split(/(\[[^\]\n]{1,100}\]\(https:\/\/[^\s)]{1,500}\))/g).map(part=>{
   const link=part.match(/^\[([^\]\n]+)\]\((https:\/\/[^\s)]+)\)$/);
   if(link){try{const url=new URL(link[2]);if(!url.username&&!url.password)return `<a href="${e(url.href)}" target="_blank" rel="noopener noreferrer">${e(link[1])}</a>`;}catch{/* Render invalid links as text. */}}
-  return e(part).replace(/\*\*([^*\n]{1,160})\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+  return e(part).replace(/\*\*([^*\n]{1,160})\*\*/g,'<strong>$1</strong>').replace(/\*\*/g,'').replace(/\n/g,'<br>');
  }).join('');
 }
 export function postContent(post,images=[]){

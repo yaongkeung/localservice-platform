@@ -1,3 +1,4 @@
+import {initialDraftText,waitingForPhotos} from './draft-state.js';
 import {editPage} from './post-editor.js';
 import {simplePostForm} from './editor-values.js';
 import {titleFor} from './editor-title.js';
@@ -111,6 +112,7 @@ export async function cms(request,env){
    if(!step||post.status!==step[0]||action==='return'&&!['REVIEW','APPROVED'].includes(post.status))throw Error('현재 상태에서 진행할 수 없는 요청입니다.');
    if(action!=='submit'&&!isAdmin(user))return page('권한 없음','<p>관리자만 승인·공개할 수 있습니다.</p>',user,403);
    if(!['return','withdraw'].includes(action)){
+    if(waitingForPhotos(post))throw Error('본문은 사진을 등록하면 자동으로 생성됩니다. 사진을 먼저 등록해 주세요.');
     if(post.generation_reviewed===0)throw Error('본문 자동 작성 내용을 확인하고 확인란에 체크한 뒤 저장해 주세요.');
     if(action==='publish'&&!data.companies.find(c=>c.id===post.company_id)?.sample&&!post.contract_id)throw Error('접근 가능한 업체의 진행 가능한 계약을 관리자 메뉴에서 확인해 주세요.');
     // Validate persisted fields again at every pre-publication boundary.
@@ -123,7 +125,7 @@ export async function cms(request,env){
    if(id&&post.status!=='DRAFT')throw Error('초안 상태의 글만 수정할 수 있습니다.');
    if(form.get('simple_editor')==='1')simplePostForm(form,data,post);
    const preparing=!id&&form.get('action')==='prepare';
-   if(preparing){const target=searchFields(form);if(!target.search_region||!target.search_keyword)throw Error('지역명과 업무 키워드를 입력해 주세요.');form.set('title',titleFor(target.search_region,target.search_keyword));form.set('summary','등록할 사진을 바탕으로 지역 서비스 안내를 작성하는 중입니다.');form.set('content','사진을 등록한 뒤 사진으로 본문 작성을 진행해 주세요. 자동 작성한 제목과 본문, 사진에 대한 설명을 확인하고 사실에 맞게 수정한 후에 검수를 요청할 수 있습니다.');}
+   if(preparing){const target=searchFields(form);if(!target.search_region||!target.search_keyword)throw Error('지역명과 업무 키워드를 입력해 주세요.');form.set('title',titleFor(target.search_region,target.search_keyword));form.set('summary','등록할 사진을 바탕으로 지역 서비스 안내를 작성하는 중입니다.');form.set('content',initialDraftText);}
    const values=await postValues(form);if(form.get('region_mode')==='catalog')values.region_id=await registerRegion(db,form);
    if(post.published_once&&(values.company_id!==post.company_id||values.contract_id!==post.contract_id))throw Error('기존 공개 글의 업체와 계약은 변경할 수 없습니다.');
    await validateRelations(db,user,values,post);
@@ -131,6 +133,7 @@ export async function cms(request,env){
    if(id){
     const result=await run(db,"UPDATE posts SET company_id=?,region_id=?,service_id=?,post_type=?,title=?,summary=?,content=?,title_hash=?,content_hash=?,contract_id=?,search_region=?,search_keyword=?,generation_reviewed=?,sample=?,version=version+1,updated_at=CURRENT_TIMESTAMP,last_actor_id=? WHERE id=? AND version=? AND status='DRAFT'",...args,post.generation_reviewed===0&&form.get('generation_reviewed')!=='1'?0:1,data.companies.find(c=>c.id===values.company_id)?.sample?1:0,user.id,id,Number(form.get('version')));
     if(!result.meta.changes)throw Error('다른 화면에서 변경된 글입니다. 새로고침 후 확인해 주세요.');
+    if(request.headers.get('x-editor-save')==='1')return Response.json({location:'/admin/posts/'+id+'/',version:Number(form.get('version'))+1},{headers:{'cache-control':'no-store'}});
    }else{
     const sample=data.companies.find(c=>c.id===values.company_id)?.sample?1:0;
     const result=await run(db,'INSERT INTO posts(company_id,region_id,service_id,post_type,title,summary,content,title_hash,content_hash,contract_id,search_region,search_keyword,generation_reviewed,writer_id,sample) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',...args,preparing?0:1,user.id,sample);

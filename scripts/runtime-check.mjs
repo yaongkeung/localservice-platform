@@ -24,7 +24,7 @@ try{
  for(const path of ['/assets/upload.js','/assets/cms-regions.js','/assets/editor.js']){
   const select={value:'catalog',addEventListener(){},replaceChildren(){},append(){}};
   const group={querySelector:()=>select};
-  const document={querySelector:()=>null,querySelectorAll:selector=>selector==='[data-cms-regions]'?[group]:[]};
+  const document={addEventListener(){},querySelector:()=>null,querySelectorAll:selector=>selector==='[data-cms-regions]'?[group]:[]};
   const source=await(await mf.dispatchFetch(origin+path)).text();runInNewContext(source,{document,URLSearchParams,Option:function(){}},{timeout:1000});checks++;
  }
  await seed(DB);await DB.prepare("INSERT INTO users(id,name,login_id,password_hash,role) VALUES(1,'실행 시험 관리자','runtime-admin',?,'ADMIN')").bind(await hashPassword(password)).run();
@@ -42,7 +42,7 @@ try{
  const image=await DB.prepare('SELECT * FROM post_images WHERE post_id=?').bind(id).first();assert.equal((await call(image.storage_key)).status,404);assert.equal((await call(image.storage_key,{cookie})).status,200);checks++;
  const inlineContent='사진 앞에 배치하는 서비스 설명입니다. 실제 작업 실적을 꾸며 쓰지 않고 사진에서 보이는 내용을 설명합니다.\n\n[사진:'+image.id+']\n\n사진 다음에는 상담 안내와 추가 설명을 이어서 작성합니다.';
  response=await call('/admin/posts/'+id+'/',{cookie,form:{...values,content:inlineContent,version:(await post()).version}});assert.equal(response.status,303,await response.clone().text());checks++;
- assert.ok((await(await call('/admin/posts/'+id+'/',{cookie})).text()).includes('data-insert-photo="'+image.id+'"'));checks++;
+ assert.ok((await(await call('/admin/posts/'+id+'/',{cookie})).text()).includes('id="post-photos"'));checks++;
  const transition=async action=>{const response=await call('/admin/posts/'+id+'/status/',{cookie,form:{csrf,action,version:(await post()).version}});assert.equal(response.status,303,await response.clone().text());};
  for(const action of ['submit','approve','publish'])await transition(action);assert.equal((await DB.prepare('SELECT published_quantity FROM contracts WHERE id=1').first()).published_quantity,1);checks++;
  assert.equal((await call('/post/'+id+'/')).status,200);const publicHtml=await(await call('/post/'+id+'/')).text();assert.ok(publicHtml.indexOf('사진 앞에 배치')<publicHtml.indexOf('class="post-photo"'));assert.ok(publicHtml.indexOf('class="post-photo"')<publicHtml.indexOf('사진 다음에는'));assert.ok(!publicHtml.includes('[사진:'));assert.ok(publicHtml.includes('href="https://naver.me/Test1234"'));assert.ok(publicHtml.includes('실행 시험 업체'));assert.equal((await call(image.storage_key)).status,200);assert.ok((await(await call('/rss.xml')).text()).includes('/post/'+id+'/'));checks++;

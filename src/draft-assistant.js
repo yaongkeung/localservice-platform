@@ -26,10 +26,6 @@ export function composePage(user,data,message='',status=200){
  const options=rows=>rows.map(row=>`<option value="${row.id}">${e(row.name)}</option>`).join('');
  return page('사진으로 포스팅 작성',`<h1>📸 지역·키워드로 시작하기</h1><p>지역과 업무를 정한 뒤 사진을 등록하면, 사진을 읽고 제목과 본문 초안을 만듭니다.</p>${message?`<p class="cms-error" role="alert">${e(message)}</p>`:''}<form method="post" action="/admin/posts/new/" data-simple-editor><input type="hidden" name="simple_editor" value="1">${csrf(user)}<input type="hidden" name="action" value="prepare"><input type="hidden" name="post_type" value="서비스안내"><section class="panel cms-grid"><label>업체<select name="company_id" required><option value="">업체 선택</option>${options(data.companies)}</select></label>${cmsRegionPicker({},data.regions)}<label>제목에 쓸 지역명<input name="search_region" placeholder="예: 사우동" minlength="2" maxlength="40" required></label><label>대표 업무 키워드<input name="search_keyword" placeholder="예: 방충망 교체" minlength="2" maxlength="40" required></label><label class="full">제목<input name="title" placeholder="지역명과 키워드를 입력하면 완성됩니다" readonly></label></section><button>사진 등록으로 이어가기 →</button></form><p class="cms-help">실제 서비스 지역과 관련 있는 업무를 입력하세요. 초안은 확인한 뒤 검수·승인을 거쳐 공개합니다.</p>`,user,status);
 }
-export function assistantPanel(user,post,available){
- if(!post.id||post.status!=='DRAFT')return '';
- return `<section class="panel" style="margin:24px 0"><h2>✨ 사진으로 본문 작성</h2><p>제목 앞부분: <strong>${e([post.search_region,post.search_keyword].filter(Boolean).join(' ')||'지역명·키워드를 먼저 저장해 주세요.')}</strong></p><p class="cms-help">등록한 사진과 업체 정보를 바탕으로 작성합니다. 기존 제목·본문을 바꾸며, 이전 내용은 작성 기록에 보관합니다. 사진에 보이지 않는 시공 날짜·비용·결과는 추정하지 않습니다.</p>${available?`<form method="post" action="/admin/posts/${post.id}/generate/" data-generate-draft>${csrf(user)}<input type="hidden" name="version" value="${post.version}"><button ${!post.search_region||!post.search_keyword?'disabled':''}>사진을 읽고 초안 작성</button><p role="status" aria-live="polite" class="cms-help"></p></form>`:'<p class="cms-help">사진 자동 작성 연결을 준비 중입니다. 직접 작성한 글은 저장할 수 있습니다.</p>'}<p class="cms-help">사진 등록 시 ‘등록 후 초안 자동 작성’을 선택할 수 있습니다. 공개 중인 글은 자동으로 바꾸지 않습니다.</p><a href="/admin/posts/${post.id}/generations/">자동 작성 전 내용 보기</a></section>`;
-}
 const normal=text=>text.normalize('NFKC').replace(/\s+/g,'').toLowerCase();
 const clean=(value,max)=>{if(typeof value!=='string'||!value.trim()||value.length>max)throw Error('자동 작성 결과가 올바르지 않습니다. 다시 시도해 주세요.');return value.replace(/\[사진:\d+\]/g,'').replace(/\[([^\]]+)\]\([^)]+\)/g,'$1').trim();};
 export function assembleDraft(raw,post,company,region,images){
@@ -81,6 +77,6 @@ export async function generateDraft(request,env,user,id,form){
   const saved=(await db.batch(statements))[0];
   await run(db,'UPDATE draft_generations SET state=? WHERE id=?',saved.meta.changes?'SAVED':'CONFLICT',generation.id);
   if(!saved.meta.changes)return failure('작성 중 다른 변경이 있었습니다. 기존 글은 덮어쓰지 않았습니다. 새로 열어 다시 시도해 주세요.');
-  const location='/admin/posts/'+id+'/?generated=1';return json?Response.json({location},{headers:{'cache-control':'no-store'}}):redirect(location);
+  const location='/admin/posts/'+id+'/?generated=1#generated-post';return json?Response.json({location},{headers:{'cache-control':'no-store'}}):redirect(location);
  }catch(error){if(generation)await run(db,"UPDATE draft_generations SET state='FAILED' WHERE id=? AND state='RUNNING'",generation.id);const expected=/^(지역|사진|자동 작성|오늘의)/.test(error.message);return failure(expected?error.message:'자동 작성에 연결하지 못했습니다. 기존 본문과 사진은 유지됩니다. 잠시 후 다시 시도해 주세요.');}
 }
