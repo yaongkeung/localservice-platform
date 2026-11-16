@@ -7,6 +7,7 @@ import {seed} from '../scripts/seed.mjs';
 import {digest,randomToken} from '../src/auth.js';
 import {seoulDate} from '../src/photos.js';
 import {processPhoto} from '../src/image-processing.js';
+import {preparePhoto} from '../scripts/prepare-photo.mjs';
 import jpeg from 'jpeg-js';
 const origin='https://gongsa8282.xyz';
 async function fixture(){
@@ -21,12 +22,22 @@ async function fixture(){
  const create=async(overrides={},as=2)=>{const response=await call('/admin/posts/new/',{as,form:{title:'시험용 작업 내용 '+randomToken().slice(0,8),summary:'공개 흐름과 사진을 검증하는 테스트용 작업 내용입니다.',content:'관리 화면에서 저장한 고유한 작업 과정입니다. 수전 주변을 살펴보고 물기를 정리한 후 점검할 부분을 확인했습니다. 실제 작업 실적을 나타내는 글이 아니며 자동 검증을 위해 작성했습니다. '+randomToken(),company_id:1,region_id:2,service_id:1,post_type:'작업사례',...overrides}});assert.equal(response.status,303,await response.clone().text());return Number(response.headers.get('location').split('/')[3]);};
  const row=id=>DB.prepare('SELECT * FROM posts WHERE id=?').bind(id).first();
  const transition=async(id,action,as=1)=>call(`/admin/posts/${id}/status/`,{as,form:{action,version:(await row(id)).version}});
- const upload=async(id,bytes,as=2,extra={})=>{const body=new FormData();body.set('photo',new Blob([bytes],{type:'image/jpeg'}),'untrusted-name.jpg');body.set('alt_text','샘플 연결부 점검 사진');body.set('csrf',auth[as].csrf);body.set('version',String((await row(id)).version));for(const [k,v]of Object.entries(extra))body.set(k,v);return call(`/admin/posts/${id}/photos/`,{as,body});};
+ const upload=async(id,bytes,as=2,extra={})=>{let thumb;try{thumb=preparePhoto(bytes).thumb;}catch{thumb=bytes;}const body=new FormData();body.set('thumbnail',new Blob([thumb],{type:'image/jpeg'}),'preview.jpg');body.set('photo',new Blob([bytes],{type:'image/jpeg'}),'untrusted-name.jpg');body.set('alt_text','샘플 연결부 점검 사진');body.set('csrf',auth[as].csrf);body.set('version',String((await row(id)).version));for(const [k,v]of Object.entries(extra))body.set(k,v);return call(`/admin/posts/${id}/photos/`,{as,body});};
  const changePhoto=async(id,image,action,as=2,version)=>call(`/admin/posts/${id}/photos/`,{as,form:{image_id:image,action,version:version??(await row(id)).version}});
  return {DB,objects,PHOTOS,auth,call,create,row,transition,upload,changePhoto};
 }
 const photo=()=>readFile(new URL('../public/media/plumbing-cover.jpg',import.meta.url));
 const company={name:'시험 설비 업체',description:'자동 검증을 위해 등록한 출장 설비 업체입니다.',area:'서울 마포구',hours:'평일 09:00~18:00',phone:'',status:'ACTIVE',sample:'1'};
+
+test('JPEG sanitation preserves pixels, removes metadata and trailing payloads, and requires a matching thumbnail',async()=>{
+ const original=await photo(),pair=preparePhoto(original),privateText=Buffer.from('PRIVATE-GPS-COMMENT'),metadata=Buffer.concat([Buffer.from([255,225,0,privateText.length+6,255,217]),privateText,Buffer.from([0,0])]);
+ const supplied=Buffer.concat([original.subarray(0,2),metadata,original.subarray(2),Buffer.from('TRAILING-PRIVATE-PAYLOAD')]);
+ const cleaned=processPhoto(supplied,pair.thumb);
+ assert.deepEqual(jpeg.decode(cleaned.cover).data,jpeg.decode(original).data);
+ assert.ok(!Buffer.from(cleaned.cover).includes(privateText));assert.ok(!Buffer.from(cleaned.cover).includes(Buffer.from('TRAILING-PRIVATE-PAYLOAD')));
+ assert.throws(()=>processPhoto(original),/사진/);assert.throws(()=>processPhoto(original,original),/사진/);assert.throws(()=>processPhoto(original.subarray(0,-2),pair.thumb),/사진/);
+ const invalid=Buffer.from(original),marker=invalid.indexOf(Buffer.from([255,219]));assert.ok(marker>=0);invalid[marker+2]=0;invalid[marker+3]=2;assert.throws(()=>processPhoto(invalid,pair.thumb),/사진/);
+});
 test('company management validates confirmed phones, reflects edits and hides inactive companies',async()=>{
  const f=await fixture();try{
   assert.equal((await f.call('/admin/companies/',{as:2})).status,403);
@@ -93,7 +104,7 @@ test('photo limit and reversible exclusion are enforced transactionally on uploa
   assert.equal((await f.DB.prepare('SELECT COUNT(*) AS n FROM post_images WHERE post_id=? AND excluded=0').bind(id).first()).n,8);
  }finally{f.DB.close();}
 });
-test('upload re-encodes pixels, strips metadata and keeps drafts private; publication exposes only active images',async()=>{
+test('upload sanitizes JPEG containers, strips metadata and keeps drafts private; publication exposes only active images',async()=>{
  const f=await fixture();try{
   const id=await f.create(),bytes=await photo(),metadata=new TextEncoder().encode('Exif\0\0PRIVATE-GPS-TEST'),segment=new Uint8Array(metadata.length+4),payload=new Uint8Array(bytes.length+segment.length);
   segment.set([255,225,(metadata.length+2)>>8,(metadata.length+2)&255]);segment.set(metadata,4);payload.set(bytes.subarray(0,2));payload.set(segment,2);payload.set(bytes.subarray(2),segment.length+2);
@@ -134,7 +145,7 @@ test('invalid uploads, missing CSRF, wrong ownership and races never leave expos
   assert.equal((await f.call('/uploads/1/not-a-key.jpg')).status,404);
  }finally{f.DB.close();}
 });
-test('decoder bounds oversized images and image responses revoke access when the company is disabled',async()=>{
+test('JPEG validation bounds oversized images and image responses revoke access when the company is disabled',async()=>{
  assert.throws(()=>processPhoto(new Uint8Array([255,216,255,0])),/사진/);
  const oversized=new Uint8Array(await photo());let found=false;for(let i=0;i<oversized.length-8;i++)if(oversized[i]===255&&[192,193,194].includes(oversized[i+1])){oversized[i+5]=255;oversized[i+6]=255;oversized[i+7]=255;oversized[i+8]=255;found=true;break;}assert.ok(found);
  assert.throws(()=>processPhoto(oversized),/사진/);

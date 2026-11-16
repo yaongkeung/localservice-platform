@@ -6,6 +6,7 @@ import {unstable_splitSqlQuery} from 'wrangler';
 import {seed} from './seed.mjs';
 import {hashPassword,randomToken} from '../src/auth.js';
 import {localMedia} from './local-media.mjs';
+import {preparePhoto} from './prepare-photo.mjs';
 const root=resolve('.local');await mkdir(root,{recursive:true});const directory=await mkdtemp(join(root,'runtime-'));
 const origin='https://gongsa8282.xyz',password=randomToken(),options=convertV4MiniflareOptions({modules:true,scriptPath:resolve('.local/worker-build/worker.js'),compatibilityDate:'2026-11-13',cf:false,bindings:{APP_ENV:'staging'},host:'127.0.0.1',port:0,d1Databases:{DB:'localservice-runtime-db'},r2Buckets:['PHOTOS'],resourcePersistencePath:directory,serviceBindings:{ASSETS:request=>localMedia.fetch(request)}});
 let mf,checks=0;
@@ -25,7 +26,7 @@ try{
  const values={csrf,company_id:1,contract_id:1,service_id:1,region_mode:'catalog',province:'43',district:'43113',dong:'43113310',post_type:'작업사례',title:'Workers 실행 환경에서 검증한 샘플 글',summary:'D1과 R2를 실제 Workers 엔진에서 연결해 검증하는 샘플입니다.',content:'실제 Workers 실행 엔진에서 지역 선택과 글 저장, 사진 등록과 검수 및 공개를 확인합니다. 이 내용은 실적이 아닌 실행 환경 검증을 위해 작성한 샘플 콘텐츠입니다.'};
  response=await call('/admin/posts/new/',{cookie,form:values});assert.equal(response.status,303,await response.clone().text());const id=Number(response.headers.get('location').split('/')[3]);checks++;
  const post=()=>DB.prepare('SELECT * FROM posts WHERE id=?').bind(id).first();
- const form=new FormData();form.set('photo',new Blob([await readFile('public/media/plumbing-cover.jpg')],{type:'image/jpeg'}),'photo.jpg');form.set('alt_text','실행 환경 시험용 배관 사진');form.set('csrf',csrf);form.set('version',String((await post()).version));
+ const pair=preparePhoto(await readFile('public/media/plumbing-cover.jpg')),form=new FormData();form.set('thumbnail',new Blob([pair.thumb],{type:'image/jpeg'}),'preview.jpg');form.set('photo',new Blob([pair.cover],{type:'image/jpeg'}),'photo.jpg');form.set('alt_text','실행 환경 시험용 배관 사진');form.set('csrf',csrf);form.set('version',String((await post()).version));
  const encoded=new Request(origin,{method:'POST',body:form}),started=performance.now();
  response=await call('/admin/posts/'+id+'/photos/',{cookie,body:await encoded.arrayBuffer(),headers:{'content-type':encoded.headers.get('content-type')}});assert.equal(response.status,303,await response.clone().text());checks++;const uploadMs=Math.round(performance.now()-started);
  const image=await DB.prepare('SELECT * FROM post_images WHERE post_id=?').bind(id).first();assert.equal((await call(image.storage_key)).status,404);assert.equal((await call(image.storage_key,{cookie})).status,200);checks++;

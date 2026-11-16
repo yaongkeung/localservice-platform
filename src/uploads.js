@@ -41,11 +41,12 @@ export async function photoActions(request,env,user,id){
    statements.push(db.prepare(sql).bind(op==='representative'?id:op==='exclude'?1:0,image.id,id,token));
   }else{
    if(!env.PHOTOS)throw Error('사진 저장소 연결이 필요합니다.');
-   const file=form.get('photo'),alt=(form.get('alt_text')||'').trim();
+   const file=form.get('photo'),thumbnail=form.get('thumbnail'),alt=(form.get('alt_text')||'').trim();
    if(!file||typeof file.arrayBuffer!=='function'||!file.size||file.size>5*1024*1024)throw Error('5MB 이하의 변환된 JPG 사진을 등록해 주세요.');
+   if(!thumbnail||typeof thumbnail.arrayBuffer!=='function'||!thumbnail.size||thumbnail.size>256*1024)throw Error('사진 변환이 필요합니다. 페이지를 새로 열고 사진을 다시 선택해 주세요.');
    if(alt.length<2||alt.length>160)throw Error('사진 설명은 2~160자로 입력해 주세요.');
    if((await first(db,'SELECT COUNT(*) AS n FROM post_images WHERE post_id=? AND excluded=0',id)).n>=8)throw Error('사진은 최대 8장까지 등록할 수 있습니다.');
-   const {cover,thumb,width,height}=processPhoto(new Uint8Array(await file.arrayBuffer()));
+   const {cover,thumb,width,height}=processPhoto(new Uint8Array(await file.arrayBuffer()),new Uint8Array(await thumbnail.arrayBuffer()));
    const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',cover)),b=>b.toString(16).padStart(2,'0')).join('');
    if(await first(db,'SELECT id FROM post_images WHERE content_hash=? AND excluded=0',hash))throw Error('이미 등록된 사진과 동일합니다. 다른 작업 사진을 선택해 주세요.');
    const key=id+'/'+randomToken();savedKeys=[key+'-cover.jpg',key+'-thumb.jpg'];

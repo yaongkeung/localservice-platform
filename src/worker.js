@@ -93,5 +93,5 @@ async function handle(request,env={}){
 }
 export default {async fetch(request,env={}){
  try{const response=await handle(request,env);if(env.APP_ENV!=='staging')return response;const headers=new Headers(response.headers);headers.set('x-robots-tag','noindex, nofollow');return new Response(response.body,{status:response.status,statusText:response.statusText,headers});}
- catch(error){console.error('Worker request failed',error?.name||'Error');return new Response('서비스 준비 중입니다. 잠시 후 다시 시도해 주세요.',{status:503,headers:{'cache-control':'no-store','x-robots-tag':'noindex, nofollow'}});}
+ catch(error){const message=String(error?.message||''),category=/D1|database/i.test(message)?'database':/body|stream|formdata/i.test(message)?'request_stream':/memory|CPU|allocation|heap/i.test(message)?'resource':'other';console.error('Worker request failed',error?.name||'Error',category);return new Response('서비스 준비 중입니다. 잠시 후 다시 시도해 주세요.',{status:503,headers:{'cache-control':'no-store','x-robots-tag':'noindex, nofollow'}});}
 }};

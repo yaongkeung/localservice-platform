@@ -1,20 +1,42 @@
-import jpeg from 'jpeg-js';
-function resize(image,maxWidth,maxHeight){
- const scale=Math.min(1,maxWidth/image.width,maxHeight/image.height),width=Math.max(1,Math.round(image.width*scale)),height=Math.max(1,Math.round(image.height*scale));
- const data=new Uint8Array(width*height*4);
- for(let y=0;y<height;y++)for(let x=0;x<width;x++){
-  const sx=Math.min(image.width-1,(x+.5)/scale-.5),sy=Math.min(image.height-1,(y+.5)/scale-.5),x0=Math.max(0,Math.floor(sx)),y0=Math.max(0,Math.floor(sy)),x1=Math.min(image.width-1,x0+1),y1=Math.min(image.height-1,y0+1),fx=sx-x0,fy=sy-y0;
-  const dst=(y*width+x)*4;
-  for(let c=0;c<3;c++)data[dst+c]=Math.round((1-fy)*((1-fx)*image.data[(y0*image.width+x0)*4+c]+fx*image.data[(y0*image.width+x1)*4+c])+fy*((1-fx)*image.data[(y1*image.width+x0)*4+c]+fx*image.data[(y1*image.width+x1)*4+c]));
-  data[dst+3]=255;
+// Validate JPEG containers without allocating decoded pixels in Workers.
+// APP/COM metadata (including EXIF/GPS) and bytes after EOI are discarded.
+export function sanitizeJpeg(bytes,maxWidth,maxHeight,maxBytes){
+ const invalid=()=>{throw Error('사진을 읽지 못했습니다. 사진을 다시 선택해 등록해 주세요.');};
+ if(!(bytes instanceof Uint8Array)||bytes.length<4||bytes.length>maxBytes||bytes[0]!==255||bytes[1]!==216)invalid();
+ const pieces=[bytes.subarray(0,2)];let at=2,width=0,height=0,frame=false,quantization=false,huffman=false,scan=false,scanBytes=0,ended=false;
+ while(at<bytes.length){
+  const start=at;if(bytes[at++]!==255)invalid();while(bytes[at]===255)at++;
+  if(at>=bytes.length)invalid();const marker=bytes[at++];
+  if(marker===217){if(!frame||!scan||!scanBytes)invalid();pieces.push(new Uint8Array([255,217]));ended=true;break;}
+  if(at+2>bytes.length)invalid();const length=(bytes[at]<<8)|bytes[at+1],end=at+length;
+  if(length<2||end>bytes.length)invalid();
+  if(marker>=224&&marker<=239||marker===254){at=end;continue;}
+  if(marker===192||marker===194){
+   if(frame||length<11||bytes[at+2]!==8)invalid();height=(bytes[at+3]<<8)|bytes[at+4];width=(bytes[at+5]<<8)|bytes[at+6];const components=bytes[at+7];
+   if(!width||!height||width>maxWidth||height>maxHeight||![1,3].includes(components)||length!==8+components*3)invalid();frame=true;
+  }else if(marker===219){
+   if(length<67)invalid();
+   let cursor=at+2;while(cursor<end){const table=bytes[cursor++],precision=table>>4;if(precision>1||(table&15)>3)invalid();cursor+=64*(precision+1);}if(cursor!==end)invalid();quantization=true;
+  }else if(marker===196){
+   if(length<19)invalid();
+   let cursor=at+2;while(cursor<end){const table=bytes[cursor++];if(table>>4>1||(table&15)>3||cursor+16>end)invalid();let count=0;for(let i=0;i<16;i++)count+=bytes[cursor++];if(!count||count>256)invalid();cursor+=count;}if(cursor!==end)invalid();huffman=true;
+  }else if(marker===221){if(length!==4)invalid();}
+  else if(marker===218){const components=bytes[at+2];if(!frame||!quantization||!huffman||![1,2,3].includes(components)||length!==6+components*2)invalid();scan=true;}
+  else invalid();
+  pieces.push(bytes.subarray(start,end));at=end;
+  if(marker===218){
+   const scanStart=at;
+   while(true){const next=bytes.indexOf(255,at);if(next<0||next+1>=bytes.length)invalid();const code=bytes[next+1];
+    if(code===0||code>=208&&code<=215){at=next+2;continue;}if(code===255){at=next+1;continue;}at=next;break;
+   }
+   scanBytes+=at-scanStart;pieces.push(bytes.subarray(scanStart,at));
+  }
  }
- return {data,width,height};
+ if(!ended)invalid();const output=new Uint8Array(pieces.reduce((total,part)=>total+part.length,0));let offset=0;for(const part of pieces){output.set(part,offset);offset+=part.length;}
+ return {bytes:output,width,height};
 }
-export function processPhoto(bytes){
- if(bytes.length<4||bytes[0]!==255||bytes[1]!==216||bytes[2]!==255)throw Error('사진을 JPG 형식으로 선택해 주세요. PNG는 화면에서 자동 변환합니다.');
- let decoded;try{decoded=jpeg.decode(bytes,{useTArray:true,formatAsRGBA:true,tolerantDecoding:false,maxResolutionInMP:4,maxMemoryUsageInMB:64});}catch{throw Error('사진을 읽지 못했습니다. 정상적인 JPG 사진이나 더 작은 사진으로 다시 시도해 주세요.');}
- if(!decoded.width||!decoded.height||decoded.width*decoded.height>4000000)throw Error('사진 크기를 줄인 뒤 다시 등록해 주세요.');
- // Re-encode pixels only: EXIF/GPS, comments, original name and appended payloads are never retained.
- const resized=resize(decoded,1280,1280),cover=jpeg.encode(resized,80).data,thumb=jpeg.encode(resize(decoded,240,160),75).data;
- return {cover,thumb,width:resized.width,height:resized.height};
+export function processPhoto(coverBytes,thumbnailBytes){
+ const cover=sanitizeJpeg(coverBytes,1280,1280,5*1024*1024),thumb=sanitizeJpeg(thumbnailBytes,240,160,256*1024),scale=Math.min(1,240/cover.width,160/cover.height);
+ if(thumb.width!==Math.max(1,Math.round(cover.width*scale))||thumb.height!==Math.max(1,Math.round(cover.height*scale)))throw Error('사진과 미리보기 크기가 맞지 않습니다. 사진을 다시 선택해 주세요.');
+ return {cover:cover.bytes,thumb:thumb.bytes,width:cover.width,height:cover.height};
 }
