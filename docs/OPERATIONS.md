@@ -32,4 +32,13 @@ Miniflare 5의 `resourcePersistencePath`를 사용해 두 인스턴스 사이의
 
 `wrangler.staging.example.jsonc`는 **배포 가능한 실제 설정이 아닌 예시**입니다. 실제 확인한 계정 ID, 새 프로젝트 전용 D1 ID/이름, 비공개 R2 버킷을 넣은 `wrangler.staging.jsonc`는 Git에서 제외합니다. `npm run deploy:check -- wrangler.staging.jsonc`는 placeholder·다른 Worker·기존 도메인 route·바인딩 누락을 차단하는 정적 검사입니다. 통과해도 소유권·권한·버킷 비공개 상태나 실제 연결까지 검증한 것은 아닙니다.
 
-첫 시험 Worker는 `localservice-platform-staging`과 별도 workers.dev 주소를 사용합니다. `gongsa8282.xyz`와 기존 localsite-platform의 Worker/DB/버킷은 이 단계에서 연결하거나 변경하지 않습니다. 실제 배포 순서는 Cloudflare 로그인 확인 → 실제 자원/소유권 확인 → 새 시험 자원과 운영 계정 준비 → migration 적용 → 전용 주소 배포 → health/인증/업로드/게시·부하/백업 복구 확인 → 도메인 전환 검토입니다. 현재 원격 작업은 아직 수행하지 않았습니다.
+첫 시험 Worker는 `localservice-platform-staging`과 별도 workers.dev 주소를 사용합니다. `gongsa8282.xyz`와 기존 localsite-platform의 Worker/DB/버킷은 이 단계에서 연결하거나 변경하지 않습니다. 실제 배포 순서는 Cloudflare 로그인 확인 → 실제 자원/소유권 확인 → 새 시험 자원과 운영 계정 준비 → migration 적용 → 전용 주소 배포 → health/인증/업로드/게시·부하/백업 복구 확인 → 도메인 전환 검토입니다.
+
+### 2026-11-16 원격 준비 결과
+
+- 사용자가 직접 OAuth 로그인을 완료했고 자격증명은 Windows OS 키링에 저장했습니다. Git에는 토큰을 저장하지 않습니다.
+- 기존 D1 목록이 비어 있고 같은 이름의 시험 Worker가 없는 것을 확인한 후 `localservice-platform-staging-db`를 APAC에 새로 생성했습니다. migration 6개 적용, 샘플 업체/글/사진 관계 각 3개 저장과 외래키 검사를 통과했습니다. 원격 관리자는 아직 발급하지 않았습니다.
+- 원격 D1 SQL 내보내기를 `.local/`의 새 SQLite 파일로 복원하여 quick_check/외래키/migration/샘플 수량을 확인했습니다. 원격 DB를 되돌린 시험이나 정기 백업 정책 검증은 아닙니다. SQL 백업은 공개하거나 커밋하지 않습니다.
+- 실제 계정/DB ID와 예정된 전용 버킷 이름을 넣은 무시 파일 `wrangler.staging.jsonc`가 배포 전 정적 검사를 통과했습니다. 버킷은 아직 존재하지 않습니다.
+- R2 API는 `Please enable R2 through the Cloudflare Dashboard`(10042)를 반환했습니다. 사용자가 [R2 신청 화면](https://dash.cloudflare.com/?to=/:account/r2/overview)에서 이용 신청·결제 정보·약관을 직접 확인해야 합니다. [Cloudflare 시작 안내](https://developers.cloudflare.com/r2/get-started/)에 무료 포함량과 사용량 기준 과금이 설명되어 있습니다.
+- R2 활성화 후 전용 비공개 버킷 생성 → 운영 계정 준비 → 시험 Worker 배포와 실제 HTTP 검증을 이어갑니다. 현재 Worker/도메인 배포나 기존 자원 변경은 수행하지 않았습니다.
