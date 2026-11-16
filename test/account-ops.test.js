@@ -18,9 +18,11 @@ async function fixture(){
  const signin=async(id=1,key=password)=>{const response=await call('/admin/login/',{form:{login_id:'user'+id,password:key}});assert.equal(response.status,303);const cookie=response.headers.get('set-cookie').split(';')[0],html=await(await call('/admin/account/',{cookie})).text();return {cookie,csrf:html.match(/name="csrf" value="([a-f0-9]+)"/)[1]};};
  return {DB,call,signin};
 }
-test('changing a password reauthenticates, never echoes secrets, revokes every session and logs metadata only',async()=>{
+test('seven-character password changes validate bounds, reauthenticate and revoke sessions without echoing secrets',async()=>{
  const f=await fixture();try{
-  const a=await f.signin(2),b=await f.signin(2),next='new-account-password-12345';
+  const a=await f.signin(2),b=await f.signin(2),next='new7pwd';
+  const accountHtml=await(await f.call('/admin/account/',{cookie:a.cookie})).text();assert.match(accountHtml,/name="new_password"[^>]*minlength="7"/);
+  for(const invalid of ['123456','x'.repeat(129)])assert.equal((await f.call('/admin/account/',{cookie:a.cookie,form:{csrf:a.csrf,current_password:password,new_password:invalid,confirm_password:invalid}})).status,409);
   const bad=await f.call('/admin/account/',{cookie:a.cookie,form:{csrf:a.csrf,current_password:'wrong-current',new_password:next,confirm_password:next}});assert.equal(bad.status,409);assert.ok(!(await bad.text()).includes('wrong-current'));
   assert.equal((await f.call('/admin/account/',{cookie:a.cookie,form:{current_password:password,new_password:next,confirm_password:next}})).status,403);
   const response=await f.call('/admin/account/',{cookie:a.cookie,form:{csrf:a.csrf,current_password:password,new_password:next,confirm_password:next}});assert.equal(response.status,200);assert.ok(!(await response.text()).includes(next));

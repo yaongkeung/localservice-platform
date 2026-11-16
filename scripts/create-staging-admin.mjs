@@ -2,12 +2,12 @@ import {spawnSync} from 'node:child_process';
 import {emitKeypressEvents} from 'node:readline';
 import {mkdir,mkdtemp,writeFile,rm} from 'node:fs/promises';
 import {resolve,join,dirname,basename} from 'node:path';
-import {hashPassword} from '../src/auth.js';
+import {hashPassword,PASSWORD_MIN_LENGTH,PASSWORD_MAX_LENGTH} from '../src/auth.js';
 import {deploymentErrors,readDeployment} from './deploy-check.mjs';
 
 const login=process.argv[2];
 if(login==='--help'){
- console.log('Usage: npm run admin:create:staging -- LOGIN_ID\nRun in your own interactive terminal after Cloudflare login. Enter a new 15–128 character password twice; input is hidden. Creates the first active staging administrator only. Existing accounts are never reset.');
+ console.log(`Usage: npm run admin:create:staging -- LOGIN_ID\nRun in your own interactive terminal after Cloudflare login. Enter a new ${PASSWORD_MIN_LENGTH}–${PASSWORD_MAX_LENGTH} character password twice; input is hidden. Creates the first active staging administrator only. Existing accounts are never reset.`);
  process.exit(0);
 }
 if(!/^[a-zA-Z0-9_-]{3,40}$/.test(login||''))throw Error('아이디는 영문·숫자·밑줄·하이픈 3~40자로 지정해 주세요.');
@@ -41,9 +41,9 @@ function passwordPrompt(label){
  });
 }
 
-console.log(`시험 사이트 최초 관리자: ${login}\n새 비밀번호는 화면에 표시하거나 저장하지 않습니다. 15~128자로 입력해 주세요.`);
+console.log(`시험 사이트 최초 관리자: ${login}\n새 비밀번호는 화면에 표시하거나 저장하지 않습니다. ${PASSWORD_MIN_LENGTH}~${PASSWORD_MAX_LENGTH}자로 입력해 주세요.`);
 let password=await passwordPrompt('새 비밀번호: '),confirmation=await passwordPrompt('한 번 더 입력: ');
-if(password.length<15||password.length>128||password!==confirmation)throw Error('비밀번호 길이 또는 두 입력이 맞지 않습니다. 계정은 생성하지 않았습니다.');
+if(password.length<PASSWORD_MIN_LENGTH||password.length>PASSWORD_MAX_LENGTH||password!==confirmation)throw Error('비밀번호 길이 또는 두 입력이 맞지 않습니다. 계정은 생성하지 않았습니다.');
 const hash=await hashPassword(password);password='';confirmation='';
 await mkdir('.local',{recursive:true});const folder=await mkdtemp(join(resolve('.local'),'admin-bootstrap-'));
 try{

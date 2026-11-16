@@ -1,5 +1,7 @@
 import {first,run} from './store.js';
 const enc=new TextEncoder();
+export const PASSWORD_MIN_LENGTH=7;
+export const PASSWORD_MAX_LENGTH=128;
 const hex=bytes=>Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
 export const randomToken=()=>hex(crypto.getRandomValues(new Uint8Array(32)));
 export const digest=async text=>hex(new Uint8Array(await crypto.subtle.digest('SHA-256',enc.encode(text))));

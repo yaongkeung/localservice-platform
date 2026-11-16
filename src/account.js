@@ -1,5 +1,5 @@
 import {first} from './store.js';
-import {hashPassword,verifyPassword,randomToken,isAdmin,sessionCookie,consumeAttempt} from './auth.js';
+import {hashPassword,verifyPassword,randomToken,isAdmin,sessionCookie,consumeAttempt,PASSWORD_MIN_LENGTH,PASSWORD_MAX_LENGTH} from './auth.js';
 import {page,csrf,e,redirect} from './admin-ui.js';
 export async function rotateCredential(db,target,actor,password,action,mustChange){
  const token=randomToken(),hash=await hashPassword(password);
@@ -20,7 +20,7 @@ export async function accountPage(request,db,user,form){
  let error='';
  if(form)try{
   const current=form.get('current_password')||'',next=form.get('new_password')||'',again=form.get('confirm_password')||'';
-  if(current.length>128||next.length<15||next.length>128)throw Error('새 비밀번호는 15~128자로 입력해 주세요.');
+  if(current.length>PASSWORD_MAX_LENGTH||next.length<PASSWORD_MIN_LENGTH||next.length>PASSWORD_MAX_LENGTH)throw Error(`새 비밀번호는 ${PASSWORD_MIN_LENGTH}~${PASSWORD_MAX_LENGTH}자로 입력해 주세요.`);
   if(next!==again)throw Error('새 비밀번호와 확인 입력이 일치하지 않습니다.');
   if(next===current)throw Error('현재 비밀번호와 다른 비밀번호를 입력해 주세요.');
   const target=await reauthenticate(db,user,current);
@@ -28,7 +28,7 @@ export async function accountPage(request,db,user,form){
   const response=page('비밀번호 변경 완료','<section class="panel"><h1>비밀번호를 변경했습니다.</h1><p>모든 기기의 기존 로그인을 종료했습니다. 새 비밀번호로 다시 로그인해 주세요.</p><a class="button" href="/admin/login/">다시 로그인</a></section>',null);
   response.headers.set('set-cookie',sessionCookie(request,'',0));return response;
  }catch(err){error=/^(계정|확인|현재|새 비밀번호)/.test(err.message)?err.message:'비밀번호를 변경하지 못했습니다. 다시 시도해 주세요.';}
- return page('내 계정',`<h1>🔐 내 계정·비밀번호</h1><p>${e(user.name)}</p>${user.must_change_password?'<p class="cms-note">임시 비밀번호로 로그인했습니다. 새 비밀번호로 변경한 뒤 관리 기능을 사용할 수 있습니다.</p>':''}${error?`<p class="cms-error" role="alert">${e(error)}</p>`:''}<section class="panel"><form method="post" action="/admin/account/">${csrf(user)}<label>현재 비밀번호<input name="current_password" type="password" autocomplete="current-password" maxlength="128" required></label><label>새 비밀번호<input name="new_password" type="password" autocomplete="new-password" minlength="15" maxlength="128" required></label><label>새 비밀번호 확인<input name="confirm_password" type="password" autocomplete="new-password" minlength="15" maxlength="128" required></label><p class="cms-help">15~128자로 설정해 주세요. 변경하면 다른 기기를 포함한 기존 로그인이 모두 종료됩니다.</p><button>비밀번호 변경</button></form></section>`,user,error?409:200);
+ return page('내 계정',`<h1>🔐 내 계정·비밀번호</h1><p>${e(user.name)}</p>${user.must_change_password?'<p class="cms-note">임시 비밀번호로 로그인했습니다. 새 비밀번호로 변경한 뒤 관리 기능을 사용할 수 있습니다.</p>':''}${error?`<p class="cms-error" role="alert">${e(error)}</p>`:''}<section class="panel"><form method="post" action="/admin/account/">${csrf(user)}<label>현재 비밀번호<input name="current_password" type="password" autocomplete="current-password" maxlength="128" required></label><label>새 비밀번호<input name="new_password" type="password" autocomplete="new-password" minlength="${PASSWORD_MIN_LENGTH}" maxlength="128" required></label><label>새 비밀번호 확인<input name="confirm_password" type="password" autocomplete="new-password" minlength="${PASSWORD_MIN_LENGTH}" maxlength="128" required></label><p class="cms-help">${PASSWORD_MIN_LENGTH}~${PASSWORD_MAX_LENGTH}자로 설정해 주세요. 변경하면 다른 기기를 포함한 기존 로그인이 모두 종료됩니다.</p><button>비밀번호 변경</button></form></section>`,user,error?409:200);
 }
 export async function resetWorkerPassword(db,user,id,form){
  if(!isAdmin(user))return page('권한 없음','<p>관리자만 재발급할 수 있습니다.</p>',user,403);
