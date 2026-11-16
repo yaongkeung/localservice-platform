@@ -8,7 +8,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{ou
 .masthead{background:white}.header{display:flex;align-items:center;gap:42px;min-height:112px}
 .brand{font-size:32px;font-weight:900;letter-spacing:-1.7px;line-height:1.1;flex-shrink:0;color:#142c48}.brand span{color:#197b98}
 .brand small{display:block;font-size:11px;letter-spacing:.4px;font-weight:500;color:#6c7888;margin-top:7px}.brand:hover{text-decoration:none}
-.brand{display:inline-flex;align-items:center;gap:9px}.brand .brand-copy{color:inherit}.brand-pin{color:#197b98;flex-shrink:0;width:30px;height:34px}
+.brand{display:inline-flex;align-items:center;gap:8px;color:#40383b}.brand .brand-copy{color:inherit}.brand-pin{flex-shrink:0;width:38px;height:42px}.brand-wordmark{display:block;width:auto;height:35px}.brand small{font-size:10px;color:#776b69;letter-spacing:.1px;margin-top:7px}
 .header-search{display:flex;border:2px solid #224666;width:470px;height:44px;background:white;min-width:0}
 .header-search input{border:0;flex:1;min-width:0;font-size:14px;border-radius:0;padding:10px 14px;background:white}
 .header-search button{width:68px;border:0;border-radius:0;background:#224666;color:white;font-size:14px;padding:8px}
@@ -107,6 +107,7 @@ footer{border-top:1px solid #d8e0e7;background:white;padding:25px 0;color:#8b96a
 .post-preview{gap:10px}.post-thumb{width:76px;height:56px;flex-basis:76px}.post-copy .board-title{font-size:13px}.post-copy .post-kind{display:block;margin-left:0;margin-top:2px}.board-category{font-size:9px;margin-bottom:3px}.post-board td{padding-top:0;padding-bottom:0}
 .sidebar-heading .color-icon{width:22px;height:22px}.service-links a{font-size:11px}.service-links .color-icon{width:24px;height:24px;font-size:15px;margin-right:3px}.card-photo{margin:-20px -20px 15px}.post-photo{margin-bottom:20px}
 .expert-guide{display:grid;grid-template-columns:100px minmax(0,1fr);gap:12px;align-items:center;text-align:left;padding:15px 16px;margin-bottom:0}.expert-portrait{width:100px;height:112px;margin:0}.expert-portrait img{width:112px;height:112px;margin-left:-6px}.expert-portrait:before{inset:20px 0 0}.expert-guide h2{font-size:16px;margin:5px 0;line-height:1.5}.expert-guide p{font-size:11px;margin:6px 0 10px}.expert-guide a{font-size:10px;padding:7px 10px}.expert-guide .guide-label{font-size:9px;letter-spacing:0}
+.brand-pin{width:34px;height:38px}.brand-wordmark{height:31px}.brand small{font-size:9px;margin-top:6px}
 }
 @media(prefers-reduced-motion:no-preference){a,button{transition:background .15s,color .15s}}
 `;
