@@ -8,7 +8,9 @@
 
 로그인/재확인 시도 제한은 DB UPSERT로 원자적으로 적용합니다. 인증 세대 번호(credential_version)를 세션에 연결하여 재발급 직전에 진행 중이던 예전 비밀번호 로그인도 이후 권한을 얻지 못하게 합니다. 자격증명 변경/재발급은 버전·활성 상태·실행자의 인증 세대를 다시 확인하는 batch로 처리하고 비밀값 없는 이력을 남깁니다. 변경과 재발급은 출처/CSRF 검사 후 실행합니다. [OWASP 인증 안내](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html)를 참고했습니다. 유출 비밀번호 목록 검사, MFA와 이메일 자동 복구는 구현하지 않았습니다.
 
-최초 로컬 SUPER_ADMIN 계정의 비밀번호를 잊으면 `npm run admin:recover -- 아이디 --confirm`으로 재발급할 수 있습니다. 이 명령은 로컬 파일에 접근 가능한 운영자가 **로컬 DB의 활성 SUPER_ADMIN만** 복구하며 기존 세션을 모두 종료합니다. 원격 D1·Cloudflare 로그인·계정 자체를 복구하지 않습니다. 원격 운영 계정의 부트스트랩/복구는 실제 시험 환경과 관리자의 신원을 확인한 후 별도 절차로 마련해야 합니다.
+최초 로컬 SUPER_ADMIN 계정의 비밀번호를 잊으면 `npm run admin:recover -- 아이디 --confirm`으로 재발급할 수 있습니다. 이 명령은 로컬 파일에 접근 가능한 운영자가 **로컬 DB의 활성 SUPER_ADMIN만** 복구하며 기존 세션을 모두 종료합니다. 원격 D1·Cloudflare 로그인·계정 자체를 복구하지 않습니다. 원격 운영 계정의 재발급/복구는 별도 운영자 확인 절차가 필요합니다.
+
+최초 시험용 원격 SUPER_ADMIN은 Cloudflare 로그인과 `wrangler.staging.jsonc` 확인 후 본인 대화형 터미널에서 `npm run admin:create:staging -- 아이디`로 생성합니다. 이 도구는 시험 Worker/APP_ENV/DB 이름/도메인 route 부재를 확인하고, 활성 관리자가 있거나 같은 아이디가 있으면 중단합니다. 새 비밀번호(15~128자)는 화면에 표시되지 않는 입력으로 두 번 직접 받으며 인자·채팅·환경변수로 받지 않습니다. 비밀번호 원문은 파일에 저장하지 않습니다. 해시만 담은 임시 SQL은 무시 폴더에 작성하고 명령 종료 후 정리합니다. DB INSERT도 활성 관리자 부재를 원자적으로 검사하므로 두 실행이 동시에 최초 관리자를 만들지 않습니다. 기존 계정의 비밀번호나 권한을 변경하지 않습니다.
 
 ## 실제 Workers 엔진 검증
 
@@ -37,8 +39,13 @@ Miniflare 5의 `resourcePersistencePath`를 사용해 두 인스턴스 사이의
 ### 2026-11-16 원격 준비 결과
 
 - 사용자가 직접 OAuth 로그인을 완료했고 자격증명은 Windows OS 키링에 저장했습니다. Git에는 토큰을 저장하지 않습니다.
-- 기존 D1 목록이 비어 있고 같은 이름의 시험 Worker가 없는 것을 확인한 후 `localservice-platform-staging-db`를 APAC에 새로 생성했습니다. migration 6개 적용, 샘플 업체/글/사진 관계 각 3개 저장과 외래키 검사를 통과했습니다. 원격 관리자는 아직 발급하지 않았습니다.
+- 기존 D1 목록이 비어 있고 같은 이름의 시험 Worker가 없는 것을 확인한 후 `localservice-platform-staging-db`를 APAC에 새로 생성했습니다. migration 6개 적용, 샘플 업체/글/사진 관계 각 3개 저장과 외래키 검사를 통과했습니다.
 - 원격 D1 SQL 내보내기를 `.local/`의 새 SQLite 파일로 복원하여 quick_check/외래키/migration/샘플 수량을 확인했습니다. 원격 DB를 되돌린 시험이나 정기 백업 정책 검증은 아닙니다. SQL 백업은 공개하거나 커밋하지 않습니다.
-- 실제 계정/DB ID와 예정된 전용 버킷 이름을 넣은 무시 파일 `wrangler.staging.jsonc`가 배포 전 정적 검사를 통과했습니다. 버킷은 아직 존재하지 않습니다.
-- R2 API는 `Please enable R2 through the Cloudflare Dashboard`(10042)를 반환했습니다. 사용자가 [R2 신청 화면](https://dash.cloudflare.com/?to=/:account/r2/overview)에서 이용 신청·결제 정보·약관을 직접 확인해야 합니다. [Cloudflare 시작 안내](https://developers.cloudflare.com/r2/get-started/)에 무료 포함량과 사용량 기준 과금이 설명되어 있습니다.
-- R2 활성화 후 전용 비공개 버킷 생성 → 운영 계정 준비 → 시험 Worker 배포와 실제 HTTP 검증을 이어갑니다. 현재 Worker/도메인 배포나 기존 자원 변경은 수행하지 않았습니다.
+- 실제 계정/DB ID와 전용 버킷 이름을 넣은 무시 파일 `wrangler.staging.jsonc`가 배포 전 정적 검사를 통과했습니다.
+- 최초 R2 API는 이용 신청 필요(10042)를 반환했고 사용자가 [R2 신청 화면](https://dash.cloudflare.com/?to=/:account/r2/overview)에서 직접 활성화를 완료했습니다. [Cloudflare 시작 안내](https://developers.cloudflare.com/r2/get-started/)에 무료 포함량과 사용량 기준 과금이 설명되어 있습니다.
+- `localservice-platform-staging-photos`를 APAC/Standard로 생성했습니다. `r2.dev` 직접 공개는 꺼져 있고 연결된 사용자 도메인은 없습니다. `localservice-platform-staging` Worker에 DB/PHOTOS/ASSETS와 APP_ENV=staging을 연결했습니다.
+- 시험 주소: https://localservice-platform-staging.ogog7401.workers.dev . 배포 버전 `9f4317c5-8769-403d-bc90-fcfa4955e670`. 기존 `gongsa8282.xyz`·Worker·기존 저장소는 변경하지 않았습니다.
+- 실제 HTTPS에서 health 200, 메인·지역·업종·상세·업체·검색·정적 사진 200, 비로그인 관리자 303과 staging의 noindex/nofollow를 확인했습니다. 모바일 브라우저에서 썸네일과 상세/업체 링크 이동도 확인했습니다.
+- 임시 무작위 자격증명의 검증 계정으로 로그인 → 전국 읍면동 글 저장 → JPEG 업로드 → 미공개 사진의 비로그인 404/인증 200 → 검수·승인·공개 → 글/사진/피드 반영 → 공개 해제·사진 차단·이력 → 같은 URL 재공개 → 최종 공개 해제를 통과했습니다. 도구의 첫 사진 주소 판독 오류를 수정한 후 전체 흐름을 재실행했습니다. 두 시험 글은 DRAFT, 임시 계정은 DISABLED/세션 폐기/비밀번호 해시 제거, 시험 사진은 제외 상태로 보관했습니다. 샘플 공개 글 3개는 유지했습니다.
+- 원격 D1 SQL과 업로드 이미지 두 쌍(커버/썸네일 총 4객체)을 `.local/backups/`의 새 폴더에 백업했습니다. 별도 `.local/restores/` SQLite 복원에서 quick_check/외래키/migration 6개/글 5개와 커버 content_hash 일치 및 모든 사진 파일 SHA-256을 확인했습니다. 원격 데이터를 덮어쓰거나 원격 복구를 실행하지 않았습니다. 정기 백업/보존 정책과 최대 크기·동시 부하·계약 수량의 원격 경합은 미검증입니다.
+- 운영자가 사용할 최초 관리자 설정은 위 직접 입력 도구로 진행합니다. 이후 실제 업체 연락처 검증, 원격 부하/복구·운영 정책 확인과 도메인 전환을 진행해야 합니다.
