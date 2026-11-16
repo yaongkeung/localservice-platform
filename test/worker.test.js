@@ -39,7 +39,7 @@ test('board home has no map, credentials endpoint, SDK permissions or geometry',
  const js=await(await get('/assets/portal.js')).text();assert.doesNotMatch(js,/naver|ncpKeyId|map-config|geometry/);
  assert.equal((await get('/assets/map-config.json')).status,404);assert.equal((await get('/maps/provinces.json')).status,404);
 });
-test('national dropdowns contain every coded township with no geometric payload',async()=>{
+test('national dropdowns group numbered dongs and preserve eup/myeon without geometry',async()=>{
  const index=await(await get('/assets/regions.json')).json();assert.equal(index.provinces.length,16);assert.equal(index.districts.length,256);
  let total=0,towns=0,townships=0,dongs=0;const seen=new Set();
  for(const district of index.districts){
@@ -47,7 +47,8 @@ test('national dropdowns contain every coded township with no geometric payload'
   const items=await response.json();total+=items.length;
   for(const item of items){assert.deepEqual(Object.keys(item).sort(),['code','name']);assert.ok(item.code.startsWith(district.code));assert.ok(!seen.has(item.code));seen.add(item.code);towns+=Number(/읍$/.test(item.name));townships+=Number(/면$/.test(item.name));dongs+=Number(/동$/.test(item.name));}
  }
- assert.equal(total,3559);assert.ok(towns>200&&townships>1000&&dongs>2000);
+ assert.equal(total,2867);assert.equal(towns,238);assert.equal(townships,1165);assert.equal(dongs,1464);
+ const eunpyeong=await(await get('/assets/regions/11380.json')).json();assert.deepEqual(eunpyeong.filter(x=>x.name.startsWith('응암')),[{code:'11380:응암동',name:'응암동'}]);
  assert.equal((await get('/assets/regions/99999.json')).status,404);
  assert.equal(await(await get('/assets/regions/11470.json','HEAD')).text(),'');
  const selected=await(await get('/?province=41&district=41820&dong=41820250')).text();assert.match(selected,/<option value="41820250" selected>가평읍<\/option>/);

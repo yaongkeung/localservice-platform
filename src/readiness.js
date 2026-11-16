@@ -1,4 +1,4 @@
-export const currentMigration='0009_photo_drafts.sql';
+export const currentMigration='0010_township_groups.sql';
 export function storageReady(env){return typeof env.DB?.prepare==='function'&&typeof env.DB?.batch==='function'&&typeof env.PHOTOS?.get==='function'&&typeof env.PHOTOS?.put==='function'&&typeof env.ASSETS?.fetch==='function';}
 export async function health(request,env){
  let ready=false;

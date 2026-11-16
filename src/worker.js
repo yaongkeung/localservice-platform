@@ -1,4 +1,6 @@
 import {storageReady,health} from './readiness.js';
+import {townshipOptions,matchesTownship} from './township-groups.js';
+import {titleFor,editorClient} from './editor-title.js';
 import {browserScript} from './browser-script.js';
 import {placeCard} from './place.js';
 import {postContent} from './post-content.js';
@@ -23,7 +25,7 @@ function render(url,data){
 const {regions,services,companies,published,postImages:images}=data;
 let breadcrumbItems=[];
 const shell=options=>pageShell({...options,breadcrumbs:breadcrumbItems,image:options.image||(options.path==='/'?postImage(published.find(p=>postImage(p.id,images))?.id,images):undefined),sampleOnly:companies.every(c=>c.sample)&&published.every(p=>p.sample)});
-const regionIds=region=>regions.filter(r=>r.id===region.id||r.slug.startsWith(region.slug+'/')).map(r=>r.id);
+const regionIds=region=>regions.filter(r=>r.id===region.id||r.slug.startsWith(region.slug+'/')||region.group_key&&matchesTownship(r.group_key||r.admin_code,region.group_key)).map(r=>r.id);
 const region=p=>regions.find(r=>r.id===p.region_id);
 const service=p=>services.find(s=>s.id===p.service_id);
 const company=p=>companies.find(c=>c.id===p.company_id);
@@ -48,7 +50,7 @@ const path=url.pathname;const params=url.searchParams;
     const q=(params.get('q')||'').trim().slice(0,100);
     if(params.get('province'))list=list.filter(p=>provinceForPost(p,regions)===params.get('province'));
     if(params.get('district'))list=list.filter(p=>districtForPost(p,regions)===params.get('district'));
-    if(params.get('dong'))list=list.filter(p=>adminCodeForPost(p,regions)===params.get('dong'));
+    if(params.get('dong'))list=list.filter(p=>matchesTownship(adminCodeForPost(p,regions),params.get('dong')));
     if(params.get('region'))list=r?list.filter(p=>regionIds(r).includes(p.region_id)):[];
     if(params.get('service'))list=s?list.filter(p=>descendantServiceIds(s,services).includes(p.service_id)):[];
     if(params.get('kind'))list=list.filter(p=>p.post_type===postKinds[params.get('kind')]);
@@ -81,11 +83,12 @@ async function handle(request,env={}){
   }
   let body,type;
   if(url.pathname==='/assets/cms-regions.js'){body=browserScript(cmsRegionClient);type='text/javascript';}
+  else if(url.pathname==='/assets/editor.js'){body=browserScript(editorClient,{titleFor});type='text/javascript';}
   else if(url.pathname==='/assets/upload.js'){body=browserScript(uploadClient);type='text/javascript';}
   else if(url.pathname==='/assets/portal.js'){body=browserScript(portalClient);type='text/javascript';}
   else if(url.pathname==='/assets/regions.json'){body=JSON.stringify({provinces:regionData.provinces,districts:regionData.districts});type='application/json';}
   else if(/^\/assets\/regions\/\d{5}\.json$/.test(url.pathname)){
-    const items=regionData.dongs[url.pathname.split('/').at(-1).slice(0,5)];
+    const code=url.pathname.split('/').at(-1).slice(0,5),items=regionData.dongs[code]?townshipOptions(code):null;
     if(!items)return new Response('Not found',{status:404});
     body=JSON.stringify(items);type='application/json';
   }

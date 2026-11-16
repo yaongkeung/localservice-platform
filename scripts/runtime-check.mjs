@@ -21,7 +21,7 @@ try{
  assert.equal((await mf.dispatchFetch(origin+'/healthz',{redirect:'manual'})).status,200);checks++;
  // Execute bundled browser scripts, including nested handlers. Source imports and
  // HTTP status checks alone miss build-time helper dependencies in serialized code.
- for(const path of ['/assets/upload.js','/assets/cms-regions.js']){
+ for(const path of ['/assets/upload.js','/assets/cms-regions.js','/assets/editor.js']){
   const select={value:'catalog',addEventListener(){},replaceChildren(){},append(){}};
   const group={querySelector:()=>select};
   const document={querySelector:()=>null,querySelectorAll:selector=>selector==='[data-cms-regions]'?[group]:[]};

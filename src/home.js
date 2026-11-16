@@ -3,6 +3,7 @@ import {registeredCompanies} from './companies.js';
 import {brandMark,siteName} from './brand.js';
 import {sampleDataset} from './store.js';
 import {regionFilter} from './regions.js';
+import {groupForCode} from './township-groups.js';
 import {regionData} from './regions-data.js';
 import {postImage,dailyHighlights,seoulDate} from './photos.js';
 const e=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -40,7 +41,7 @@ export function homePage(params,posts,data=sampleDataset()){
   const kind=postKinds[params.get('kind')]||'전체 글';
   const province=regionData.provinces.find(p=>p.code===params.get('province'));
   const district=regionData.districts.find(d=>d.code===params.get('district'));
-  const dong=(regionData.dongs[district?.code]||[]).find(d=>d.code===params.get('dong'));
+  const dong=groupForCode(params.get('dong'));
   const place=[province?.name,district?.name,dong?.name].filter(Boolean).join(' ')||'전국';
   const quickProvinces=['11','26','27','28','41','43','48','50'].map(code=>regionData.provinces.find(p=>p.code===code)).filter(Boolean);
   return `<div class="wrap portal"><div class="portal-intro">${icon('👋','lilac')}<div><h1>우리 동네의 작업 이야기</h1><p>지역과 업종을 골라 필요한 정보를 찾아보세요.</p></div><span class="intro-flower" aria-hidden="true">✦</span></div>

@@ -1,3 +1,4 @@
+import {townshipName} from './township-groups.js';
 import * as sample from './data.js';
 import {postImages,seoulDate} from './photos.js';
 export const sampleDataset=()=>({...sample,postImages});
@@ -12,5 +13,5 @@ export async function publicDataset(db){
   all(db,"SELECT i.* FROM post_images i JOIN posts p ON p.id=i.post_id WHERE p.status='PUBLISHED' AND p.published_at<=? AND i.excluded=0",seoulDate())
  ]);
  const visible=new Set();for(const post of posts){let region=regions.find(r=>r.id===post.region_id);while(region&&!visible.has(region.id)){visible.add(region.id);region=regions.find(r=>r.id===region.parent_id);}}
- return {regions:regions.filter(r=>visible.has(r.id)),services,companies:companies.map(c=>({...c,phone:c.phone_verified?c.phone:null})),published:posts.map(decodePost),postImages:images.map(i=>({...i,thumbnail_key:i.thumbnail_key||i.storage_key,sample:!!i.sample}))};
+ return {regions:regions.filter(r=>visible.has(r.id)).map(r=>({...r,name:townshipName(r.name)})),services,companies:companies.map(c=>({...c,phone:c.phone_verified?c.phone:null})),published:posts.map(decodePost),postImages:images.map(i=>({...i,thumbnail_key:i.thumbnail_key||i.storage_key,sample:!!i.sample}))};
 }
