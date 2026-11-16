@@ -46,7 +46,7 @@ export function homePage(params,posts,data=sampleDataset()){
   return `<div class="wrap portal"><div class="portal-intro">${icon('👋','lilac')}<div><h1>우리 동네의 작업 이야기</h1><p>지역과 업종을 골라 필요한 정보를 찾아보세요.</p></div><span class="intro-flower" aria-hidden="true">✦</span></div>
     <div class="portal-layout"><div class="portal-content">
       <section class="filter-panel" id="regions" aria-labelledby="region-heading"><div class="filter-heading"><h2 id="region-heading">${icon('📍','peach')}지역별 찾기</h2><span>전국 시·도 · 시·군·구 · 읍·면·동</span></div>${regionFilter(params)}</section>
-      ${registeredCompanies(data.companies,params,data.companyImages)}
+      ${registeredCompanies(data.companies,params,data.published,data.postImages)}
       ${photoStrip(data)}
       <section class="board-section" id="cases" aria-labelledby="board-heading"><div class="board-heading"><div><span class="board-kicker">${e(place)}</span><h2 id="board-heading">${e(kind)}</h2></div><div class="board-summary"><span>최신순 · ${posts.every(p=>p.sample)?'샘플 ':''}${posts.length}건</span>${params.size?a('/#cases','필터 초기화','reset-link'):''}</div></div>
         <nav class="service-tabs" aria-label="업종 필터">${[{slug:'',name:'전체 업종',icon:'✨',tone:'lilac'},...services].map(s=>`<a href="${e(filterUrl(params,{service:s.slug}))}" ${params.get('service')===s.slug||(!s.slug&&!params.get('service'))?'aria-current="page"':''}>${icon(s.icon,s.tone)}${e(s.name)}</a>`).join('')}</nav>

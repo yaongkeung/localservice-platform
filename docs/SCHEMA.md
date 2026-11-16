@@ -24,11 +24,15 @@ id, post_id, storage_key, alt_text, sort_order
 ## company_assignments
 id, user_id, company_id
 
-## company_images (migration 0007)
+## company_images (migration 0007, 이전 데이터 보존용)
 
 id, company_id, storage_key, thumbnail_key, alt_text, sort_order, content_hash, width, height, excluded, created_at
 
-업체 소개 사진이며 게시글 이미지와 별개입니다. 활성 업체의 제외되지 않은 사진만 공개하고 대표 순서는 sort_order/id를 따릅니다. 업체당 활성 사진 최대 8장, 업체 내 활성 이미지 해시 중복과 제외/복원 시 수량 제약을 DB에서 검사합니다. companies.photo_mutation_token과 version을 한 batch에서 비교하여 사진 변경 중 충돌을 막습니다. 사진 공개는 관리자 등록 시 적용되며 글 작성·검수·계약 사용 수량은 만들거나 변경하지 않습니다. 사진별 현장 위치와 작업일은 이 테이블로 추정하지 않습니다.
+현행 작성·공개 경로는 `posts`/`post_images` 하나로 통합했습니다. 이 테이블과 companies.photo_mutation_token은 이미 적용된 0007 및 이전 백업의 호환을 위해 보존하며 독립 갤러리·업로드 UI·공개 조회는 제공하지 않습니다. 이전 사진 5개를 post_images로 연결하고 원래 행은 제외 상태로 보존했습니다. 기존 `/company-photos/` 주소도 post_images의 소속 글·공개 상태·권한을 확인한 뒤에만 제공합니다. 이 테이블만 등록된 사진은 공개하지 않습니다.
+
+## 포스팅 본문과 사진 순서
+
+posts.content의 기존 JSON 문단 문자열 배열을 유지합니다. 문단 사이의 `[사진:이미지ID]`는 글쓰기의 ‘본문에 넣기’ 버튼으로 배치하며, 렌더러는 **해당 글의 활성 post_images**만 사진으로 출력합니다. 다른 글·제외 사진·없는 이미지 참조는 출력하지 않고 중복 삽입은 한 번만 보여줍니다. HTML 본문 문자열은 이스케이프합니다. 위치를 지정하지 않은 기존 사진은 본문 끝에 표시하여 이전 글도 유지합니다. 대표 이미지와 본문 배치는 별개이며 공개 주소는 숫자 게시글 ID 하나입니다.
 
 ## 저장 구현 (migration 0001)
 

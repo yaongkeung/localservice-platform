@@ -1,3 +1,4 @@
+import {postContent} from './post-content.js';
 import {accountPage,resetWorkerPassword} from './account.js';
 import {cmsRegionPicker,registerRegion} from './cms-regions.js';
 import {all,first,run,decodePost} from './store.js';
@@ -5,7 +6,6 @@ import {session,login,isAdmin,digest,sessionCookie} from './auth.js';
 import {seoulDate} from './photos.js';
 import {page,csrf,redirect,e} from './admin-ui.js';
 import {management} from './management.js';
-import {companyPhotoActions} from './company-photos.js';
 import {photoActions,photoPanel} from './uploads.js';
 const labels={DRAFT:'초안',REVIEW:'검수 대기',APPROVED:'승인 완료',PUBLISHED:'공개 중'};
 const kinds=['작업사례','서비스안내','지역정보','작업팁'];
@@ -46,7 +46,7 @@ function editPage(user,data,post={},message='',status=200){
  const opts=(rows,selected,label='name')=>rows.map(x=>`<option value="${x.id}" ${x.id===Number(selected)?'selected':''}>${e(x[label])}</option>`).join('');
  const values={...post,content:Array.isArray(post.content)?post.content.join('\n\n'):post.content};
  const transition=(action,label)=>`<form method="post" action="/admin/posts/${post.id}/status/">${csrf(user)}<input type="hidden" name="version" value="${post.version}"><input type="hidden" name="action" value="${action}"><button ${action==='return'?'class="secondary"':''}>${label}</button></form>`;
- return page(post.id?'게시글 관리':'새 글 쓰기',`<a href="/admin/">← 글 목록</a><h1>${post.id?'게시글 #'+post.id:'✍️ 새 글 쓰기'}</h1>${post.status?`<span class="cms-status ${post.status}">${labels[post.status]}</span>`:''}${message?`<p class="cms-error" role="alert">${e(message)}</p>`:''}<p class="cms-note">공개 전에는 포털에 표시되지 않습니다. 사진과 계약 정보를 확인한 후 검수를 요청해 주세요.${post.sample?' 이 글은 샘플 콘텐츠입니다.':''}</p>${editable?`<form method="post" action="/admin/posts/${post.id?post.id+'/':'new/'}">${csrf(user)}<input type="hidden" name="version" value="${post.version||0}">${post.published_once?`<input type="hidden" name="company_id" value="${post.company_id}"><input type="hidden" name="contract_id" value="${post.contract_id||''}"><p class="cms-note">기존 글 주소와 최초 업체·계약을 유지합니다. 재공개 시 계약 수량을 추가로 차감하지 않습니다.</p>`:''}<section class="panel cms-grid"><label>업체<select name="company_id" required ${post.published_once?'disabled':''}><option value="">업체 선택</option>${opts(data.companies,post.company_id)}</select></label><label>계약<select name="contract_id" ${post.published_once?'disabled':''}><option value="">계약 미지정 (샘플 또는 작성 중)</option>${(data.contracts||[]).filter(c=>data.companies.some(x=>x.id===c.company_id)&&(c.status==='ACTIVE'||post.contract_id===c.id)).map(c=>`<option value="${c.id}" ${Number(post.contract_id)===c.id?'selected':''}>${e(data.companies.find(x=>x.id===c.company_id)?.name)} · ${e(c.package_name)} (${c.published_quantity}/${c.contract_quantity})</option>`).join('')}</select></label><label>글 종류<select name="post_type">${kinds.map(k=>`<option ${k===post.post_type?'selected':''}>${k}</option>`).join('')}</select></label>${cmsRegionPicker(post,data.regions)}<label>업종<select name="service_id" required><option value="">업종 선택</option>${opts(data.services,post.service_id)}</select></label><label class="full">제목<input name="title" value="${e(values.title)}" minlength="5" maxlength="120" required></label><label class="full">요약<input name="summary" value="${e(values.summary)}" minlength="10" maxlength="240" required></label><label class="full">본문<textarea name="content" minlength="50" maxlength="20000" required>${e(values.content)}</textarea><span class="cms-help">실제 작업 내용과 과정, 확인 결과를 작성해 주세요. 문단은 빈 줄로 구분합니다.</span></label></section><div class="cms-actions"><button>💾 초안 저장</button><span class="cms-help">저장 후 검수를 요청할 수 있습니다.</span></div></form>`:`<article class="panel"><h2>${e(post.title)}</h2><strong>${e(post.summary)}</strong><div class="cms-preview">${e(values.content)}</div></article>`}${post.id?`<p><a href="/admin/posts/${post.id}/history/">이전 공개 내용 보기</a></p>`:''}${photoPanel(user,post,data.images||[])}<div class="cms-actions">${post.id&&post.status==='DRAFT'?transition('submit','📨 검수 요청'):''}${isAdmin(user)&&post.status==='REVIEW'?transition('approve','✅ 승인')+transition('return','초안으로 반려'):''}${isAdmin(user)&&post.status==='APPROVED'?transition('publish','🌿 포털에 공개')+transition('return','초안으로 돌리기'):''}${post.status==='PUBLISHED'?`<a class="button" href="/post/${post.id}/">공개 게시글 보기 ↗</a>${isAdmin(user)?transition('withdraw','공개 해제하고 수정'):''}<p class="cms-help">공개 해제 시 포털에서 숨기고 초안으로 돌립니다. 이전 내용은 보관하며 계약 사용 수량은 유지합니다.</p>`:''}</div>`,user,status);
+ return page(post.id?'게시글 관리':'새 글 쓰기',`<a href="/admin/">← 글 목록</a><h1>${post.id?'게시글 #'+post.id:'✍️ 새 글 쓰기'}</h1>${post.status?`<span class="cms-status ${post.status}">${labels[post.status]}</span>`:''}${message?`<p class="cms-error" role="alert">${e(message)}</p>`:''}<p class="cms-note">공개 전에는 포털에 표시되지 않습니다. 사진과 계약 정보를 확인한 후 검수를 요청해 주세요.${post.sample?' 이 글은 샘플 콘텐츠입니다.':''}</p>${editable?`<form method="post" action="/admin/posts/${post.id?post.id+'/':'new/'}">${csrf(user)}<input type="hidden" name="version" value="${post.version||0}">${post.published_once?`<input type="hidden" name="company_id" value="${post.company_id}"><input type="hidden" name="contract_id" value="${post.contract_id||''}"><p class="cms-note">기존 글 주소와 최초 업체·계약을 유지합니다. 재공개 시 계약 수량을 추가로 차감하지 않습니다.</p>`:''}<section class="panel cms-grid"><label>업체<select name="company_id" required ${post.published_once?'disabled':''}><option value="">업체 선택</option>${opts(data.companies,post.company_id)}</select></label><label>계약<select name="contract_id" ${post.published_once?'disabled':''}><option value="">계약 미지정 (샘플 또는 작성 중)</option>${(data.contracts||[]).filter(c=>data.companies.some(x=>x.id===c.company_id)&&(c.status==='ACTIVE'||post.contract_id===c.id)).map(c=>`<option value="${c.id}" ${Number(post.contract_id)===c.id?'selected':''}>${e(data.companies.find(x=>x.id===c.company_id)?.name)} · ${e(c.package_name)} (${c.published_quantity}/${c.contract_quantity})</option>`).join('')}</select></label><label>글 종류<select name="post_type">${kinds.map(k=>`<option ${k===post.post_type?'selected':''}>${k}</option>`).join('')}</select></label>${cmsRegionPicker(post,data.regions)}<label>업종<select name="service_id" required><option value="">업종 선택</option>${opts(data.services,post.service_id)}</select></label><label class="full">제목<input name="title" value="${e(values.title)}" minlength="5" maxlength="120" required></label><label class="full">요약<input name="summary" value="${e(values.summary)}" minlength="10" maxlength="240" required></label><label class="full">본문<textarea name="content" minlength="50" maxlength="20000" required>${e(values.content)}</textarea><span class="cms-help">실제 작업 내용과 과정, 확인 결과를 작성해 주세요. 문단은 빈 줄로 구분합니다. 사진을 등록한 뒤 ‘본문에 넣기’를 누르면 커서 위치에 사진을 배치합니다.</span></label></section><div class="cms-actions"><button>💾 초안 저장</button><span class="cms-help">저장 후 검수를 요청할 수 있습니다.</span></div></form>`:`<article class="panel"><h2>${e(post.title)}</h2><strong>${e(post.summary)}</strong>${postContent(post,data.images||[])}</article>`}${post.id?`<p><a href="/admin/posts/${post.id}/preview/">저장된 글 미리보기</a> · <a href="/admin/posts/${post.id}/history/">이전 공개 내용 보기</a></p>`:''}${photoPanel(user,post,data.images||[])}<div class="cms-actions">${post.id&&post.status==='DRAFT'?transition('submit','📨 검수 요청'):''}${isAdmin(user)&&post.status==='REVIEW'?transition('approve','✅ 승인')+transition('return','초안으로 반려'):''}${isAdmin(user)&&post.status==='APPROVED'?transition('publish','🌿 포털에 공개')+transition('return','초안으로 돌리기'):''}${post.status==='PUBLISHED'?`<a class="button" href="/post/${post.id}/">공개 게시글 보기 ↗</a>${isAdmin(user)?transition('withdraw','공개 해제하고 수정'):''}<p class="cms-help">공개 해제 시 포털에서 숨기고 초안으로 돌립니다. 이전 내용은 보관하며 계약 사용 수량은 유지합니다.</p>`:''}</div>`,user,status);
 }
 async function dashboard(db,user,url){
  const args=isAdmin(user)?[]:[user.id,user.id];
@@ -56,7 +56,6 @@ async function dashboard(db,user,url){
 }
 export async function cms(request,env){
  const url=new URL(request.url),path=url.pathname,db=env.DB;
- const companyPhotoMatch=path.match(/^\/admin\/companies\/(\d+)\/photos\/$/);
  const photoMatch=path.match(/^\/admin\/posts\/(\d+)\/photos\/$/);
  if(url.protocol!=='https:'&&!['localhost','127.0.0.1'].includes(url.hostname))return page('보안 연결 필요','<p>HTTPS 주소로 접속해 주세요.</p>',null,403);
  if(!db)return page('관리 준비 중','<h1>관리 기능 준비 중</h1><p>데이터베이스 연결 후 사용할 수 있습니다.</p>',null,503);
@@ -64,7 +63,7 @@ export async function cms(request,env){
  let form;
  if(request.method==='POST'){
   if(request.headers.get('origin')!==url.origin)return page('요청 확인 실패','<p>페이지를 새로 열고 다시 시도해 주세요.</p>',null,403);
-  try{if(!photoMatch&&!companyPhotoMatch)form=await body(request);}catch(error){return page('입력 오류',`<p>${e(error.message)}</p>`,null,400);}
+  try{if(!photoMatch)form=await body(request);}catch(error){return page('입력 오류',`<p>${e(error.message)}</p>`,null,400);}
  }
  if(path==='/admin/login/'){
   if(request.method!=='POST')return loginPage();
@@ -76,7 +75,6 @@ export async function cms(request,env){
  const user=await session(db,request);
  if(!user)return request.method==='POST'?page('로그인 필요','<p>다시 로그인해 주세요.</p>',null,401):redirect('/admin/login/');
  if(user.must_change_password&&!['/admin/account/','/admin/logout/'].includes(path))return request.method==='POST'?page('비밀번호 변경 필요','<p>임시 비밀번호를 변경한 후 이용해 주세요.</p><a href="/admin/account/">비밀번호 변경</a>',user,403):redirect('/admin/account/');
- if(companyPhotoMatch)return companyPhotoActions(request,env,user,Number(companyPhotoMatch[1]));
  if(photoMatch)return photoActions(request,env,user,Number(photoMatch[1]));
  if(form&&form.get('csrf')!==user.csrf)return page('요청 확인 실패','<p>페이지를 새로 열고 다시 시도해 주세요.</p>',user,403);
  if(path==='/admin/logout/'&&form){await run(db,'DELETE FROM sessions WHERE token_hash=?',user.token_hash);const response=redirect('/admin/login/');response.headers.set('set-cookie',sessionCookie(request,'',0));return response;}
@@ -84,11 +82,16 @@ export async function cms(request,env){
  const resetMatch=path.match(/^\/admin\/users\/(\d+)\/reset-password\/$/);if(resetMatch)return resetWorkerPassword(db,user,Number(resetMatch[1]),form);
  if(/^\/admin\/(companies|users|services|contracts)\//.test(path))return management(db,user,url,form);
  if(path==='/admin/'&&!form)return dashboard(db,user,url);
- const match=path.match(/^\/admin\/posts\/(new|\d+)\/(status\/|history\/)?$/);
+ const match=path.match(/^\/admin\/posts\/(new|\d+)\/(status\/|history\/|preview\/)?$/);
  if(!match)return page('페이지 없음','<h1>페이지를 찾을 수 없습니다.</h1>',user,404);
  const id=Number(match[1]),data=await choices(db,user);
  let post=id?decodePost(await first(db,'SELECT * FROM posts WHERE id=?',id)):{};
  if(id&&(!post||!await canAccess(db,user,post)))return page('페이지 없음','<h1>게시글을 찾을 수 없습니다.</h1>',user,404);
+ if(match[2]==='preview/'){
+  if(form)return page('허용되지 않은 요청','<p>미리보기는 조회만 가능합니다.</p>',user,405);
+  const images=await all(db,'SELECT * FROM post_images WHERE post_id=? AND excluded=0 ORDER BY sort_order,id',id);
+  return page('포스팅 미리보기',`<a href="/admin/posts/${id}/">← 글 편집으로</a><h1>포스팅 미리보기</h1><p class="cms-note">마지막으로 저장한 제목·본문·사진입니다. 공개 전 글은 로그인한 관리자와 배정된 작성자만 볼 수 있습니다.</p><article class="panel prose"><h2>${e(post.title)}</h2><strong>${e(post.summary)}</strong>${postContent(post,images)}</article>`,user);
+ }
  if(match[2]==='history/'){
   if(form)return page('허용되지 않은 요청','<p>이력은 조회만 가능합니다.</p>',user,405);
   const snapshots=await all(db,'SELECT * FROM post_snapshots WHERE post_id=? ORDER BY id DESC LIMIT 20',id);

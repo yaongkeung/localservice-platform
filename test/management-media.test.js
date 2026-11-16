@@ -6,6 +6,7 @@ import {sqliteDatabase,migrate} from '../scripts/sqlite.mjs';
 import {seed} from '../scripts/seed.mjs';
 import {digest,randomToken} from '../src/auth.js';
 import {seoulDate} from '../src/photos.js';
+import {postContent} from '../src/post-content.js';
 import {processPhoto} from '../src/image-processing.js';
 import {preparePhoto} from '../scripts/prepare-photo.mjs';
 import jpeg from 'jpeg-js';
@@ -66,26 +67,28 @@ test('a real company without posts is discoverable with a verified phone, keywor
   await f.DB.prepare("UPDATE companies SET status='DISABLED' WHERE id=?").bind(c.id).run();assert.ok(!(await(await f.call('/')).text()).includes('href="'+path+'"'));assert.equal((await f.call(path)).status,404);
  }finally{f.DB.close();}
 });
-test('company gallery permissions, public access, representative choice and exclusion preserve posts and contracts',async()=>{
- const f=await fixture();try{
-  await f.DB.prepare('UPDATE companies SET sample=0 WHERE id=1').run();
-  const pair=preparePhoto(await photo()),version=async()=>(await f.DB.prepare('SELECT version FROM companies WHERE id=1').first()).version;
-  const upload=async(as=1,extra={})=>{const body=new FormData();body.set('photo',new Blob([pair.cover]),'source.jpg');body.set('thumbnail',new Blob([pair.thumb]),'thumb.jpg');body.set('csrf',f.auth[as].csrf);body.set('version',String(await version()));body.set('alt_text','업체 제공 창문 사진');for(const [k,v] of Object.entries(extra))body.set(k,v);return f.call('/admin/companies/1/photos/',{as,body});};
-  assert.equal((await upload(2)).status,403);assert.equal((await upload(1,{csrf:'wrong'})).status,403);assert.equal((await upload()).status,303);
-  const image=await f.DB.prepare('SELECT * FROM company_images WHERE company_id=1').first();assert.equal((await f.call(image.storage_key)).status,200);assert.equal((await f.call(image.storage_key,{method:'HEAD'})).status,200);assert.match(await(await f.call('/company/1/')).text(),/업체 제공 사진/);assert.ok((await(await f.call('/')).text()).includes(image.storage_key));
-  assert.equal((await upload()).status,409);assert.equal((await f.DB.prepare('SELECT count(*) n FROM posts').first()).n,3);assert.equal((await f.DB.prepare('SELECT count(*) n FROM contracts').first()).n,0);
-  const action=async op=>f.call('/admin/companies/1/photos/',{as:1,form:{action:op,image_id:image.id,version:await version()}});
-  assert.equal((await action('representative')).status,303);assert.equal((await action('exclude')).status,303);assert.equal((await f.call(image.storage_key)).status,404);assert.equal((await f.call(image.storage_key,{as:2})).status,404);assert.equal((await f.call(image.storage_key,{as:1})).status,200);assert.equal((await action('restore')).status,303);
-  await f.DB.prepare("UPDATE companies SET status='DISABLED' WHERE id=1").run();assert.equal((await f.call(image.storage_key)).status,404);assert.doesNotMatch(await(await f.call('/')).text(),/class="company-cover"/);
- }finally{f.DB.close();}
+test('blog body keeps authored text/photo order, escapes text and cannot embed another post or excluded photo',()=>{
+ const images=[{id:1,post_id:1,storage_key:'/uploads/one.jpg',alt_text:'첫 사진',sort_order:0},{id:2,post_id:1,storage_key:'/uploads/two.jpg',alt_text:'둘째 사진',sort_order:1},{id:3,post_id:1,storage_key:'/uploads/hidden.jpg',excluded:1},{id:99,post_id:2,storage_key:'/uploads/foreign.jpg'}];
+ const html=postContent({id:1,content:['시작 설명','[사진:2]','중간 설명','[사진:1]','마무리 설명','[사진:2]','[사진:3]','[사진:99]','<script>alert(1)</script>']},images);
+ assert.ok(html.indexOf('시작 설명')<html.indexOf('src="/uploads/two.jpg"'));assert.ok(html.indexOf('src="/uploads/two.jpg"')<html.indexOf('중간 설명'));assert.ok(html.indexOf('중간 설명')<html.indexOf('src="/uploads/one.jpg"'));assert.ok(html.indexOf('src="/uploads/one.jpg"')<html.indexOf('마무리 설명'));
+ assert.equal((html.match(/<figure/g)||[]).length,2);assert.doesNotMatch(html,/foreign\.jpg|hidden\.jpg|\[사진:|<script>/);assert.match(html,/&lt;script&gt;/);
+ assert.equal((postContent({id:1,content:['기존 글 본문']},images).match(/<figure/g)||[]).length,2);
 });
-test('company gallery rejects concurrent edits and enforces its eight-photo limit on upload and restore',async()=>{
+test('imported photos belong to one blog post across boards and profile, and legacy URLs obey post privacy',async()=>{
  const f=await fixture();try{
-  const pair=preparePhoto(await photo()),body=new FormData();for(const [key,value] of Object.entries({csrf:f.auth[1].csrf,alt_text:'업체 사진 충돌 시험',version:'1'}))body.set(key,value);body.set('photo',new Blob([pair.cover]),'source.jpg');body.set('thumbnail',new Blob([pair.thumb]),'thumb.jpg');
-  const put=f.PHOTOS.put;let competing=false;f.PHOTOS.put=async(...args)=>{await put(...args);if(!competing){competing=true;await f.DB.prepare('UPDATE companies SET version=version+1 WHERE id=1').run();}};
-  assert.equal((await f.call('/admin/companies/1/photos/',{as:1,body})).status,409);assert.equal(f.objects.size,0);assert.equal((await f.DB.prepare('SELECT count(*) n FROM company_images').first()).n,0);
-  const insert=index=>f.DB.prepare('INSERT INTO company_images(company_id,storage_key,thumbnail_key,alt_text,content_hash,width,height,excluded) VALUES(1,?,?,?,?,1,1,?)').bind('/company-photos/1/'+index+'-cover.jpg','/company-photos/1/'+index+'-thumb.jpg','시험 사진',String(index),index===9?1:0).run();
-  for(let i=1;i<=8;i++)await insert(i);await assert.rejects(insert(10),/Too many company photos/);await insert(9);await assert.rejects(f.DB.prepare('UPDATE company_images SET excluded=0 WHERE content_hash=?').bind('9').run(),/Too many company photos/);
+  const id=await f.create({post_type:'서비스안내'});assert.equal((await f.upload(id,await photo())).status,303);
+  const image=await f.DB.prepare('SELECT * FROM post_images WHERE post_id=?').bind(id).first(),token='c'.repeat(64),cover='/company-photos/1/'+token+'-cover.jpg',thumb='/company-photos/1/'+token+'-thumb.jpg';
+  f.objects.set('company-1/'+token+'-cover.jpg',f.objects.get(image.storage_key.slice('/uploads/'.length)));f.objects.set('company-1/'+token+'-thumb.jpg',f.objects.get(image.thumbnail_key.slice('/uploads/'.length)));
+  await f.DB.prepare('UPDATE post_images SET storage_key=?,thumbnail_key=? WHERE id=?').bind(cover,thumb,image.id).run();await f.DB.prepare('INSERT INTO company_images(company_id,storage_key,thumbnail_key,alt_text,content_hash,width,height,excluded) VALUES(1,?,?,?,?,960,640,1)').bind(cover,thumb,'이전 사진 정보',image.content_hash).run();
+  assert.equal((await f.call(cover)).status,404);assert.equal((await f.call(cover,{as:2})).status,200);assert.equal((await f.call(cover,{as:3})).status,404);
+  const post=await f.row(id),content='사진을 보기 전에 안내하는 설명입니다. 사진과 본문을 한 포스팅 안에서 원하는 순서로 배치하는 서비스 안내 글입니다.\n\n[사진:'+image.id+']\n\n사진 아래에 상담 안내를 이어서 작성합니다.';
+  assert.equal((await f.call('/admin/posts/'+id+'/',{as:2,form:{...post,content,contract_id:''}})).status,303);
+  const preview=await f.call('/admin/posts/'+id+'/preview/',{as:2});assert.equal(preview.status,200);assert.match(preview.headers.get('cache-control'),/no-store/);assert.ok((await preview.text()).includes(cover));assert.equal((await f.call('/admin/posts/'+id+'/preview/',{as:3})).status,404);assert.equal((await f.call('/admin/posts/'+id+'/preview/')).status,303);
+  for(const action of ['submit','approve','publish'])assert.equal((await f.transition(id,action)).status,303);
+  const html=await(await f.call('/post/'+id+'/')).text(),article=html.match(/<article class="panel prose">([\s\S]*?)<\/article>/)[1];assert.ok(article.indexOf('사진을 보기 전에')<article.indexOf('<figure'));assert.ok(article.indexOf('<figure')<article.indexOf('사진 아래에'));assert.equal((await f.call(cover)).status,200);
+  for(const path of ['/','/service/plumbing/','/company/1/'])assert.ok((await(await f.call(path)).text()).includes('/post/'+id+'/'));
+  const profile=await(await f.call('/company/1/')).text();assert.doesNotMatch(profile,/업체 제공 사진|company-gallery/);assert.match(profile,/이 업체의 포스팅/);
+  assert.equal((await f.transition(id,'withdraw')).status,303);assert.equal((await f.call(cover)).status,404);
  }finally{f.DB.close();}
 });
 test('new industries and sub-industries join public navigation; slugs are stable and cycles rejected',async()=>{

@@ -1,4 +1,9 @@
 export function uploadClient(){
+ for(const button of document.querySelectorAll('[data-insert-photo]'))button.addEventListener('click',()=>{
+  const content=document.querySelector('textarea[name=content]');if(!content)return;
+  const start=content.selectionStart,end=content.selectionEnd,marker='\n\n[사진:'+button.dataset.insertPhoto+']\n\n';
+  content.setRangeText(marker,start,end,'end');content.focus();content.dispatchEvent(new Event('input',{bubbles:true}));
+ });
  for(const form of document.querySelectorAll('form[data-photo-upload]'))form.addEventListener('submit',async event=>{
   event.preventDefault();const file=form.querySelector('input[type=file]').files[0],message=form.querySelector('[role=status]'),button=form.querySelector('button');
   if(!file){message.textContent='사진을 선택해 주세요.';return;}
