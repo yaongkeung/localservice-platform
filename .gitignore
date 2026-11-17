@@ -6,3 +6,4 @@ coverage/
 .local/
 
 wrangler.staging.jsonc
+wrangler.production.jsonc

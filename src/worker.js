@@ -1,4 +1,5 @@
 import {storageReady,health} from './readiness.js';
+import {launchState} from './launch.js';
 import {townshipOptions,matchesTownship} from './township-groups.js';
 import {titleFor,editorClient} from './editor-title.js';
 import {browserScript} from './browser-script.js';
@@ -21,10 +22,11 @@ import {postImage} from './photos.js';
 const origin=siteOrigin;
 export const escapeHtml = value => String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const e=escapeHtml;
-function render(url,data){
+function render(url,data,env={}){
 const {regions,services,companies,published,postImages:images}=data;
 let breadcrumbItems=[];
-const shell=options=>pageShell({...options,breadcrumbs:breadcrumbItems,image:options.image||(options.path==='/'?postImage(published.find(p=>postImage(p.id,images))?.id,images):undefined),sampleOnly:companies.every(c=>c.sample)&&published.every(p=>p.sample)});
+const launch=launchState({url:url.href},env);
+const shell=options=>pageShell({...options,noindex:options.noindex||launch.blocked,preview:!launch.production,verification:launch.verification,breadcrumbs:breadcrumbItems,image:options.image||(options.path==='/'?postImage(published.find(p=>postImage(p.id,images))?.id,images):undefined),sampleOnly:companies.every(c=>c.sample)&&published.every(p=>p.sample)});
 const regionIds=region=>regions.filter(r=>r.id===region.id||r.slug.startsWith(region.slug+'/')||region.group_key&&matchesTownship(r.group_key||r.admin_code,region.group_key)).map(r=>r.id);
 const region=p=>regions.find(r=>r.id===p.region_id);
 const service=p=>services.find(s=>s.id===p.service_id);
@@ -64,15 +66,20 @@ const path=url.pathname;const params=url.searchParams;
 }
 async function handle(request,env={}){
   const url=new URL(request.url);
+  if(env.APP_ENV==='production'&&['gongsa8282.xyz','www.gongsa8282.xyz'].includes(url.hostname)&&url.origin!==origin)return Response.redirect(origin+url.pathname+url.search,308);
   if(url.pathname==='/healthz'){if(!['GET','HEAD'].includes(request.method))return new Response(null,{status:405});return health(request,env);}
   if(['staging','production'].includes(env.APP_ENV)&&!storageReady(env))return new Response('서비스 준비 중입니다.',{status:503,headers:{'cache-control':'no-store'}});
   if(url.pathname==='/admin'||url.pathname.startsWith('/admin/')){
+    if(env.APP_ENV==='staging'&&env.CMS_READ_ONLY==='true'){
+      if(['GET','HEAD'].includes(request.method))return new Response(null,{status:302,headers:{location:origin+url.pathname+url.search,'cache-control':'no-store'}});
+      return new Response(`<!doctype html><html lang="ko"><meta charset="utf-8"><title>운영 관리 화면 안내</title><h1>운영 관리 화면에서 이어서 작성해 주세요.</h1><p>이전 시험 주소에서는 저장하지 않습니다.</p><a href="${origin}/admin/">이웃핀 운영 관리로 이동</a></html>`,{status:409,headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store','x-robots-tag':'noindex, nofollow'}});
+    }
     if(url.pathname==='/admin')return Response.redirect(url.origin+'/admin/',308);
     const response=await cms(request,env);return request.method==='HEAD'?new Response(null,{status:response.status,headers:response.headers}):response;
   }
   if(!['GET','HEAD'].includes(request.method))return new Response('Method not allowed',{status:405,headers:{Allow:'GET, HEAD'}});
   if(['/sitemap.xml','/rss.xml','/robots.txt'].includes(url.pathname)){
-    const body=url.pathname==='/robots.txt'?robots():url.pathname==='/sitemap.xml'?sitemap(env.DB?await publicDataset(env.DB):sampleDataset()):rss(env.DB?await publicDataset(env.DB):sampleDataset());
+    const body=url.pathname==='/robots.txt'?robots(launchState(request,env).blocked):url.pathname==='/sitemap.xml'?sitemap(env.DB?await publicDataset(env.DB,{includeSamples:env.APP_ENV!=='production'}):sampleDataset()):rss(env.DB?await publicDataset(env.DB,{includeSamples:env.APP_ENV!=='production'}):sampleDataset());
     const type=url.pathname==='/robots.txt'?'text/plain':url.pathname==='/rss.xml'?'application/rss+xml':'application/xml';
     return new Response(request.method==='HEAD'?null:body,{headers:{'content-type':type+'; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'}});
   }
@@ -94,10 +101,10 @@ async function handle(request,env={}){
   }
   if(type)return new Response(request.method==='HEAD'?null:body,{headers:{'content-type':type+'; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'}});
   if(!url.pathname.endsWith('/')&&!url.pathname.includes('.')){url.pathname+='/';return Response.redirect(url.href,308);}
-  const response=render(url,env.DB?await publicDataset(env.DB):sampleDataset());
+  const response=render(url,env.DB?await publicDataset(env.DB,{includeSamples:env.APP_ENV!=='production'}):sampleDataset(),env);
   return request.method==='HEAD'?new Response(null,{status:response.status,headers:response.headers}):response;
 }
 export default {async fetch(request,env={}){
- try{const response=await handle(request,env);if(env.APP_ENV!=='staging')return response;const headers=new Headers(response.headers);headers.set('x-robots-tag','noindex, nofollow');return new Response(response.body,{status:response.status,statusText:response.statusText,headers});}
+ try{const response=await handle(request,env);if(!launchState(request,env).blocked)return response;const headers=new Headers(response.headers);headers.set('x-robots-tag','noindex, nofollow');return new Response(response.body,{status:response.status,statusText:response.statusText,headers});}
  catch(error){const message=String(error?.message||''),category=/D1|database/i.test(message)?'database':/body|stream|formdata/i.test(message)?'request_stream':/memory|CPU|allocation|heap/i.test(message)?'resource':'other';console.error('Worker request failed',error?.name||'Error',category);return new Response('서비스 준비 중입니다. 잠시 후 다시 시도해 주세요.',{status:503,headers:{'cache-control':'no-store','x-robots-tag':'noindex, nofollow'}});}
 }};

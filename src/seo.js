@@ -26,4 +26,4 @@ export function rss(data){
  return `<item><title>${xml(p.title)}</title><link>${xml(link)}</link><guid isPermaLink="true">${xml(link)}</guid><description>${xml(p.summary)}</description>${date?`<pubDate>${new Date(date).toUTCString()}</pubDate>`:''}${image?`<media:thumbnail url="${xml(absolute(image.thumbnail_key||image.storage_key))}"/>`:''}</item>`;
  }).join('')}</channel></rss>`;
 }
-export const robots=()=>`User-agent: *\nDisallow: /admin/\nSitemap: ${siteOrigin}/sitemap.xml\n`;
+export const robots=(blocked=false)=>blocked?'User-agent: *\nDisallow: /\n':`User-agent: *\nDisallow: /admin/\nSitemap: ${siteOrigin}/sitemap.xml\n`;
