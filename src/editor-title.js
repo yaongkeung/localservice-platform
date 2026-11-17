@@ -12,6 +12,8 @@ export function titleFor(region,keyword){
 }
 export function editorClient(){
  for(const form of document.querySelectorAll('[data-simple-editor]')){
+  const company=form.querySelector('[name=company_id]'),phone=form.querySelector('[name=contact_phone]');
+  if(company&&phone){let manual=false;phone.addEventListener('input',()=>{manual=!!phone.value;});company.addEventListener('change',()=>{if(!manual)phone.value=company.selectedOptions[0]?.dataset.phone||'';});}
   const region=form.querySelector('[name=search_region]'),keyword=form.querySelector('[name=search_keyword]'),title=form.querySelector('[name=title]');
   if(!region||!keyword||!title)continue;
   const update=()=>{const value=titleFor(region.value,keyword.value);if(value)title.value=value;};

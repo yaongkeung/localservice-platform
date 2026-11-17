@@ -8,7 +8,8 @@ import {assembleDraft,searchFields,visionInput,draftModel} from '../src/draft-as
 import {localContext} from '../src/local-context.js';
 import {postContent} from '../src/post-content.js';
 const origin='https://gongsa8282.xyz';
-const output={title_suffix:'창틀과 망 상태를 사진으로 살펴보기',summary:'사진에 보이는 창틀과 망의 상태를 살펴보고 상담 준비에 필요한 사항을 안내합니다.',intro:'사진 속 창문과 망을 살펴보며 **방충망 교체** 상담에 필요한 확인 사항을 정리합니다.',photos:[{id:1,description:'흰색 틀 안에 망이 보입니다. 사진만으로 재질과 손상 여부를 단정하기는 어렵습니다.',advice:'**창틀의 가로·세로 크기**와 열리는 방향을 확인해 상담할 때 알려주세요.'}],closing:'문의할 창문 전체 모습과 불편한 부분을 가까이 찍어 함께 전달해 주세요.'};
+const page={overview:'흰색 창틀 안에 보이는 망과 테두리를 중심으로 상담할 항목을 안내합니다. 창문을 여는 방향과 틀 주변의 공간을 함께 설명하면 망 교체와 개폐 부품 점검을 구분하는 데 도움이 됩니다. 사진에서 확인되지 않는 재질이나 치수는 업체와 별도로 확인해야 합니다.',preparation:'창 전체를 담은 사진과 테두리, 손잡이 부분을 가까이 찍은 사진을 함께 준비하세요. 망에 틈이 생기는 위치와 창문을 움직일 때 걸리는 방향을 알려주면 상담 내용을 정리하기 쉽습니다. 높거나 위험한 위치는 직접 분리하지 말고 업체에 확인을 요청하세요.',details:['틀과 망의 상태','개폐 방향과 주변 공간','측정과 방문 조건'].map(title=>({title,text:'사진에 보이는 흰색 프레임과 망의 연결 부분을 기준으로 상담 내용을 정리합니다. 틈이 보이는 위치와 사용 중 불편한 점을 설명하고, 망만 교체할지 틀이나 부품도 점검할지는 전체 모습과 현장 상태를 확인한 뒤 상담하세요.'})),faq:['틀은 어떤 사진으로 보여주면 좋나요?','망만 교체할 수 있는지 어떻게 확인하나요?','높은 곳의 창문은 어떻게 상담하나요?'].map(question=>({question,answer:'창문의 전체 모습과 테두리, 불편한 부위를 가까이 찍은 사진을 함께 보여주세요. 크기와 여는 방향, 사용 중 관찰한 점을 전달하고 현장에서 추가로 확인할 범위를 업체에 상담해 주세요.'}))};
+const output={page,title_suffix:'창틀과 망 상태를 사진으로 살펴보기',summary:'사진에 보이는 창틀과 망의 상태를 살펴보고 상담 준비에 필요한 사항을 안내합니다.',intro:'사진 속 창문과 망을 살펴보며 **방충망 교체** 상담에 필요한 확인 사항을 정리합니다.',photos:[{id:1,description:'흰색 틀 안에 망이 보입니다. 사진만으로 재질과 손상 여부를 단정하기는 어렵습니다.',advice:'**창틀의 가로·세로 크기**와 열리는 방향을 확인해 상담할 때 알려주세요.'}],closing:'문의할 창문 전체 모습과 불편한 부분을 가까이 찍어 함께 전달해 주세요.'};
 async function fixture(){
  const DB=sqliteDatabase();await migrate(DB);await seed(DB);
  const token=randomToken(),csrf=randomToken();
@@ -34,14 +35,14 @@ test('safe bold/headings and source links preserve photo order and never permit 
 });
 test('regional facts require an exact supported locality inside Gimpo and target inputs reject markup',()=>{
  assert.ok(localContext('사우동','41570540').length);assert.deepEqual(localContext('사우동','11110'),[]);assert.deepEqual(localContext('모르는동','41570'),[]);assert.throws(()=>searchFields(new URLSearchParams({search_region:'<img>',search_keyword:'유리'})));assert.throws(()=>searchFields(new URLSearchParams({search_region:'사우동'})));
- const draft=assembleDraft(output,{search_region:'사우동',search_keyword:'방충망 교체'},{name:'시험업체',area:'김포'}, {name:'사우동',admin_code:'41570540'},[{id:1}]);assert.ok(draft.title.startsWith('사우동 방충망 교체'));assert.ok(draft.content.includes('[사진:1]'));assert.ok(draft.content.some(t=>t.includes('gimpo.go.kr')));assert.throws(()=>assembleDraft({...output,photos:[{...output.photos[0],id:99}]},{search_region:'사우동',search_keyword:'방충망 교체'},{},{},[{id:1}]));
+ const draft=assembleDraft(output,{search_region:'사우동',search_keyword:'방충망 교체'},{name:'시험업체',area:'김포'}, {name:'사우동',admin_code:'41570540'},[{id:1}]);assert.ok(draft.title.startsWith('사우동 방충망 교체'));assert.ok(draft.content.includes('[사진:1]'));assert.ok(draft.content.some(t=>t.includes('gimpo.go.kr')));const neutral=assembleDraft({...output,page:{...page,overview:'응암동에서 강화유리 상담이 필요하신가요? 서비스 지역은 아니지만, 상담을 도와드리겠습니다. 건물의 용도와 작업할 위치를 함께 알려주세요.'}},{search_region:'응암동',search_keyword:'강화유리'},{},{},[{id:1}]);assert.doesNotMatch(neutral.summary,/서비스 지역은 아니/);assert.match(neutral.summary,/업체에 직접 확인/);assert.throws(()=>assembleDraft({...output,photos:[{...output.photos[0],id:99}]},{search_region:'사우동',search_keyword:'방충망 교체'},{},{},[{id:1}]));
 });
 test('photo generation uses private image bytes and saves a reviewable draft with an immutable prior copy',async()=>{
  const f=await fixture();try{
-  f.env.AI.run=async(model,payload)=>{f.input=payload;return {response:JSON.stringify({...output,photos:[{...output.photos[0],id:9001}]})};};
-  const before=await f.row();const result=await f.generate();assert.equal(result.status,200,await result.clone().text());const after=await f.row();assert.ok(after.title.startsWith('사우동 방충망 교체'));assert.equal(after.generation_reviewed,0);assert.equal(after.version,before.version+1);assert.ok(f.input.messages[1].content.some(p=>p.image_url?.url.startsWith('data:image/jpeg;base64,')));assert.ok(!JSON.stringify(f.input).includes('https://gongsa8282.xyz/uploads'));
+  f.env.AI.run=async(model,payload)=>{f.input=payload;if(Array.isArray(payload.messages[1].content))f.vision=payload;return {response:JSON.stringify({...output,photos:[{...output.photos[0],id:9001}]})};};
+  const before=await f.row();const result=await f.generate();assert.equal(result.status,200,await result.clone().text());const after=await f.row();assert.ok(after.title.startsWith('사우동 방충망 교체'));assert.equal(after.generation_reviewed,0);assert.equal(after.version,before.version+1);assert.ok(f.vision.messages[1].content.some(p=>p.image_url?.url.startsWith('data:image/jpeg;base64,')));assert.ok(!JSON.stringify(f.input).includes('https://gongsa8282.xyz/uploads'));
   const history=await f.DB.prepare('SELECT * FROM draft_generations WHERE post_id=?').bind(f.id).first();assert.equal(history.state,'SAVED');assert.equal(JSON.parse(history.previous_content).content.join('\n\n'),JSON.parse(before.content).join('\n\n'));
-  const page=await(await f.call(`/admin/posts/${f.id}/`)).text();assert.equal((page.match(/id="generated-post"/g)||[]).length,1);assert.match(page,/자동 완성된 포스팅/);assert.match(page,/form="post-editor"/);assert.doesNotMatch(page,/사진으로 본문 작성/);
+  const page=await(await f.call(`/admin/posts/${f.id}/`)).text();assert.equal((page.match(/id="generated-post"/g)||[]).length,1);assert.match(page,/자동 완성된 상담 페이지/);assert.match(page,/form="post-editor"/);assert.doesNotMatch(page,/사진으로 본문 작성/);
   assert.equal((await f.call(`/admin/posts/${f.id}/status/`,{version:after.version,action:'submit'})).status,409);
   assert.throws(()=>f.DB.raw.exec(`UPDATE posts SET status='REVIEW' WHERE id=${f.id}`));
   const save=await f.call(`/admin/posts/${f.id}/`,{...after,content:JSON.parse(after.content).join('\n\n'),generation_reviewed:1});assert.equal(save.status,303);assert.equal((await f.row()).generation_reviewed,1);
@@ -61,5 +62,14 @@ test('generation rejects CSRF, published posts and missing AI without exposing p
   const bad=await f.call(`/admin/posts/${f.id}/generate/`,{csrf:'invalid',version:1});assert.equal(bad.status,403);
   delete f.env.AI;assert.equal((await f.generate()).status,503);assert.equal((await f.DB.prepare('SELECT COUNT(*) AS n FROM draft_generations').first()).n,0);
   await f.DB.prepare("UPDATE posts SET generation_reviewed=1,status='REVIEW',last_actor_id=1 WHERE id=?").bind(f.id).run();assert.equal((await f.generate()).status,409);
+ }finally{f.DB.close();}
+});
+
+
+test('a second-stage writing failure preserves the previous draft and photos',async()=>{
+ const f=await fixture();try{
+  const before=await f.row();let calls=0;
+  f.env.AI.run=async()=>{if(++calls===1)return {response:JSON.stringify({...output,photos:[{...output.photos[0],id:9001}]})};return {response:JSON.stringify({overview:'미완성',details:[],faq:[]})};};
+  assert.equal((await f.generate()).status,409);assert.equal(calls,2);const after=await f.row();assert.equal(after.content,before.content);assert.equal(after.version,before.version);assert.equal((await f.DB.prepare('SELECT COUNT(*) n FROM post_images WHERE post_id=?').bind(f.id).first()).n,1);assert.equal((await f.DB.prepare('SELECT state FROM draft_generations WHERE post_id=?').bind(f.id).first()).state,'FAILED');
  }finally{f.DB.close();}
 });

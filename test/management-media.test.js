@@ -85,7 +85,7 @@ test('imported photos belong to one blog post across boards and profile, and leg
   assert.equal((await f.call('/admin/posts/'+id+'/',{as:2,form:{...post,content,contract_id:''}})).status,303);
   const preview=await f.call('/admin/posts/'+id+'/preview/',{as:2});assert.equal(preview.status,200);assert.match(preview.headers.get('cache-control'),/no-store/);assert.ok((await preview.text()).includes(cover));assert.equal((await f.call('/admin/posts/'+id+'/preview/',{as:3})).status,404);assert.equal((await f.call('/admin/posts/'+id+'/preview/')).status,303);
   for(const action of ['submit','approve','publish'])assert.equal((await f.transition(id,action)).status,303);
-  const html=await(await f.call('/post/'+id+'/')).text(),article=html.match(/<article class="panel prose">([\s\S]*?)<\/article>/)[1];assert.ok(article.indexOf('사진을 보기 전에')<article.indexOf('<figure'));assert.ok(article.indexOf('<figure')<article.indexOf('사진 아래에'));assert.equal((await f.call(cover)).status,200);
+  const html=await(await f.call('/post/'+id+'/')).text(),article=html.match(/<article class="panel prose consultation-article">([\s\S]*?)<\/article>/)[1];assert.ok(article.indexOf('사진을 보기 전에')<article.indexOf('<figure'));assert.ok(article.indexOf('<figure')<article.indexOf('사진 아래에'));assert.equal((await f.call(cover)).status,200);
   for(const path of ['/','/service/plumbing/','/company/1/'])assert.ok((await(await f.call(path)).text()).includes('/post/'+id+'/'));
   const profile=await(await f.call('/company/1/')).text();assert.doesNotMatch(profile,/업체 제공 사진|company-gallery/);assert.match(profile,/이 업체의 포스팅/);
   assert.equal((await f.transition(id,'withdraw')).status,303);assert.equal((await f.call(cover)).status,404);

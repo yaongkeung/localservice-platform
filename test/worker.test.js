@@ -19,9 +19,9 @@ test('untrusted search text is escaped and search is noindex',async()=>{const ht
 test('unknown pages return 404, path normalizes, methods are restricted',async()=>{assert.equal((await get('/post/999/')).status,404);assert.equal((await get('/post/101')).status,308);assert.equal((await get('/','POST')).status,405);assert.equal(await(await get('/','HEAD')).text(),'');});
 test('sample companies never dial a fabricated number',async()=>{const html=await(await get('/company/1/')).text();assert.match(html,/전화 상담/);assert.match(html,/aria-disabled="true"/);assert.doesNotMatch(html,/href="tel:/);});
 test('a registered phone renders a working tel CTA on profile and article',async()=>{
- const old=companies[0].phone;
- try {companies[0].phone='+82-10-0000-0000';for(const path of ['/company/1/','/post/101/']){const html=await(await get(path)).text();assert.match(html,/href="tel:\+82-10-0000-0000"/);}}
- finally {companies[0].phone=old;}
+ const old=companies[0].phone,verified=companies[0].phone_verified;
+ try {companies[0].phone='01012345678';companies[0].phone_verified=1;for(const path of ['/company/1/','/post/101/']){const html=await(await get(path)).text();assert.match(html,/href="tel:01012345678"/);}}
+ finally {companies[0].phone=old;companies[0].phone_verified=verified;}
 });
 test('map district filter returns only assigned posts; unassigned dongs stay empty',async()=>{
  const html=await(await get('/?district=11440')).text();
