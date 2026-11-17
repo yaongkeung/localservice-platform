@@ -1,3 +1,4 @@
+import {postUrl,publicationUrlStatement} from './post-urls.js';
 import {normalizeContactPhone} from './page-contact.js';
 import {similarContent} from './content-similarity.js';
 import {initialDraftText,waitingForPhotos} from './draft-state.js';
@@ -93,7 +94,7 @@ export async function cms(request,env){
  const match=path.match(/^\/admin\/posts\/(new|\d+)\/(status\/|history\/|preview\/|generations\/)?$/);
  if(!match)return page('페이지 없음','<h1>페이지를 찾을 수 없습니다.</h1>',user,404);
  const id=Number(match[1]),data=await choices(db,user);data.aiAvailable=!!env.AI?.run;
- let post=id?decodePost(await first(db,'SELECT * FROM posts WHERE id=?',id)):{};
+ let post=id?decodePost(await first(db,'SELECT p.*,u.path AS public_path FROM posts p LEFT JOIN post_urls u ON u.post_id=p.id WHERE p.id=?',id)):{};
  if(id&&(!post||!await canAccess(db,user,post)))return page('페이지 없음','<h1>게시글을 찾을 수 없습니다.</h1>',user,404);
  if(match[2]==='preview/'){
   if(form)return page('허용되지 않은 요청','<p>미리보기는 조회만 가능합니다.</p>',user,405);
@@ -125,7 +126,8 @@ export async function cms(request,env){
     const check=new URLSearchParams({...post,contact_phone:post.contact_phone||'',content:post.content.join('\n\n')});
     const values=await postValues(check);await validateRelations(db,user,values,post);await duplicate(db,post);
    }
-   const result=await run(db,"UPDATE posts SET status=?,published_at=?,version=version+1,updated_at=CURRENT_TIMESTAMP,last_actor_id=? WHERE id=? AND version=? AND status=?",step[1],step[1]==='PUBLISHED'?(post.published_once?post.published_at:seoulDate()):post.published_at,user.id,id,Number(form.get('version')),step[0]);
+   const token=randomToken(),statement=db.prepare("UPDATE posts SET status=?,published_at=?,version=version+1,updated_at=CURRENT_TIMESTAMP,last_actor_id=?,mutation_token=? WHERE id=? AND version=? AND status=?").bind(step[1],step[1]==='PUBLISHED'?(post.published_once?post.published_at:seoulDate()):post.published_at,user.id,token,id,Number(form.get('version')),step[0]);
+   const result=step[1]==='PUBLISHED'?(await db.batch([statement,await publicationUrlStatement(db,post,token)]))[0]:await statement.run();
    if(!result.meta.changes)throw Error('다른 화면에서 변경된 글입니다. 새로고침 후 확인해 주세요.');
    if(actionJson)return Response.json({status:step[1],version:Number(form.get('version'))+1,location:'/admin/posts/'+id+'/?'+(step[1]==='PUBLISHED'?'published=1':'updated=1'),message:step[1]==='PUBLISHED'?'공개 처리를 완료했습니다.':'상태를 변경했습니다.'},{headers:{'cache-control':'no-store'}});
   }else{
@@ -152,10 +154,10 @@ export async function cms(request,env){
     let result;
     if(publish){
      const publishStatement=db.prepare("UPDATE posts SET status='PUBLISHED',published_at=?,version=version+1,updated_at=CURRENT_TIMESTAMP,last_actor_id=? WHERE id=? AND mutation_token=? AND status='DRAFT'").bind(post.published_once?post.published_at:seoulDate(),user.id,id,token);
-     const results=await db.batch([statement,publishStatement]);result=results[0];
+     const results=await db.batch([statement,publishStatement,await publicationUrlStatement(db,{...post,...values},token)]);result=results[0];
     }else result=await statement.run();
     if(!result.meta.changes)throw Error('다른 화면에서 변경된 글입니다. 새로고침 후 확인해 주세요.');
-    if(publish){const visible=!company.sample;return actionJson?Response.json({status:'PUBLISHED',version:Number(form.get('version'))+2,visible,location:'/admin/posts/'+id+'/?published=1',publicUrl:visible?'/post/'+id+'/':null},{headers:{'cache-control':'no-store'}}):redirect('/admin/posts/'+id+'/?published=1');}
+    if(publish){const visible=!company.sample,publicPath=(await first(db,'SELECT path FROM post_urls WHERE post_id=?',id))?.path;return actionJson?Response.json({status:'PUBLISHED',version:Number(form.get('version'))+2,visible,location:'/admin/posts/'+id+'/?published=1',publicUrl:visible?postUrl({id,public_path:publicPath}):null},{headers:{'cache-control':'no-store'}}):redirect('/admin/posts/'+id+'/?published=1');}
     if(actionJson)return Response.json({status:'DRAFT',version:Number(form.get('version'))+1,previewUrl:'/admin/posts/'+id+'/preview/',location:'/admin/posts/'+id+'/?saved=1#generated-post'},{headers:{'cache-control':'no-store'}});
     if(request.headers.get('x-editor-save')==='1')return Response.json({location:'/admin/posts/'+id+'/',version:Number(form.get('version'))+1},{headers:{'cache-control':'no-store'}});
     return redirect('/admin/posts/'+id+'/?saved=1#generated-post');

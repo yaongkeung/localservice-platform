@@ -1,3 +1,4 @@
+import {postUrl,normalizedPath} from './post-urls.js';
 import {operationUi} from './operation-ui.js';
 import {editorActions} from './editor-actions.js';
 import {storageReady,health} from './readiness.js';
@@ -33,7 +34,6 @@ const regionIds=region=>regions.filter(r=>r.id===region.id||r.slug.startsWith(re
 const region=p=>regions.find(r=>r.id===p.region_id);
 const service=p=>services.find(s=>s.id===p.service_id);
 const company=p=>companies.find(c=>c.id===p.company_id);
-const postUrl=p=>`/post/${p.id}/`;
 const regionUrl=r=>`/region/${r.slug}/`;
 const serviceUrl=s=>`/service/${s.slug}/`;
 const companyUrl=c=>`/company/${c.id}/`;
@@ -62,7 +62,7 @@ const path=url.pathname;const params=url.searchParams;
     return shell({title:'우리 동네 작업사례·서비스 게시판',description:'전국 지역과 업종별 작업사례, 서비스 안내, 작업팁과 업체 정보를 찾아보세요.',path:'/',noindex:!!url.search,params,body:homePage(params,list,data)});
   }
   const r=regions.find(r=>regionUrl(r)===path);const s=services.find(s=>serviceUrl(s)===path);if(r||s){const list=published.filter(p=>r?regionIds(r).includes(p.region_id):descendantServiceIds(s,services).includes(p.service_id));return shell({title:`${(r||s).name} 게시판`,description:`${(r||s).name}의 출장서비스 작업사례와 업체를 확인하세요.`,path,noindex:!list.length,body:`<div class="wrap">${crumbs([{name:(r||s).name+' 게시판'}])}<span class="eyebrow">${r?'LOCAL AREA':'SERVICE GUIDE'}</span><h1 class="page-title">${e((r||s).name)} ${r?'지역':'업종'} 게시판</h1><p class="muted">작업사례에서 과정과 업체 정보를 함께 확인하세요.</p><section class="section">${s&&services.length>16?serviceFilter(services,new URLSearchParams({service:s.slug})):`<div class="chips">${(r?regions:services).map(x=>`<a class="chip" ${x.id===(r||s).id?'aria-current="page"':''} href="${r?regionUrl(x):serviceUrl(x)}">${e(x.name)}</a>`).join('')}</div>`}</section><section class="section"><div class="section-head"><h2>작업사례와 안내</h2><span class="count">${list.length&&list.every(p=>p.sample)?'샘플 ':''}${list.length}건</span></div>${cards(list)}</section></div>`});}
-  const p=published.find(p=>postUrl(p)===path);if(p){const c=company(p);return shell({title:p.seo_title||p.title,description:p.seo_description||p.summary,path,image:postImage(p.id,images),schema:{'@context':'https://schema.org','@type':'Article',headline:p.title,description:p.summary,datePublished:p.published_at,dateModified:isoDate(p.updated_at||p.published_at),image:images.filter(i=>i.post_id===p.id).map(i=>absolute(i.storage_key)),mainEntityOfPage:origin+path,author:{'@type':'Organization',name:c.name,url:origin+companyUrl(c)}},body:`<div class="wrap">${crumbs([{name:region(p).name,url:regionUrl(region(p))},{name:p.title}])}<span class="tag">${e(service(p).name)} · ${p.sample?'샘플 ':''}${e(p.post_type)}</span><h1 class="page-title">${e(p.title)}</h1><p class="muted">${e(region(p).name)} · <time datetime="${p.published_at}">${p.published_at}</time></p><div class="detail consultation-detail"><article class="panel prose consultation-article">${postArticle(p,images,c,false,{region:region(p),service:service(p),related:published})}<hr>${p.sample?'<p class="muted">이 글은 기능 확인용 샘플이며 실제 시공 실적이 아닙니다.</p>':''}<div class="chips">${link(regionUrl(region(p)),region(p).name+' 사례','chip')}${link(serviceUrl(service(p)),service(p).name+' 사례','chip')}</div></article></div></div>`});}
+  const p=published.find(p=>postUrl(p)===normalizedPath(path));if(p){if(path!==postUrl(p))return new Response(null,{status:301,headers:{location:postUrl(p),'cache-control':'no-store'}});const c=company(p);return shell({title:p.seo_title||p.title,description:p.seo_description||p.summary,path,image:postImage(p.id,images),schema:{'@context':'https://schema.org','@type':'Article',headline:p.title,description:p.summary,datePublished:p.published_at,dateModified:isoDate(p.updated_at||p.published_at),image:images.filter(i=>i.post_id===p.id).map(i=>absolute(i.storage_key)),mainEntityOfPage:origin+path,author:{'@type':'Organization',name:c.name,url:origin+companyUrl(c)}},body:`<div class="wrap">${crumbs([{name:region(p).name,url:regionUrl(region(p))},{name:p.title}])}<span class="tag">${e(service(p).name)} · ${p.sample?'샘플 ':''}${e(p.post_type)}</span><h1 class="page-title">${e(p.title)}</h1><p class="muted">${e(region(p).name)} · <time datetime="${p.published_at}">${p.published_at}</time></p><div class="detail consultation-detail"><article class="panel prose consultation-article">${postArticle(p,images,c,false,{region:region(p),service:service(p),related:published})}<hr>${p.sample?'<p class="muted">이 글은 기능 확인용 샘플이며 실제 시공 실적이 아닙니다.</p>':''}<div class="chips">${link(regionUrl(region(p)),region(p).name+' 사례','chip')}${link(serviceUrl(service(p)),service(p).name+' 사례','chip')}</div></article></div></div>`});}
   const c=companies.find(c=>companyUrl(c)===path);if(c)return shell({title:c.name+' 업체 프로필',description:c.description,path,body:`<div class="wrap">${crumbs([{name:'업체 프로필'}])}<div class="detail"><section class="panel"><span class="tag">${c.sample?'샘플 업체':'업체 프로필'}</span><h1 class="page-title">${e(c.name)}</h1><p>${e(c.description)}</p><p><strong>서비스 지역</strong><br>${e(c.area)}</p><p><strong>상담 시간${c.sample?' (예시)':''}</strong><br>${e(c.hours||'전화로 문의해 주세요.')}</p>${placeCard(c)}</section><aside class="panel aside"><h2>작업 상담 안내</h2><p>증상과 현장 상황을 정리하면 상담에 도움이 됩니다.</p>${phone(c)}</aside></div><section class="section"><div class="section-head"><h2>이 업체의 포스팅</h2></div>${published.some(p=>p.company_id===c.id)?cards(published.filter(p=>p.company_id===c.id)):'<div class="empty"><h3>아직 등록된 작업사례가 없습니다</h3><p>서비스 내용과 작업 가능 여부는 업체에 문의해 주세요.</p></div>'}</section></div>`});
   return shell({title:'페이지를 찾을 수 없습니다',description:'주소를 확인하거나 메인에서 작업사례를 찾아보세요.',path,status:404,noindex:true,body:'<div class="wrap section"><h1>페이지를 찾을 수 없습니다</h1><p>주소가 변경되었거나 등록되지 않은 페이지입니다.</p><a class="button" href="/">메인으로 돌아가기</a></div>'});
 }
@@ -103,8 +103,11 @@ async function handle(request,env={}){
     body=JSON.stringify(items);type='application/json';
   }
   if(type)return new Response(request.method==='HEAD'?null:body,{headers:{'content-type':type+'; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'}});
+  const data=env.DB?await publicDataset(env.DB,{includeSamples:env.APP_ENV!=='production'}):sampleDataset();
+  const oldId=url.pathname.match(/^\/post\/([1-9]\d*)\/?$/)?.[1],moved=oldId&&data.published.find(post=>post.id===Number(oldId)&&post.public_path);
+  if(moved)return new Response(null,{status:301,headers:{location:postUrl(moved),'cache-control':'no-store'}});
   if(!url.pathname.endsWith('/')&&!url.pathname.includes('.')){url.pathname+='/';return Response.redirect(url.href,308);}
-  const response=render(url,env.DB?await publicDataset(env.DB,{includeSamples:env.APP_ENV!=='production'}):sampleDataset(),env);
+  const response=render(url,data,env);
   return request.method==='HEAD'?new Response(null,{status:response.status,headers:response.headers}):response;
 }
 export default {async fetch(request,env={}){

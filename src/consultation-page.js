@@ -1,3 +1,4 @@
+import {postUrl} from './post-urls.js';
 import {siteName,siteTagline} from './brand.js';
 import {pinArtwork} from './brand-pin.js';
 import {inlineText,postContent} from './post-content.js';
@@ -32,7 +33,7 @@ export function consultationPage(post,images,company,info,context={}){
  <section class="consultation-mid-cta"><div><span>궁금한 부분을 편하게 물어보세요</span><h2>${e(region)} ${e(keyword)} 상담</h2><p>사진과 요청 사항을 준비하면 상담 내용을 더 구체적으로 전달할 수 있습니다.</p></div>${call(`<span>전화로 문의하기</span><strong>${e(display)}</strong>`,'consultation-call')}</section>
  <section class="landing-chapter" id="consultation-steps-${post.id}"><p class="landing-eyebrow">HOW TO START</p><h2>상담부터 진행까지</h2><p class="landing-lead">업무에 따라 필요한 절차가 달라집니다. 실제 일정과 진행 방법은 업체에 확인해 주세요.</p><ol class="consultation-steps">${consultationSteps.map(([title,text],i)=>`<li><span>${i+1}</span><div><h3>${e(title)}</h3><p>${e(text)}</p></div></li>`).join('')}</ol></section>
  ${reviews.length?`<section class="landing-chapter" id="customer-reviews-${post.id}"><p class="landing-eyebrow">CUSTOMER VOICES</p><h2>고객 후기</h2><p class="landing-lead">업체가 출처와 게시 가능 여부를 확인해 제공한 후기입니다.</p><div class="landing-review-grid">${reviews.map(text=>`<blockquote><span aria-hidden="true">“</span><p>${e(text)}</p></blockquote>`).join('')}</div>${/^https:\/\/[^@\s]+$/.test(company.review_source_url||'')?`<a class="all-link" href="${e(company.review_source_url)}" target="_blank" rel="noopener noreferrer">후기 출처 보기 ↗</a>`:''}</section>`:''}
- ${related.length?`<section class="landing-chapter"><h2>이 업체의 다른 작업 이야기</h2><div class="landing-related">${related.map(item=>{const image=images.find(image=>image.post_id===item.id&&!image.excluded);return `<a href="/post/${item.id}/">${image?`<img src="${e(image.thumbnail_key||image.storage_key)}" alt="${e(image.alt_text)}" loading="lazy" width="320" height="210">`:''}<h3>${e(item.title)}</h3><p>${e(item.summary)}</p></a>`;}).join('')}</div></section>`:''}
+ ${related.length?`<section class="landing-chapter"><h2>이 업체의 다른 작업 이야기</h2><div class="landing-related">${related.map(item=>{const image=images.find(image=>image.post_id===item.id&&!image.excluded);return `<a href="${postUrl(item)}">${image?`<img src="${e(image.thumbnail_key||image.storage_key)}" alt="${e(image.alt_text)}" loading="lazy" width="320" height="210">`:''}<h3>${e(item.title)}</h3><p>${e(item.summary)}</p></a>`;}).join('')}</div></section>`:''}
  <div id="page-company-${post.id}" class="landing-chapter">${info}</div>
  ${phone?`<div class="page-call-bar"><span>${e(region)} ${e(keyword)}</span>${call(`전화 상담 <strong>${e(display)}</strong>`,'page-call-button')}</div>`:''}</div>`;
 }

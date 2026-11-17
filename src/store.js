@@ -10,7 +10,7 @@ export function decodePost(row){return row?{...row,content:JSON.parse(row.conten
 export async function publicDataset(db,{includeSamples=true}={}){
  const [regions,services,companies,posts,images]=await Promise.all([
   all(db,'SELECT * FROM regions'),all(db,'SELECT * FROM services'),all(db,"SELECT * FROM companies WHERE status='ACTIVE'"+(includeSamples?'':' AND sample=0')),
-  all(db,"SELECT p.* FROM posts p JOIN companies c ON c.id=p.company_id WHERE p.status='PUBLISHED' AND p.published_at<=? AND c.status='ACTIVE'"+(includeSamples?'':' AND p.sample=0 AND c.sample=0')+" ORDER BY p.published_at DESC,p.id DESC",seoulDate()),
+  all(db,"SELECT p.*,u.path AS public_path FROM posts p LEFT JOIN post_urls u ON u.post_id=p.id JOIN companies c ON c.id=p.company_id WHERE p.status='PUBLISHED' AND p.published_at<=? AND c.status='ACTIVE'"+(includeSamples?'':' AND p.sample=0 AND c.sample=0')+" ORDER BY p.published_at DESC,p.id DESC",seoulDate()),
   all(db,"SELECT i.* FROM post_images i JOIN posts p ON p.id=i.post_id WHERE p.status='PUBLISHED' AND p.published_at<=? AND i.excluded=0",seoulDate())
  ]);
  const visible=new Set();for(const post of posts){let region=regions.find(r=>r.id===post.region_id);while(region&&!visible.has(region.id)){visible.add(region.id);region=regions.find(r=>r.id===region.parent_id);}}

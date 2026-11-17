@@ -1,9 +1,10 @@
+import {postUrl} from './post-urls.js';
 import {randomSample} from './random-selection.js';
 import {postImage,seoulDate} from './photos.js';
 function companyCover(company,posts,images){
  const active=images.filter(image=>!image.excluded&&!image.sample);
  const post=[...posts].filter(post=>post.company_id===company.id&&post.status==='PUBLISHED'&&!post.sample&&post.published_at<=seoulDate()&&postImage(post.id,active)).sort((a,b)=>b.published_at.localeCompare(a.published_at)||b.id-a.id)[0],image=post&&postImage(post.id,active);
- return image?`<a class="company-cover" href="/post/${post.id}/" aria-label="${e(post.title)}"><img src="${e(image.storage_key)}" alt="${e(image.alt_text)}" width="${image.width||960}" height="${image.height||640}" loading="lazy" decoding="async"></a>`:`<a class="company-cover company-cover-empty" href="/company/${company.id}/" aria-label="${e(company.name)} 업체 프로필"><span aria-hidden="true">📷</span><span>사진 준비 중</span></a>`;
+ return image?`<a class="company-cover" href="${postUrl(post)}" aria-label="${e(post.title)}"><img src="${e(image.storage_key)}" alt="${e(image.alt_text)}" width="${image.width||960}" height="${image.height||640}" loading="lazy" decoding="async"></a>`:`<a class="company-cover company-cover-empty" href="/company/${company.id}/" aria-label="${e(company.name)} 업체 프로필"><span aria-hidden="true">📷</span><span>사진 준비 중</span></a>`;
 }
 
 const e=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

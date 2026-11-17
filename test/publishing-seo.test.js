@@ -1,3 +1,4 @@
+import {fetchCanonical} from './fetch-canonical.js';
 import {test} from 'node:test';
 import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
@@ -16,7 +17,7 @@ async function fixture(){
   const token=randomToken(),csrf=randomToken();await DB.prepare('INSERT INTO sessions(token_hash,user_id,csrf,expires_at) VALUES(?,?,?,?)').bind(await digest(token),id,csrf,Date.now()+3600000).run();auth[id]={cookie:'ls_session='+token,csrf};
  }
  await DB.prepare('INSERT INTO company_assignments(user_id,company_id) VALUES(2,1),(3,2)').run();
- const call=(path,{as,form,headers={},method=form?'POST':'GET'}={})=>worker.fetch(new Request(origin+path,{method,headers:{...(as?{cookie:auth[as].cookie}:{}),...(form?{origin,'content-type':'application/x-www-form-urlencoded'}:{}),...headers},body:form?new URLSearchParams({...form,...(as?{csrf:auth[as].csrf}:{})}):undefined}),{DB});
+ const call=(path,{as,form,headers={},method=form?'POST':'GET'}={})=>fetchCanonical(new Request(origin+path,{method,headers:{...(as?{cookie:auth[as].cookie}:{}),...(form?{origin,'content-type':'application/x-www-form-urlencoded'}:{}),...headers},body:form?new URLSearchParams({...form,...(as?{csrf:auth[as].csrf}:{})}):undefined}),{DB});
  const row=id=>DB.prepare('SELECT * FROM posts WHERE id=?').bind(id).first();
  const values=(override={})=>({title:'국내 지역 작업사례 '+randomToken().slice(0,8),summary:'전국 지역 선택과 재공개 기능을 점검하는 샘플 안내입니다.',content:'이 글은 지역 선택과 게시 상태 변경을 확인하기 위한 시험 콘텐츠입니다. 실제 작업 실적이 아니며, 작업 내용을 기록하고 검수한 뒤 공개하는 과정을 검증합니다. '+randomToken(),company_id:1,region_id:2,service_id:1,post_type:'작업사례',...override});
  const create=async(overrides={},as=2)=>{const response=await call('/admin/posts/new/',{as,form:values(overrides)});assert.equal(response.status,303,await response.clone().text());return Number(response.headers.get('location').split('/')[3]);};
@@ -70,7 +71,7 @@ test('edited posts keep their URL, first publication date and publication metada
   assert.equal((await f.call('/post/'+id+'/')).status,404);await f.publish(id);
   const post=await f.row(id);assert.equal(post.published_at,old.published_at);assert.equal((await f.DB.prepare('SELECT published_quantity FROM contracts WHERE id=1').first()).published_quantity,0);
   assert.match(await(await f.call('/post/'+id+'/')).text(),/수정 검수 후 다시 공개한 작업 이야기/);
-  const rss=await(await f.call('/rss.xml')).text();assert.equal((rss.match(new RegExp('<guid isPermaLink="true">'+origin+'/post/'+id+'/</guid>','g'))||[]).length,1);
+  const rss=await(await f.call('/rss.xml')).text();assert.equal((rss.match(new RegExp('<guid isPermaLink="true">'+origin+(await f.DB.prepare('SELECT path FROM post_urls WHERE post_id=?').bind(id).first()).path+'</guid>','g'))||[]).length,1);
   await f.transition(id,'withdraw');assert.equal((await f.save(id,{company_id:2,contract_id:null},1)).status,409);
   await assert.rejects(f.DB.prepare('UPDATE posts SET company_id=2 WHERE id=?').bind(id).run(),/immutable/);
  }finally{f.DB.close();}
@@ -79,7 +80,7 @@ test('RSS, sitemap and robots use canonical URLs and exclude non-public or empty
  const f=await fixture();try{
   const id=await f.create({title:'수전 & 배관 <점검> "시험"'});await f.publish(id);
   const unpublished=await f.create();await f.DB.prepare("INSERT INTO services(name,slug) VALUES('빈 업종','empty-service')").run();
-  const sitemap=await(await f.call('/sitemap.xml')).text();assert.match(sitemap,/<urlset xmlns="http:\/\/www.sitemaps.org\/schemas\/sitemap\/0.9">/);assert.ok(sitemap.includes(origin+'/post/'+id+'/'));assert.ok(!sitemap.includes('/post/'+unpublished+'/'));assert.ok(!sitemap.includes('empty-service'));assert.ok(!sitemap.includes('/admin/'));
+  const sitemap=await(await f.call('/sitemap.xml')).text();assert.match(sitemap,/<urlset xmlns="http:\/\/www.sitemaps.org\/schemas\/sitemap\/0.9">/);assert.ok(sitemap.includes(origin+(await f.DB.prepare('SELECT path FROM post_urls WHERE post_id=?').bind(id).first()).path));assert.ok(!sitemap.includes('/post/'+unpublished+'/'));assert.ok(!sitemap.includes('empty-service'));assert.ok(!sitemap.includes('/admin/'));
   const response=await f.call('/rss.xml');assert.match(response.headers.get('content-type'),/application\/rss\+xml/);const feed=await response.text();assert.match(feed,/수전 &amp; 배관 &lt;점검&gt; &quot;시험&quot;/);assert.ok(!feed.includes('/post/'+unpublished+'/'));
   const html=await(await f.call('/post/'+id+'/')).text(),graph=JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1])['@graph'];assert.equal(graph.find(n=>n['@type']==='Article').headline,'수전 & 배관 <점검> "시험"');
   const robots=await(await f.call('/robots.txt')).text();assert.match(robots,/Disallow: \/admin\//);assert.match(robots,/Sitemap: https:\/\/gongsa8282.xyz\/sitemap.xml/);assert.doesNotMatch(robots,/Disallow: \/uploads\//);

@@ -1,3 +1,4 @@
+import {fetchCanonical} from './fetch-canonical.js';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,rm} from 'node:fs/promises';
@@ -13,7 +14,7 @@ async function fixture(path){
  const DB=sqliteDatabase(path);await migrate(DB);await seed(DB);
  for(const [id,role] of [[1,'ADMIN'],[2,'EDITOR'],[3,'EDITOR']])await DB.prepare('INSERT INTO users(id,name,login_id,password_hash,role) VALUES(?,?,?,?,?)').bind(id,'사용자 '+id,'user'+id,await hashPassword(password),role).run();
  await DB.prepare('INSERT INTO company_assignments(user_id,company_id) VALUES(2,1),(3,2)').run();
- const call=(path,{form,cookie,headers={},method=form?'POST':'GET'}={})=>worker.fetch(new Request(origin+path,{method,headers:{...(form?{'content-type':'application/x-www-form-urlencoded',origin}:{}),...(cookie?{cookie}:{}),...headers},body:form?new URLSearchParams(form):undefined}),{DB});
+ const call=(path,{form,cookie,headers={},method=form?'POST':'GET'}={})=>fetchCanonical(new Request(origin+path,{method,headers:{...(form?{'content-type':'application/x-www-form-urlencoded',origin}:{}),...(cookie?{cookie}:{}),...headers},body:form?new URLSearchParams(form):undefined}),{DB});
  const signIn=async(id=1)=>{const res=await call('/admin/login/',{form:{login_id:'user'+id,password}});assert.equal(res.status,303);const cookie=res.headers.get('set-cookie').split(';')[0];const html=await(await call('/admin/posts/new/',{cookie})).text();return {cookie,csrf:html.match(/name="csrf" value="([a-f0-9]+)"/)[1]};};
  return {DB,call,signIn};
 }
@@ -97,10 +98,10 @@ test('migrations are repeatable and saved drafts persist after database restart'
   db=sqliteDatabase(path);await migrate(db);await seed(db);
   assert.equal((await db.prepare('SELECT title FROM posts WHERE id=?').bind(id).first()).title,values().title);
   assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM posts').first()).n,4);
-  assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM d1_migrations').first()).n,13);
+  assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM d1_migrations').first()).n,14);
  }finally{db?.close();assert.ok(resolve(dir).startsWith(resolve(tmpdir())+sep)&&basename(dir).startsWith('localservice-cms-'));await rm(dir,{recursive:true,force:true});}
 });
 test('missing DB does not expose a login bypass; production admin requires HTTPS',async()=>{
- assert.equal((await worker.fetch(new Request(origin+'/admin/'))).status,503);
- const f=await fixture();try{assert.equal((await worker.fetch(new Request('http://example.com/admin/'),{DB:f.DB})).status,403);}finally{f.DB.close();}
+ assert.equal((await fetchCanonical(new Request(origin+'/admin/'))).status,503);
+ const f=await fixture();try{assert.equal((await fetchCanonical(new Request('http://example.com/admin/'),{DB:f.DB})).status,403);}finally{f.DB.close();}
 });

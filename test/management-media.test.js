@@ -1,3 +1,4 @@
+import {fetchCanonical} from './fetch-canonical.js';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -19,7 +20,7 @@ async function fixture(){
   const token=randomToken(),csrf=randomToken();await DB.prepare('INSERT INTO sessions(token_hash,user_id,csrf,expires_at) VALUES(?,?,?,?)').bind(await digest(token),id,csrf,Date.now()+3600000).run();auth[id]={cookie:'ls_session='+token,csrf};
  }
  await DB.prepare('INSERT INTO company_assignments(user_id,company_id) VALUES(2,1),(3,2)').run();
- const call=(path,{as,form,body,headers={},method=form||body?'POST':'GET'}={})=>worker.fetch(new Request(origin+path,{method,headers:{...(as?{cookie:auth[as].cookie}:{}),...((form||body)?{origin}:{}),...(form?{'content-type':'application/x-www-form-urlencoded'}:{}),...headers},body:form?new URLSearchParams({...form,...(as?{csrf:auth[as].csrf}:{})}):body}),{DB,PHOTOS});
+ const call=(path,{as,form,body,headers={},method=form||body?'POST':'GET'}={})=>fetchCanonical(new Request(origin+path,{method,headers:{...(as?{cookie:auth[as].cookie}:{}),...((form||body)?{origin}:{}),...(form?{'content-type':'application/x-www-form-urlencoded'}:{}),...headers},body:form?new URLSearchParams({...form,...(as?{csrf:auth[as].csrf}:{})}):body}),{DB,PHOTOS});
  const create=async(overrides={},as=2)=>{const response=await call('/admin/posts/new/',{as,form:{title:'시험용 작업 내용 '+randomToken().slice(0,8),summary:'공개 흐름과 사진을 검증하는 테스트용 작업 내용입니다.',content:'관리 화면에서 저장한 고유한 작업 과정입니다. 수전 주변을 살펴보고 물기를 정리한 후 점검할 부분을 확인했습니다. 실제 작업 실적을 나타내는 글이 아니며 자동 검증을 위해 작성했습니다. '+randomToken(),company_id:1,region_id:2,service_id:1,post_type:'작업사례',...overrides}});assert.equal(response.status,303,await response.clone().text());return Number(response.headers.get('location').split('/')[3]);};
  const row=id=>DB.prepare('SELECT * FROM posts WHERE id=?').bind(id).first();
  const transition=async(id,action,as=1)=>call(`/admin/posts/${id}/status/`,{as,form:{action,version:(await row(id)).version}});
@@ -86,7 +87,7 @@ test('imported photos belong to one blog post across boards and profile, and leg
   const preview=await f.call('/admin/posts/'+id+'/preview/',{as:2});assert.equal(preview.status,200);assert.match(preview.headers.get('cache-control'),/no-store/);assert.ok((await preview.text()).includes(cover));assert.equal((await f.call('/admin/posts/'+id+'/preview/',{as:3})).status,404);assert.equal((await f.call('/admin/posts/'+id+'/preview/')).status,303);
   for(const action of ['submit','approve','publish'])assert.equal((await f.transition(id,action)).status,303);
   const html=await(await f.call('/post/'+id+'/')).text(),article=html.match(/<article class="panel prose consultation-article">([\s\S]*?)<\/article>/)[1];assert.ok(article.indexOf('사진을 보기 전에')<article.indexOf('<figure'));assert.ok(article.indexOf('<figure')<article.indexOf('사진 아래에'));assert.equal((await f.call(cover)).status,200);
-  for(const path of ['/','/service/plumbing/','/company/1/'])assert.ok((await(await f.call(path)).text()).includes('/post/'+id+'/'));
+  for(const path of ['/','/service/plumbing/','/company/1/'])assert.ok((await(await f.call(path)).text()).includes((await f.DB.prepare('SELECT path FROM post_urls WHERE post_id=?').bind(id).first()).path));
   const profile=await(await f.call('/company/1/')).text();assert.doesNotMatch(profile,/업체 제공 사진|company-gallery/);assert.match(profile,/이 업체의 포스팅/);
   assert.equal((await f.transition(id,'withdraw')).status,303);assert.equal((await f.call(cover)).status,404);
  }finally{f.DB.close();}
