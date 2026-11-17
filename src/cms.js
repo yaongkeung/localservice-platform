@@ -3,6 +3,7 @@ import {editPage} from './post-editor.js';
 import {simplePostForm} from './editor-values.js';
 import {titleFor} from './editor-title.js';
 import {postArticle} from './post-article.js';
+import {searchReadiness} from './search-readiness.js';
 import {searchFields,composePage,generateDraft,targetRegionMatches} from './draft-assistant.js';
 import {accountPage,resetWorkerPassword} from './account.js';
 import {registerRegion} from './cms-regions.js';
@@ -78,6 +79,7 @@ export async function cms(request,env){
  if(form&&form.get('csrf')!==user.csrf)return page('요청 확인 실패','<p>페이지를 새로 열고 다시 시도해 주세요.</p>',user,403);
  if(path==='/admin/logout/'&&form){await run(db,'DELETE FROM sessions WHERE token_hash=?',user.token_hash);const response=redirect('/admin/login/');response.headers.set('set-cookie',sessionCookie(request,'',0));return response;}
  if(path==='/admin/account/')return accountPage(request,db,user,form);
+ if(path==='/admin/search-readiness/')return searchReadiness(request,env,user);
  const resetMatch=path.match(/^\/admin\/users\/(\d+)\/reset-password\/$/);if(resetMatch)return resetWorkerPassword(db,user,Number(resetMatch[1]),form);
  if(/^\/admin\/(companies|users|services|contracts)\//.test(path))return management(db,user,url,form);
  if(path==='/admin/'&&!form)return dashboard(db,user,url);
