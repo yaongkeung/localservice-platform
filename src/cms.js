@@ -2,7 +2,7 @@ import {initialDraftText,waitingForPhotos} from './draft-state.js';
 import {editPage} from './post-editor.js';
 import {simplePostForm} from './editor-values.js';
 import {titleFor} from './editor-title.js';
-import {postContent} from './post-content.js';
+import {postArticle} from './post-article.js';
 import {searchFields,composePage,generateDraft,targetRegionMatches} from './draft-assistant.js';
 import {accountPage,resetWorkerPassword} from './account.js';
 import {registerRegion} from './cms-regions.js';
@@ -91,7 +91,7 @@ export async function cms(request,env){
  if(match[2]==='preview/'){
   if(form)return page('허용되지 않은 요청','<p>미리보기는 조회만 가능합니다.</p>',user,405);
   const images=await all(db,'SELECT * FROM post_images WHERE post_id=? AND excluded=0 ORDER BY sort_order,id',id);
-  return page('포스팅 미리보기',`<a href="/admin/posts/${id}/">← 글 편집으로</a><h1>포스팅 미리보기</h1><p class="cms-note">마지막으로 저장한 제목·본문·사진입니다. 공개 전 글은 로그인한 관리자와 배정된 작성자만 볼 수 있습니다.</p><article class="panel prose"><h2>${e(post.title)}</h2><strong>${e(post.summary)}</strong>${postContent(post,images)}</article>`,user);
+  return page('포스팅 미리보기',`<a href="/admin/posts/${id}/">← 글 편집으로</a><h1>포스팅 미리보기</h1><p class="cms-note">마지막으로 저장한 제목·본문·사진입니다. 공개 전 글은 로그인한 관리자와 배정된 작성자만 볼 수 있습니다.</p><article class="panel prose"><h2>${e(post.title)}</h2><strong>${e(post.summary)}</strong>${postArticle(post,images,data.companies.find(company=>company.id===post.company_id),isAdmin(user))}</article>`,user);
  }
  if(match[2]==='generations/'){
   if(form)return page('허용되지 않은 요청','<p>작성 기록은 조회만 가능합니다.</p>',user,405);

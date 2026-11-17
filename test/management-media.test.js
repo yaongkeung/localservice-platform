@@ -96,6 +96,7 @@ test('one company place record is reflected in its posts and profile without ove
   const values={...company,phone:'010-0000-0000',phone_verified:'1',naver_place_url:'https://naver.me/Test1234',naver_place_name:'플레이스 등록명 <시험>',naver_place_address:'시험 도로 1',naver_place_hours:'상담 시간 확인'};
   assert.equal((await f.call('/admin/companies/new/',{as:1,form:{...values,naver_place_url:'https://naver.me.evil.example/Test1234'}})).status,409);
   assert.equal((await f.call('/admin/companies/new/',{as:1,form:values})).status,303);let c=await f.DB.prepare('SELECT * FROM companies ORDER BY id DESC LIMIT 1').first();const id=await f.create({company_id:c.id,post_type:'서비스안내'},1);
+  for(const path of ['/admin/posts/'+id+'/','/admin/posts/'+id+'/preview/']){const html=await(await f.call(path,{as:1})).text();assert.match(html,/href="https:\/\/naver\.me\/Test1234"/);assert.equal((html.match(/id="place-info"/g)||[]).length,1);assert.match(html,/시험 도로 1/);}
   for(const action of ['submit','approve','publish'])assert.equal((await f.transition(id,action)).status,303);const original=(await f.row(id)).content;
   for(const path of ['/post/'+id+'/','/company/'+c.id+'/']){const html=await(await f.call(path)).text();assert.match(html,/href="https:\/\/naver\.me\/Test1234"/);assert.match(html,/플레이스 등록명 &lt;시험&gt;/);assert.match(html,/시험 도로 1/);assert.match(html,/href="tel:01000000000"/);assert.doesNotMatch(html,/<iframe/);}
   const edit=await(await f.call('/admin/companies/'+c.id+'/',{as:1})).text();assert.match(edit,/name="naver_place_url"/);

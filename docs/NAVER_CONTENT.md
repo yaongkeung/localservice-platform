@@ -42,3 +42,11 @@ Cloudflare Workers AI의 `@cf/meta/llama-4-scout-17b-16e-instruct`를 사용한�
 - [네이버 검색 미노출 점검](https://searchadvisor.naver.com/guide/faq-serpmissing): noindex와 접근 차단, 중복·품질 문제 확인.
 - [김포시 지명유래](https://gimpo.go.kr/culture/contents.do?key=6848): 적용한 지역 유래의 출처, 2026-11-16 확인.
 - [Cloudflare 모델 문서](https://developers.cloudflare.com/workers-ai/models/llama-4-scout-17b-16e-instruct/) · [AI 요금 정책](https://developers.cloudflare.com/workers-ai/platform/pricing/).
+
+## 본문 보강과 정보 유지
+
+본문 구성은 지역 소개와 확인한 출처, 업무별 상담 안내, 사진별 설명, 상담 준비/FAQ, 업체·네이버플레이스 정보입니다. 같은 구성의 블로그형 포스팅을 편집 결과/미리보기/공개 화면에서 표시합니다. 은평문화원·은평구 주민센터 자료를 확인해 응암동의 지명/백련산·매바위 소개를 추가했습니다. 전국의 미확인 유래는 만들지 않고 선택 지역과 작업 대상/방문 조건을 안내합니다.
+
+업무별로 규격·설치 위치·틀/부품·반입 조건 등 상담에 필요한 사항을 구성하며 가격이나 실제 시공 완료는 추정하지 않습니다. 지역 유래는 작업 불량이나 건물 노후의 근거로 사용하지 않습니다. 사진을 재분석하지 않는 기존 본문 보강은 이전 문단을 보존해 기록하고 AI 일일 한도와 구분합니다.
+
+확인 자료: [네이버 콘텐츠 작성 가이드](https://searchadvisor.naver.com/guide/content-basic), [은평문화원 지명](https://epculture.or.kr/sub02/sub02.php), [응암1동 지명유래](https://center.ep.go.kr/dong/contents.do?key=4132).
