@@ -1,6 +1,6 @@
 import {titleFor} from './editor-title.js';
 import {seoulDate} from './photos.js';
-const normal=value=>String(value||'').normalize('NFKC').replace(/[^\p{L}\p{N}]/gu,'').replace(/샤시/g,'샷시').toLowerCase();
+const normal=value=>String(value||'').normalize('NFKC').replace(/[^\p{L}\p{N}]/gu,'').replace(/샤시/g,'샷시').replace(/쇼파/g,'소파').replace(/밧데리/g,'배터리').replace(/렌터카/g,'렌트카').replace(/닥트/g,'덕트').toLowerCase();
 export function serviceForKeyword(keyword,services,current,company={}){
  const score=(service,text)=>{
   const name=normal(service.name);let result=name&&text.includes(name)?100+name.length:0;

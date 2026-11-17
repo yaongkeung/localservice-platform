@@ -1,10 +1,11 @@
 import {normalizePlaceUrl} from './place.js';
 import {all,first,run} from './store.js';
-import {isAdmin,randomToken,hashPassword} from './auth.js';
+import {isAdmin,randomToken,hashPassword,digest} from './auth.js';
+import {serviceIcons,sortServices,normalServiceName} from './services.js';
 import {page,csrf,redirect,e} from './admin-ui.js';
 const kinds={companies:'업체',users:'작업자·배정',services:'업종',contracts:'계약'};
 const tones={sky:'하늘색',mint:'민트',peach:'살구색',lilac:'라일락'};
-const icons=['🔧','💡','🫧','🧰','🏠','🪟','🧹','❄️','🚪','🎨','🛠️','🚚'];
+const icons=serviceIcons;
 const input=(name,label,value='',type='text',extra='')=>`<label>${label}<input name="${name}" type="${type}" value="${e(value)}" ${extra}></label>`;
 const select=(name,label,rows,value)=>`<label>${label}<select name="${name}">${rows.map(([v,label])=>`<option value="${e(v)}" ${String(v)===String(value)?'selected':''}>${e(label)}</option>`).join('')}</select></label>`;
 const checkbox=(name,label,checked=false)=>`<label style="display:flex;gap:10px;align-items:center"><input style="width:auto;margin:0" type="checkbox" name="${name}" value="1" ${checked?'checked':''}>${label}</label>`;
@@ -13,7 +14,7 @@ const integer=(form,key,min,max)=>{const raw=form.get(key)||'';if(!/^\d+$/.test(
 const companyOptions=companies=>companies.map(c=>[c.id,c.name+(c.status==='ACTIVE'?'':' (비활성)')]);
 function fields(kind,row,data){
  if(kind==='companies')return input('name','업체명',row.name,'text','maxlength="80" required')+input('description','업체 소개',row.description,'text','maxlength="1000" required')+input('area','서비스 지역',row.area,'text','maxlength="200" required')+input('hours','상담 시간',row.hours,'text','maxlength="120"')+input('phone','상담 전화번호',row.phone,'tel','maxlength="25" placeholder="미등록 시 전화 버튼 비활성"')+input('naver_place_url','네이버플레이스 주소 (선택)',row.naver_place_url,'url','maxlength="500" placeholder="https://naver.me/공유주소"')+input('naver_place_name','플레이스 등록명 (선택)',row.naver_place_name,'text','maxlength="160"')+input('naver_place_address','플레이스 등록 주소 (선택)',row.naver_place_address,'text','maxlength="300"')+input('naver_place_hours','플레이스 영업 안내 (선택)',row.naver_place_hours,'text','maxlength="200"')+'<p class="cms-help full">같은 업체의 플레이스인지 확인한 주소를 등록해 주세요. 등록하면 이 업체의 포스팅과 프로필에 함께 표시됩니다. 기존 상담 번호와 서비스 지역은 유지됩니다.</p>'+checkbox('phone_verified','상담 번호를 직접 확인했습니다.',!!row.phone_verified)+select('status','운영 상태',[['ACTIVE','활성'],['DISABLED','비활성']],row.status||'ACTIVE')+checkbox('sample','시험용 업체로 표시',row.id?!!row.sample:true);
- if(kind==='services')return input('name','업종명',row.name,'text','maxlength="60" required')+input('slug','주소용 영문 이름',row.slug,'text',`pattern="[a-z][a-z0-9-]{1,59}" maxlength="60" required ${row.id?'readonly':''}`)+input('description','설명',row.description,'text','maxlength="300"')+select('parent_id','상위 업종',[['','없음 (대표 업종)'],...data.services.filter(s=>s.id!==row.id).map(s=>[s.id,s.name])],row.parent_id||'')+select('icon','표시 아이콘',icons.map(v=>[v,v]),row.icon||icons[0])+select('tone','포인트 색상',Object.entries(tones),row.tone||'sky')+'<p class="cms-help full">저장하면 메인 업종 목록과 글쓰기 선택에 반영됩니다. 기존 주소는 유지합니다.</p>';
+ if(kind==='services')return input('name','업종명',row.name,'text','maxlength="60" placeholder="예: 간판, 렌트카, 컴퓨터수리" required')+'<p class="cms-help full">업종명만 입력하고 저장하면 됩니다. 새 업종은 가나다순으로 자동 배치됩니다.</p><details class="full"><summary>추가 설정 (선택)</summary><div class="cms-grid" style="margin-top:18px">'+input('description','설명',row.description,'text','maxlength="300"')+select('parent_id','상위 업종',[['','없음 (대표 업종)'],...data.services.filter(s=>s.id!==row.id).map(s=>[s.id,s.name])],row.parent_id||'')+select('icon','표시 아이콘',icons.map(v=>[v,v]),row.icon||icons[0])+select('tone','포인트 색상',Object.entries(tones),row.tone||'sky')+input('slug','게시판 주소 이름 (자동 생성)',row.slug,'text',`pattern="[a-z][a-z0-9-]{1,59}" maxlength="60" placeholder="비워두면 자동 생성" ${row.id?'readonly':''}`)+'</div></details><p class="cms-help full">저장한 업종은 메인 업종 선택과 게시판에 반영됩니다. 기존 게시판 주소는 유지합니다.</p>';
  if(kind==='users')return input('name','작업자 이름',row.name,'text','maxlength="60" required')+input('login_id','로그인 아이디',row.login_id,'text',`pattern="[a-zA-Z0-9_-]{3,40}" maxlength="40" required ${row.id?'readonly':''}`)+select('status','계정 상태',[['ACTIVE','활성'],['DISABLED','비활성']],row.status||'ACTIVE')+`<fieldset class="full"><legend>배정 업체</legend>${data.companies.map(c=>checkbox('company_ids',e(c.name)+(c.status==='ACTIVE'?'':' (비활성)'),data.assignments.includes(c.id)).replace('value="1"',`value="${c.id}"`)).join('')||'<p>먼저 업체를 등록해 주세요.</p>'}</fieldset><p class="cms-help full">작업자 권한으로 발급합니다. 새 계정의 임시 비밀번호는 저장 직후 한 번만 표시하며 첫 로그인에서 변경해야 합니다. 비활성화하면 기존 로그인도 차단됩니다.</p>`;
  return select('company_id','업체',companyOptions(data.companies),row.company_id)+input('package_name','계약 이름',row.package_name,'text','maxlength="100" required')+input('contract_quantity','계약 게시 수량',row.contract_quantity??1,'number','min="1" max="100000" required')+input('price','계약 금액 (원)',row.price??0,'number','min="0" max="1000000000" required')+input('start_date','시작일',row.start_date,'date','required')+input('end_date','종료일',row.end_date,'date','required')+select('status','계약 상태',[['ACTIVE','진행 중'],['CLOSED','종료']],row.status||'ACTIVE')+`<p class="cms-note full">공개 완료 ${row.published_quantity||0}건 / 계약 ${row.contract_quantity||1}건 · 공개 시 자동 집계합니다. 저장·검수·승인은 수량을 차감하지 않습니다.</p>`;
 }
@@ -26,11 +27,12 @@ async function validate(kind,form,row,data){
   return {...placeFields,name:text(form,'name',2,80),description:text(form,'description',10,1000),area:text(form,'area',2,200),hours:text(form,'hours',0,120),phone:phone||null,phone_verified:phone?1:0,status:form.get('status'),sample:form.get('sample')==='1'?1:0};
  }
  if(kind==='services'){
-  const slug=row.id?row.slug:text(form,'slug',2,60);if(!/^[a-z][a-z0-9-]{1,59}$/.test(slug))throw Error('주소용 이름은 영문 소문자·숫자·하이픈으로 입력해 주세요.');
-  const parent_id=Number(form.get('parent_id'))||null;let cursor=parent_id;const seen=new Set(row.id?[row.id]:[]);
+  const name=text(form,'name',2,60);if(data.services.some(service=>service.id!==row.id&&normalServiceName(service.name)===normalServiceName(name)))throw Error('이미 등록된 업종입니다. 기존 업종을 선택해 주세요.');
+  const slug=row.id?row.slug:(text(form,'slug',0,60)||'service-'+(await digest(normalServiceName(name))).slice(0,12));if(!/^[a-z][a-z0-9-]{1,59}$/.test(slug))throw Error('주소용 이름은 영문 소문자·숫자·하이픈으로 입력해 주세요.');
+  const parent_id=form.has('parent_id')?Number(form.get('parent_id'))||null:row.parent_id||null;let cursor=parent_id;const seen=new Set(row.id?[row.id]:[]);
   while(cursor){if(seen.has(cursor))throw Error('상위 업종이 순환하지 않도록 선택해 주세요.');seen.add(cursor);const p=data.services.find(s=>s.id===cursor);if(!p)throw Error('상위 업종을 확인해 주세요.');cursor=p.parent_id;}
-  if(!icons.includes(form.get('icon'))||!Object.hasOwn(tones,form.get('tone')))throw Error('아이콘과 색상을 선택해 주세요.');
-  return {name:text(form,'name',2,60),slug,description:text(form,'description',0,300),parent_id,icon:form.get('icon'),tone:form.get('tone')};
+  const icon=form.get('icon')||row.icon||icons[0],tone=form.get('tone')||row.tone||'sky';if(!icons.includes(icon)||!Object.hasOwn(tones,tone))throw Error('아이콘과 색상을 선택해 주세요.');
+  return {name,slug,description:form.has('description')?text(form,'description',0,300):row.description||'',parent_id,icon,tone};
  }
  if(kind==='users'){
   const login_id=row.id?row.login_id:text(form,'login_id',3,40);if(!/^[a-zA-Z0-9_-]{3,40}$/.test(login_id))throw Error('아이디는 영문·숫자·밑줄·하이픈 3~40자로 입력해 주세요.');
@@ -50,12 +52,16 @@ export async function management(db,user,url,form){
  const [,kind,key]=match,label=kinds[kind];
  if(!key){
   if(form)return page('잘못된 요청','<h1>등록 화면에서 저장해 주세요.</h1>',user,405);
-  const rows=await all(db,`SELECT * FROM ${kind} ${kind==='users'?"WHERE role='EDITOR'":''} ORDER BY id DESC`);
+  let rows=await all(db,`SELECT * FROM ${kind} ${kind==='users'?"WHERE role='EDITOR'":''} ORDER BY id DESC`);
+  if(kind==='services'){
+   rows=sortServices(rows);const total=rows.length,query=(url.searchParams.get('q')||'').trim().slice(0,60),list=rows.filter(row=>normalServiceName(row.name).includes(normalServiceName(query)));
+   return page('업종 관리',`<div class="cms-head"><div><h1>업종 관리</h1><p class="cms-help">가나다순 · 전체 ${total}개 · 필요할 때 계속 추가할 수 있습니다.</p></div><a class="button" href="/admin/services/new/">＋ 업종 추가</a></div><form method="get" class="cms-actions"><label style="flex:1;margin:0">업종 찾기<input name="q" value="${e(query)}" maxlength="60" placeholder="업종명을 입력하세요"></label><button>검색</button></form><div class="cms-list">${list.map(row=>`<article class="cms-item"><h2><a href="/admin/services/${row.id}/">${e(row.icon)} ${e(row.name)}</a></h2><span class="cms-help">${row.parent_id?'상위 업종: '+e(rows.find(parent=>parent.id===row.parent_id)?.name||'미지정'):'대표 업종'}</span></article>`).join('')||'<p class="empty">검색한 업종이 없습니다. 새 업종을 추가할 수 있습니다.</p>'}</div>`,user);
+  }
   return page(label+' 관리',`<div class="cms-head"><h1>${label} 관리</h1><a class="button" href="/admin/${kind}/new/">＋ ${label} 등록</a></div><div class="cms-list">${rows.map(r=>`<article class="cms-item"><h2><a href="/admin/${kind}/${r.id}/">${e(r.name||r.package_name)}</a></h2><span class="cms-help">#${r.id}${r.login_id?' · '+e(r.login_id):''}${r.status?' · '+({ACTIVE:'활성',DISABLED:'비활성',CLOSED:'종료'}[r.status]||e(r.status)):''}${kind==='contracts'?` · 공개 ${r.published_quantity} / ${r.contract_quantity}건`:''}${r.slug?' · '+e(r.slug):''}</span></article>`).join('')||'<p class="empty">등록된 항목이 없습니다.</p>'}</div>`,user);
  }
  let row=key==='new'?{}:await first(db,`SELECT * FROM ${kind} WHERE id=?`,Number(key));
  if(!row||kind==='users'&&row.id&&row.role!=='EDITOR')return page('항목 없음','<h1>항목을 찾을 수 없습니다.</h1>',user,404);
- const data={companies:await all(db,'SELECT * FROM companies ORDER BY name'),services:await all(db,'SELECT * FROM services ORDER BY name'),assignments:row.id&&kind==='users'?(await all(db,'SELECT company_id FROM company_assignments WHERE user_id=?',row.id)).map(r=>r.company_id):[]};
+ const data={companies:await all(db,'SELECT * FROM companies ORDER BY name'),services:sortServices(await all(db,'SELECT * FROM services')),assignments:row.id&&kind==='users'?(await all(db,'SELECT company_id FROM company_assignments WHERE user_id=?',row.id)).map(r=>r.company_id):[]};
  let error='';
  if(form)try{
   const values=await validate(kind,form,row,data);

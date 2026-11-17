@@ -3,6 +3,7 @@ import {editPage} from './post-editor.js';
 import {simplePostForm} from './editor-values.js';
 import {titleFor} from './editor-title.js';
 import {postArticle} from './post-article.js';
+import {sortServices} from './services.js';
 import {searchReadiness} from './search-readiness.js';
 import {searchFields,composePage,generateDraft,targetRegionMatches} from './draft-assistant.js';
 import {accountPage,resetWorkerPassword} from './account.js';
@@ -33,7 +34,7 @@ export async function postValues(form){
  return {...searchFields(form),title,summary,content:text.split(/\n\s*\n/).map(t=>t.trim()).filter(Boolean),company_id:Number(form.get('company_id')),region_id:Number(form.get('region_id')),service_id:Number(form.get('service_id')),post_type,contract_id:Number(form.get('contract_id'))||null,title_hash:await digest(normalize(title)),content_hash:await digest(normalize(text))};
 }
 async function choices(db,user){
- return {companies:await all(db,isAdmin(user)?"SELECT * FROM companies WHERE status='ACTIVE'":"SELECT c.* FROM companies c JOIN company_assignments a ON a.company_id=c.id WHERE a.user_id=? AND c.status='ACTIVE'",...(isAdmin(user)?[]:[user.id])),regions:await all(db,'SELECT * FROM regions ORDER BY slug'),services:await all(db,'SELECT * FROM services ORDER BY id'),contracts:await all(db,'SELECT * FROM contracts ORDER BY id DESC')};
+ return {companies:await all(db,isAdmin(user)?"SELECT * FROM companies WHERE status='ACTIVE'":"SELECT c.* FROM companies c JOIN company_assignments a ON a.company_id=c.id WHERE a.user_id=? AND c.status='ACTIVE'",...(isAdmin(user)?[]:[user.id])),regions:await all(db,'SELECT * FROM regions ORDER BY slug'),services:sortServices(await all(db,'SELECT * FROM services')),contracts:await all(db,'SELECT * FROM contracts ORDER BY id DESC')};
 }
 async function canAccess(db,user,post){return isAdmin(user)||post.writer_id===user.id&&!!await first(db,'SELECT id FROM company_assignments WHERE user_id=? AND company_id=?',user.id,post.company_id);}
 async function validateRelations(db,user,values,post={}){

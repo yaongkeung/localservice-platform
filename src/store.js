@@ -1,7 +1,8 @@
 import {townshipName} from './township-groups.js';
+import {sortServices} from './services.js';
 import * as sample from './data.js';
 import {postImages,seoulDate} from './photos.js';
-export const sampleDataset=()=>({...sample,postImages});
+export const sampleDataset=()=>({...sample,services:sortServices(sample.services),postImages});
 export const all=async(db,sql,...args)=>(await db.prepare(sql).bind(...args).all()).results;
 export const first=(db,sql,...args)=>db.prepare(sql).bind(...args).first();
 export const run=(db,sql,...args)=>db.prepare(sql).bind(...args).run();
@@ -14,5 +15,5 @@ export async function publicDataset(db,{includeSamples=true}={}){
  ]);
  const visible=new Set();for(const post of posts){let region=regions.find(r=>r.id===post.region_id);while(region&&!visible.has(region.id)){visible.add(region.id);region=regions.find(r=>r.id===region.parent_id);}}
  const postIds=new Set(posts.map(p=>p.id));
- return {regions:regions.filter(r=>visible.has(r.id)).map(r=>({...r,name:townshipName(r.name)})),services,companies:companies.map(c=>({...c,phone:c.phone_verified?c.phone:null})),published:posts.map(decodePost),postImages:images.filter(i=>postIds.has(i.post_id)&&(includeSamples||!i.sample)).map(i=>({...i,thumbnail_key:i.thumbnail_key||i.storage_key,sample:!!i.sample}))};
+ return {regions:regions.filter(r=>visible.has(r.id)).map(r=>({...r,name:townshipName(r.name)})),services:sortServices(services),companies:companies.map(c=>({...c,phone:c.phone_verified?c.phone:null})),published:posts.map(decodePost),postImages:images.filter(i=>postIds.has(i.post_id)&&(includeSamples||!i.sample)).map(i=>({...i,thumbnail_key:i.thumbnail_key||i.storage_key,sample:!!i.sample}))};
 }

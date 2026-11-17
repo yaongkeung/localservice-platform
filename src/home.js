@@ -1,4 +1,4 @@
-import {descendantServiceIds} from './services.js';
+import {descendantServiceIds,sortServices} from './services.js';
 import {registeredCompanies} from './companies.js';
 import {brandMark,siteName} from './brand.js';
 import {sampleDataset} from './store.js';
@@ -11,6 +11,15 @@ export const postKinds={case:'작업사례',guide:'서비스안내',local:'지�
 const a=(url,label,cls='')=>`<a class="${cls}" href="${e(url)}">${e(label)}</a>`;
 const icon=(symbol,tone='sky')=>`<span class="color-icon tone-${tone}" aria-hidden="true">${symbol}</span>`;
 function serviceLinks(services,parent=null){return `<ul class="${parent===null?'service-links':'sub-service-links'}">${services.filter(s=>(s.parent_id||null)===parent).map(s=>{const label=`${icon(s.icon,s.tone)}<span>${e(s.name)}</span>`;return `<li>${services.some(child=>child.parent_id===s.id)?`<details class="service-group"><summary>${label}</summary><a class="all-link" href="/service/${s.slug}/">${e(s.name)} 전체 보기 →</a>${serviceLinks(services,s.id)}</details>`:`<a href="/service/${s.slug}/">${label}<span class="service-arrow" aria-hidden="true">→</span></a>`}</li>`;}).join('')}</ul>`;}
+function allServiceLinks(services){
+ if(services.length<=16)return serviceLinks(services);
+ const list=rows=>`<ul class="service-links">${rows.map(service=>`<li><a href="/service/${e(service.slug)}/">${icon(service.icon,service.tone)}<span>${e(service.name)}</span><span class="service-arrow" aria-hidden="true">→</span></a></li>`).join('')}</ul>`;
+ return `<p class="industry-order">가나다순 · 전체 ${services.length}개</p>${list(services.slice(0,8))}<details class="industry-more"><summary>업종 더보기 · 나머지 ${services.length-8}개</summary>${list(services.slice(8))}</details>`;
+}
+export function serviceFilter(services,params){
+ if(services.length<=16)return `<nav class="service-tabs" aria-label="업종 필터">${[{slug:'',name:'전체 업종',icon:'✨',tone:'lilac'},...services].map(service=>`<a href="${e(filterUrl(params,{service:service.slug}))}" ${params.get('service')===service.slug||(!service.slug&&!params.get('service'))?'aria-current="page"':''}>${icon(service.icon,service.tone)}${e(service.name)}</a>`).join('')}</nav>`;
+ return `<form class="service-picker" action="/" method="get" aria-label="업종 필터"><label for="service-select">업종 선택 · 가나다순<select id="service-select" name="service"><option value="">전체 업종 (${services.length}개)</option>${services.map(service=>`<option value="${e(service.slug)}" ${params.get('service')===service.slug?'selected':''}>${e(service.name)}</option>`).join('')}</select></label>${[...params].filter(([key])=>['province','district','dong','region','kind','q'].includes(key)).map(([key,value])=>`<input type="hidden" name="${key}" value="${e(value)}">`).join('')}<button>업종 적용</button></form>`;
+}
 export function filterUrl(params,changes){const next=new URLSearchParams(params);for(const [key,value]of Object.entries(changes)){if(value)next.set(key,value);else next.delete(key);}return '/'+(next.size?'?'+next.toString():'')+'#cases';}
 export function portalHeader(params=new URLSearchParams()){
   const nav=[['','전체 글'],...Object.entries(postKinds)];
@@ -37,7 +46,7 @@ function board(posts,data){
   }).join('')}</tbody></table></div>`;
 }
 export function homePage(params,posts,data=sampleDataset()){
-  const {services,published}=data;
+  const services=sortServices(data.services),{published}=data;
   const kind=postKinds[params.get('kind')]||'전체 글';
   const province=regionData.provinces.find(p=>p.code===params.get('province'));
   const district=regionData.districts.find(d=>d.code===params.get('district'));
@@ -49,14 +58,14 @@ export function homePage(params,posts,data=sampleDataset()){
       <section class="filter-panel" id="regions" aria-labelledby="region-heading"><div class="filter-heading"><h2 id="region-heading">${icon('📍','peach')}지역별 찾기</h2><span>전국 시·도 · 시·군·구 · 읍·면·동</span></div>${regionFilter(params)}</section>
       ${registeredCompanies(data.companies,params,data.published,data.postImages)}
       ${photoStrip(data)}
-      <section class="board-section" id="cases" aria-labelledby="board-heading"><div class="board-heading"><div><span class="board-kicker">${e(place)}</span><h2 id="board-heading">${e(kind)}</h2></div><div class="board-summary"><span>최신순 · ${posts.every(p=>p.sample)?'샘플 ':''}${posts.length}건</span>${params.size?a('/#cases','필터 초기화','reset-link'):''}</div></div>
-        <nav class="service-tabs" aria-label="업종 필터">${[{slug:'',name:'전체 업종',icon:'✨',tone:'lilac'},...services].map(s=>`<a href="${e(filterUrl(params,{service:s.slug}))}" ${params.get('service')===s.slug||(!s.slug&&!params.get('service'))?'aria-current="page"':''}>${icon(s.icon,s.tone)}${e(s.name)}</a>`).join('')}</nav>
-        <p class="board-notice"><span>안내</span>${published.every(p=>p.sample)?'아래 게시글·사진은 샘플이며 실제 작업 실적이 아닙니다.':'글의 작업 내용과 업체 정보를 확인한 후 상담해 주세요.'}</p>${board(posts,data)}<div class="board-bottom"><span>사진이나 제목을 누르면 작업 내용과 업체 정보를 볼 수 있습니다.</span><span class="page-current" aria-label="현재 페이지 1">1</span></div>
+      <section class="board-section" id="cases" aria-labelledby="board-heading"><div class="board-heading"><div><span class="board-kicker">${e(place)}</span><h2 id="board-heading">${e(kind)}</h2></div><div class="board-summary"><span>최신순 · ${posts.length&&posts.every(p=>p.sample)?'샘플 ':''}${posts.length}건</span>${params.size?a('/#cases','필터 초기화','reset-link'):''}</div></div>
+        ${serviceFilter(services,params)}
+        <p class="board-notice"><span>안내</span>${published.length&&published.every(p=>p.sample)?'아래 게시글·사진은 샘플이며 실제 작업 실적이 아닙니다.':'글의 작업 내용과 업체 정보를 확인한 후 상담해 주세요.'}</p>${board(posts,data)}<div class="board-bottom"><span>사진이나 제목을 누르면 작업 내용과 업체 정보를 볼 수 있습니다.</span><span class="page-current" aria-label="현재 페이지 1">1</span></div>
       </section>
-      <section class="latest-section" id="services" aria-labelledby="latest-heading"><div class="section-head"><h2 id="latest-heading">업종별 최근 글</h2><span class="count">관심 있는 분야부터 살펴보세요</span></div><div class="mini-boards">${services.filter(s=>!s.parent_id).map(s=>`<section class="mini-board tone-${s.tone}"><div><h3>${icon(s.icon,s.tone)}${e(s.name)}</h3>${a('/service/'+s.slug+'/','더보기 →','all-link')}</div><ul>${published.filter(p=>descendantServiceIds(s,services).includes(p.service_id)).slice(0,3).map(p=>`<li>${a('/post/'+p.id+'/',p.title)}</li>`).join('')}</ul></section>`).join('')}</div></section>
+      <section class="latest-section" id="services" aria-labelledby="latest-heading"><div class="section-head"><h2 id="latest-heading">업종별 최근 글</h2><span class="count">관심 있는 분야부터 살펴보세요</span></div><div class="mini-boards">${services.filter(s=>!s.parent_id&&published.some(post=>descendantServiceIds(s,services).includes(post.service_id))).map(s=>`<section class="mini-board tone-${s.tone}"><div><h3>${icon(s.icon,s.tone)}${e(s.name)}</h3>${a('/service/'+s.slug+'/','더보기 →','all-link')}</div><ul>${published.filter(p=>descendantServiceIds(s,services).includes(p.service_id)).slice(0,3).map(p=>`<li>${a('/post/'+p.id+'/',p.title)}</li>`).join('')}</ul></section>`).join('')||'<p class="cms-help">아직 등록된 글이 없습니다.</p>'}</div></section>
     </div><aside class="portal-sidebar" aria-label="빠른 탐색">
       <section class="sidebar-guide expert-guide" aria-labelledby="expert-guide-heading"><div class="expert-portrait" aria-hidden="true"><img src="/media/expert-mascot.png" alt="" width="1254" height="1254" loading="lazy" decoding="async"></div><div class="expert-guide-copy"><span class="guide-label">${siteName}의 동네 안내</span><h2 id="expert-guide-heading">필요한 순간,<br> 가까운 전문가를 찾아보세요.</h2><p>작업 이야기부터 살펴보고<br> 우리 동네 업체를 만나보세요.</p>${a('/#cases','작업사례 둘러보기 →')}</div></section>
-      <section class="sidebar-panel"><div class="sidebar-heading"><h2>${icon('🧰','lilac')}업종 게시판</h2><span class="accent-dot"></span></div>${serviceLinks(services)}</section>
+      <section class="sidebar-panel"><div class="sidebar-heading"><h2>${icon('🧰','lilac')}업종 게시판</h2><span class="accent-dot"></span></div>${allServiceLinks(services)}</section>
       <section class="sidebar-panel"><div class="sidebar-heading"><h2>${icon('🧭','mint')}지역 바로가기</h2><a href="#regions" class="all-link">전체</a></div><div class="region-shortcuts">${quickProvinces.map(p=>a(filterUrl(params,{province:p.code,district:'',dong:'',region:''}),p.name)).join('')}</div></section>
     </aside></div></div>`;
 }
