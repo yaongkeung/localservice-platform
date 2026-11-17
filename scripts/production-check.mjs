@@ -11,6 +11,7 @@ export function productionErrors(config,staging,phase='prepare'){
  if(config.assets?.binding!=='ASSETS'||!config.assets?.directory||config.assets.run_worker_first!==true)errors.push('ASSETS와 Worker 우선 실행 설정이 필요합니다.');
  if(config.preview_urls!==false)errors.push('버전별 미리보기 URL은 비활성화해야 합니다.');
  if(!/^[a-f0-9]{40}$/i.test(config.vars?.NAVER_SITE_VERIFICATION||''))errors.push('실제 네이버 소유 확인용 값이 필요합니다.');
+ if(config.vars?.GOOGLE_SITE_VERIFICATION&&!/^[A-Za-z0-9_-]{20,200}$/.test(config.vars.GOOGLE_SITE_VERIFICATION))errors.push('구글 소유 확인 값의 형식을 확인해 주세요.');
  if(config.vars?.SEARCH_INDEXING!==(phase==='index'?'enabled':'disabled'))errors.push('단계에 맞는 명시적인 검색 수집 설정이 필요합니다.');
  const routes=config.routes||[];
  if(config.route||phase==='prepare'&&(routes.length||config.workers_dev!==true))errors.push('준비 단계는 도메인 연결 없이 별도 시험 주소만 사용합니다.');

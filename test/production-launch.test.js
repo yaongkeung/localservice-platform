@@ -48,3 +48,12 @@ test('after cutover, old staging management links point to production and stale 
   const rejected=await worker.fetch(new Request('https://trial.example/admin/posts/101/',{method:'POST',body:'content=stale+form'}),{DB:f.DB,APP_ENV:'staging',CMS_READ_ONLY:'true',PHOTOS:{get(){},put(){}},ASSETS:localMedia});assert.equal(rejected.status,409);assert.match(await rejected.text(),/운영 관리 화면/);assert.deepEqual(await f.DB.prepare('SELECT version,content_hash FROM posts WHERE id=101').first(),before);
  }finally{f.DB.close();}
 });
+
+test('Google ownership tag is confined to the canonical production home and coexists with Naver verification',async()=>{
+ const f=await fixture(),google='g'.repeat(42)+'_';try{
+  const options={GOOGLE_SITE_VERIFICATION:google,SEARCH_INDEXING:'enabled'},html=await(await f.call('/',options)).text();assert.match(html,new RegExp('<head>[\\s\\S]*<meta name="google-site-verification" content="'+google+'">[\\s\\S]*</head>'));assert.ok(html.indexOf('google-site-verification')<2000);assert.equal((html.match(/name="google-site-verification"/g)||[]).length,1);assert.ok(html.includes('name="naver-site-verification" content="'+verification+'"'));
+  for(const path of ['/post/101/','/company/1/','/rss.xml','/sitemap.xml'])assert.ok(!(await(await f.call(path,options)).text()).includes('google-site-verification'));
+  for(const options of [{GOOGLE_SITE_VERIFICATION:'\"><script>bad()</script>'},{GOOGLE_SITE_VERIFICATION:'x'.repeat(201)},{GOOGLE_SITE_VERIFICATION:google,APP_ENV:'staging'}])assert.ok(!(await(await f.call('/',options)).text()).includes('google-site-verification'));
+  assert.ok(!(await(await f.call('/',{GOOGLE_SITE_VERIFICATION:google},'https://preview.example')).text()).includes('google-site-verification'));
+ }finally{f.DB.close();}
+});

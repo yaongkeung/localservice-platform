@@ -29,7 +29,7 @@ function render(url,data,env={}){
 const {regions,services,companies,published,postImages:images}=data;
 let breadcrumbItems=[];
 const launch=launchState({url:url.href},env);
-const shell=options=>pageShell({...options,noindex:options.noindex||launch.blocked,preview:!launch.production,verification:launch.verification,breadcrumbs:breadcrumbItems,image:options.image||(options.path==='/'?postImage(published.find(p=>postImage(p.id,images))?.id,images):undefined),sampleOnly:companies.every(c=>c.sample)&&published.every(p=>p.sample)});
+const shell=options=>pageShell({...options,noindex:options.noindex||launch.blocked,preview:!launch.production,verification:launch.verification,googleVerification:launch.googleVerification,breadcrumbs:breadcrumbItems,image:options.image||(options.path==='/'?postImage(published.find(p=>postImage(p.id,images))?.id,images):undefined),sampleOnly:companies.every(c=>c.sample)&&published.every(p=>p.sample)});
 const regionIds=region=>regions.filter(r=>r.id===region.id||r.slug.startsWith(region.slug+'/')||region.group_key&&matchesTownship(r.group_key||r.admin_code,region.group_key)).map(r=>r.id);
 const region=p=>regions.find(r=>r.id===p.region_id);
 const service=p=>services.find(s=>s.id===p.service_id);
