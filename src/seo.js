@@ -1,4 +1,5 @@
 import {postUrl} from './post-urls.js';
+import {feedBody} from './feed-body.js';
 import {descendantServiceIds} from './services.js';
 import {siteName} from './brand.js';
 import {postImage} from './photos.js';
@@ -22,9 +23,12 @@ export function sitemap(data){
 export function rss(data){
  const posts=[...data.published].sort((a,b)=>(isoDate(b.updated_at||b.published_at)||'').localeCompare(isoDate(a.updated_at||a.published_at)||'')||b.id-a.id).slice(0,50);
  const newest=posts[0]&&isoDate(posts[0].updated_at||posts[0].published_at);
- return `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>${xml(siteName)} · 작업 이야기</title><link>${siteOrigin}/</link><description>지역 출장서비스의 작업사례와 서비스 안내</description><language>ko</language><atom:link href="${siteOrigin}/rss.xml" rel="self" type="application/rss+xml"/>${newest?`<lastBuildDate>${new Date(newest).toUTCString()}</lastBuildDate>`:''}${posts.map(p=>{
+ let bytes=0;const items=[];
+ for(const p of posts){
  const link=absolute(postUrl(p)),image=postImage(p.id,data.postImages),date=isoDate(p.published_at);
- return `<item><title>${xml(p.title)}</title><link>${xml(link)}</link><guid isPermaLink="true">${xml(link)}</guid><description>${xml(p.summary)}</description>${date?`<pubDate>${new Date(date).toUTCString()}</pubDate>`:''}${image?`<media:thumbnail url="${xml(absolute(image.thumbnail_key||image.storage_key))}"/>`:''}</item>`;
- }).join('')}</channel></rss>`;
+ const item=`<item><title>${xml(p.title)}</title><link>${xml(link)}</link><guid isPermaLink="true">${xml(link)}</guid><description>${xml(feedBody(p,data,siteOrigin))}</description>${date?`<pubDate>${new Date(date).toUTCString()}</pubDate>`:''}${image?`<media:thumbnail url="${xml(absolute(image.thumbnail_key||image.storage_key))}"/>`:''}</item>`;
+ const size=new TextEncoder().encode(item).byteLength;if(bytes+size>1024*1024)break;items.push(item);bytes+=size;
+ }
+ return `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>${xml(siteName)} · 작업 이야기</title><link>${siteOrigin}/</link><description>지역 출장서비스의 작업사례와 서비스 안내</description><language>ko</language><atom:link href="${siteOrigin}/rss.xml" rel="self" type="application/rss+xml"/>${newest?`<lastBuildDate>${new Date(newest).toUTCString()}</lastBuildDate>`:''}${items.join('')}</channel></rss>`;
 }
 export const robots=(blocked=false)=>blocked?'User-agent: *\nDisallow: /\n':`User-agent: *\nDisallow: /admin/\nSitemap: ${siteOrigin}/sitemap.xml\n`;
