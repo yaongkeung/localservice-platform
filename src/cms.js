@@ -11,7 +11,7 @@ import {searchFields,composePage,generateDraft,targetRegionMatches} from './draf
 import {accountPage,resetWorkerPassword} from './account.js';
 import {registerRegion} from './cms-regions.js';
 import {all,first,run,decodePost} from './store.js';
-import {session,login,isAdmin,digest,sessionCookie} from './auth.js';
+import {session,login,isAdmin,digest,sessionCookie,randomToken} from './auth.js';
 import {seoulDate} from './photos.js';
 import {page,csrf,redirect,e} from './admin-ui.js';
 import {management} from './management.js';
@@ -61,6 +61,7 @@ async function dashboard(db,user,url){
 }
 export async function cms(request,env){
  const url=new URL(request.url),path=url.pathname,db=env.DB;
+ const actionJson=request.headers.get('x-editor-action')==='1';
  const photoMatch=path.match(/^\/admin\/posts\/(\d+)\/photos\/$/);
  if(url.protocol!=='https:'&&!['localhost','127.0.0.1'].includes(url.hostname))return page('보안 연결 필요','<p>HTTPS 주소로 접속해 주세요.</p>',null,403);
  if(!db)return page('관리 준비 중','<h1>관리 기능 준비 중</h1><p>데이터베이스 연결 후 사용할 수 있습니다.</p>',null,503);
@@ -111,7 +112,7 @@ export async function cms(request,env){
   return page('이전 공개 내용',`<a href="/admin/posts/${id}/">← 게시글로</a><h1>이전 공개 내용</h1><p class="cms-help">공개 해제 시 보관한 최근 20개 기록입니다. 원문은 변경하지 않습니다.</p>${snapshots.map(row=>{const saved=JSON.parse(row.snapshot);return `<article class="cms-item"><span class="cms-help">${e(new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',dateStyle:'medium',timeStyle:'short'}).format(new Date(row.created_at.replace(' ','T')+'Z')))} (한국시간) · 버전 ${row.post_version}</span><h2>${e(saved.title)}</h2><p>${e(saved.summary)}</p><div class="cms-preview">${e(saved.content.join('\n\n'))}</div></article>`;}).join('')||'<p class="empty">이전 공개 기록이 없습니다.</p>'}`,user);
  }
  if(id)data.images=await all(db,'SELECT * FROM post_images WHERE post_id=? ORDER BY sort_order,id',id);
- if(!form)return match[2]?page('페이지 없음','<h1>페이지를 찾을 수 없습니다.</h1>',user,404):editPage(user,data,post);
+ if(!form)return match[2]?page('페이지 없음','<h1>페이지를 찾을 수 없습니다.</h1>',user,404):editPage(user,data,post,url.searchParams.has('published')?'공개 처리를 완료했습니다. 아래에서 메인 표시 상태를 확인하세요.':url.searchParams.has('saved')?'초안 저장 완료! 메인에는 아직 공개되지 않았습니다.':url.searchParams.has('generated')?'자동 작성 완료! 사진과 내용을 확인한 뒤 초안으로 저장하거나 메인에 공개해 주세요.':'');
  try{
   if(match[2]){
    const actions={submit:['DRAFT','REVIEW'],approve:['REVIEW','APPROVED'],publish:['APPROVED','PUBLISHED'],withdraw:['PUBLISHED','DRAFT'],return:[post.status,'DRAFT']};
@@ -121,13 +122,14 @@ export async function cms(request,env){
    if(!['return','withdraw'].includes(action)){
     if(waitingForPhotos(post))throw Error('본문은 사진을 등록하면 자동으로 생성됩니다. 사진을 먼저 등록해 주세요.');
     if(post.generation_reviewed===0)throw Error('본문 자동 작성 내용을 확인하고 확인란에 체크한 뒤 저장해 주세요.');
-    if(action==='publish'&&!data.companies.find(c=>c.id===post.company_id)?.sample&&!post.contract_id)throw Error('접근 가능한 업체의 진행 가능한 계약을 관리자 메뉴에서 확인해 주세요.');
+    if(action==='publish'&&!data.companies.find(c=>c.id===post.company_id)?.sample&&!post.contract_id&&!post.published_once)throw Error('접근 가능한 업체의 진행 가능한 계약을 관리자 메뉴에서 확인해 주세요.');
     // Validate persisted fields again at every pre-publication boundary.
     const check=new URLSearchParams({...post,contact_phone:post.contact_phone||'',content:post.content.join('\n\n')});
     const values=await postValues(check);await validateRelations(db,user,values,post);await duplicate(db,post);
    }
    const result=await run(db,"UPDATE posts SET status=?,published_at=?,version=version+1,updated_at=CURRENT_TIMESTAMP,last_actor_id=? WHERE id=? AND version=? AND status=?",step[1],step[1]==='PUBLISHED'?(post.published_once?post.published_at:seoulDate()):post.published_at,user.id,id,Number(form.get('version')),step[0]);
    if(!result.meta.changes)throw Error('다른 화면에서 변경된 글입니다. 새로고침 후 확인해 주세요.');
+   if(actionJson)return Response.json({status:step[1],version:Number(form.get('version'))+1,location:'/admin/posts/'+id+'/?'+(step[1]==='PUBLISHED'?'published=1':'updated=1'),message:step[1]==='PUBLISHED'?'공개 처리를 완료했습니다.':'상태를 변경했습니다.'},{headers:{'cache-control':'no-store'}});
   }else{
    if(id&&post.status!=='DRAFT')throw Error('초안 상태의 글만 수정할 수 있습니다.');
    if(form.get('simple_editor')==='1')simplePostForm(form,data,post);
@@ -139,9 +141,27 @@ export async function cms(request,env){
    await validateRelations(db,user,values,post);
    const args=[values.company_id,values.region_id,values.service_id,values.post_type,values.title,values.summary,JSON.stringify(values.content),values.title_hash,values.content_hash,values.contract_id,values.search_region,values.search_keyword,values.contact_phone];
    if(id){
-    const result=await run(db,"UPDATE posts SET company_id=?,region_id=?,service_id=?,post_type=?,title=?,summary=?,content=?,title_hash=?,content_hash=?,contract_id=?,search_region=?,search_keyword=?,contact_phone=?,generation_reviewed=?,sample=?,version=version+1,updated_at=CURRENT_TIMESTAMP,last_actor_id=? WHERE id=? AND version=? AND status='DRAFT'",...args,post.generation_reviewed===0&&form.get('generation_reviewed')!=='1'?0:1,data.companies.find(c=>c.id===values.company_id)?.sample?1:0,user.id,id,Number(form.get('version')));
+    const reviewed=post.generation_reviewed===0&&form.get('generation_reviewed')!=='1'?0:1,company=data.companies.find(c=>c.id===values.company_id),token=randomToken(),publish=form.get('publish_now')==='1';
+    if(publish){
+     if(!isAdmin(user))return actionJson?Response.json({error:'관리자만 메인에 공개할 수 있습니다.'},{status:403,headers:{'cache-control':'no-store'}}):page('권한 없음','<p>관리자만 공개할 수 있습니다.</p>',user,403);
+     const candidate={...post,...values,generation_reviewed:reviewed};
+     if(waitingForPhotos(candidate))throw Error('본문은 사진을 등록하면 자동으로 생성됩니다. 사진을 먼저 등록해 주세요.');
+     if(!reviewed)throw Error('본문과 사진을 확인한 뒤 확인란에 체크해 주세요.');
+     if(!company.sample&&!values.contract_id&&!post.published_once)throw Error('접근 가능한 업체의 공개 계약이 없습니다. 업체 계약을 등록하거나 잔여 수량을 확인해 주세요.');
+     await duplicate(db,candidate);
+    }
+    const statement=db.prepare("UPDATE posts SET company_id=?,region_id=?,service_id=?,post_type=?,title=?,summary=?,content=?,title_hash=?,content_hash=?,contract_id=?,search_region=?,search_keyword=?,contact_phone=?,generation_reviewed=?,sample=?,mutation_token=?,version=version+1,updated_at=CURRENT_TIMESTAMP,last_actor_id=? WHERE id=? AND version=? AND status='DRAFT' AND EXISTS(SELECT 1 FROM users WHERE id=? AND status='ACTIVE' AND credential_version=? AND role=?) AND EXISTS(SELECT 1 FROM companies WHERE id=? AND status='ACTIVE' AND version=?)").bind(...args,reviewed,company.sample?1:0,token,user.id,id,Number(form.get('version')),user.id,user.credential_version,user.role,company.id,company.version);
+    let result;
+    if(publish){
+     const steps=['REVIEW','APPROVED','PUBLISHED'],statements=[statement];let previous='DRAFT';
+     for(const next of steps){statements.push(db.prepare("UPDATE posts SET status=?,published_at=?,version=version+1,updated_at=CURRENT_TIMESTAMP,last_actor_id=? WHERE id=? AND mutation_token=? AND status=?").bind(next,next==='PUBLISHED'?(post.published_once?post.published_at:seoulDate()):post.published_at,user.id,id,token,previous));previous=next;}
+     const results=await db.batch(statements);result=results[0];
+    }else result=await statement.run();
     if(!result.meta.changes)throw Error('다른 화면에서 변경된 글입니다. 새로고침 후 확인해 주세요.');
+    if(publish){const visible=!company.sample;return actionJson?Response.json({status:'PUBLISHED',version:Number(form.get('version'))+4,visible,location:'/admin/posts/'+id+'/?published=1',publicUrl:visible?'/post/'+id+'/':null},{headers:{'cache-control':'no-store'}}):redirect('/admin/posts/'+id+'/?published=1');}
+    if(actionJson)return Response.json({status:'DRAFT',version:Number(form.get('version'))+1,previewUrl:'/admin/posts/'+id+'/preview/',location:'/admin/posts/'+id+'/?saved=1#generated-post'},{headers:{'cache-control':'no-store'}});
     if(request.headers.get('x-editor-save')==='1')return Response.json({location:'/admin/posts/'+id+'/',version:Number(form.get('version'))+1},{headers:{'cache-control':'no-store'}});
+    return redirect('/admin/posts/'+id+'/?saved=1#generated-post');
    }else{
     const sample=data.companies.find(c=>c.id===values.company_id)?.sample?1:0;
     const result=await run(db,'INSERT INTO posts(company_id,region_id,service_id,post_type,title,summary,content,title_hash,content_hash,contract_id,search_region,search_keyword,contact_phone,generation_reviewed,writer_id,sample) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',...args,preparing?0:1,user.id,sample);
@@ -151,7 +171,8 @@ export async function cms(request,env){
   return redirect('/admin/posts/'+id+'/');
  }catch(error){
   const expected=/^(제목|요약|본문|글 종류|접근 가능한|다른 글|현재 상태|다른 화면|초안 상태|지역|기존 공개|상담 전화)/.test(error.message);
-  const message=expected?error.message:'저장하지 못했습니다. 중복 여부와 계약 기간·잔여 수량을 확인해 주세요.';
+  const message=expected?error.message:/Contract (?:unavailable|required)/.test(error.message)?'공개하지 못했습니다. 계약 기간과 잔여 수량을 확인해 주세요. 글은 공개 전 상태로 보존했습니다.':'저장하지 못했습니다. 중복 여부와 계약 기간·잔여 수량을 확인해 주세요.';
+  if(actionJson)return Response.json({error:message,status:post.status,version:post.version},{status:409,headers:{'cache-control':'no-store'}});
   if(!match[2]&&(!id||post.status==='DRAFT'))post={...post,...Object.fromEntries(form),id:post.id,status:post.status};
   return editPage(user,data,post,message,409);
  }

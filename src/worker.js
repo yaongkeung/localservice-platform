@@ -1,3 +1,5 @@
+import {operationUi} from './operation-ui.js';
+import {editorActions} from './editor-actions.js';
 import {storageReady,health} from './readiness.js';
 import {launchState} from './launch.js';
 import {townshipOptions,matchesTownship} from './township-groups.js';
@@ -91,7 +93,8 @@ async function handle(request,env={}){
   let body,type;
   if(url.pathname==='/assets/cms-regions.js'){body=browserScript(cmsRegionClient);type='text/javascript';}
   else if(url.pathname==='/assets/editor.js'){body=browserScript(editorClient,{titleFor});type='text/javascript';}
-  else if(url.pathname==='/assets/upload.js'){body=browserScript(uploadClient);type='text/javascript';}
+  else if(url.pathname==='/assets/upload.js'){body=browserScript(uploadClient,{operationUi});type='text/javascript';}
+  else if(url.pathname==='/assets/cms-actions.js'){body=browserScript(editorActions,{operationUi});type='text/javascript';}
   else if(url.pathname==='/assets/portal.js'){body=browserScript(portalClient);type='text/javascript';}
   else if(url.pathname==='/assets/regions.json'){body=JSON.stringify({provinces:regionData.provinces,districts:regionData.districts});type='application/json';}
   else if(/^\/assets\/regions\/\d{5}\.json$/.test(url.pathname)){

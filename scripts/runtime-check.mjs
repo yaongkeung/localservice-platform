@@ -21,7 +21,7 @@ try{
  assert.equal((await mf.dispatchFetch(origin+'/healthz',{redirect:'manual'})).status,200);checks++;
  // Execute bundled browser scripts, including nested handlers. Source imports and
  // HTTP status checks alone miss build-time helper dependencies in serialized code.
- for(const path of ['/assets/upload.js','/assets/cms-regions.js','/assets/editor.js']){
+ for(const path of ['/assets/upload.js','/assets/cms-regions.js','/assets/editor.js','/assets/cms-actions.js']){
   const select={value:'catalog',addEventListener(){},replaceChildren(){},append(){}};
   const group={querySelector:()=>select};
   const document={addEventListener(){},querySelector:()=>null,querySelectorAll:selector=>selector==='[data-cms-regions]'?[group]:[]};
@@ -51,6 +51,9 @@ try{
  for(const action of ['submit','approve','publish'])await transition(action);checks++;
  response=await call('/admin/posts/new/',{cookie,form:{...values,title:values.title+' (capacity test)',content:values.content+' 두 번째 게시 수량을 확인합니다.'}});assert.equal(response.status,303);const blockedId=Number(response.headers.get('location').split('/')[3]);
  for(const action of ['submit','approve','publish']){const row=await DB.prepare('SELECT version FROM posts WHERE id=?').bind(blockedId).first();const result=await call('/admin/posts/'+blockedId+'/status/',{cookie,form:{csrf,action,version:row.version}});assert.equal(result.status,action==='publish'?409:303);}checks++;
+ const direct={...values,company_id:2,contract_id:'',title:'버튼 한 번으로 처리하는 별도 공개 동작 검증',content:'이 글은 별도 실행 환경에서 한 번의 저장 요청으로 검수와 승인, 공개를 처리하는 동작을 검증합니다. 사용자 운영 자료나 실제 작업 실적과 관계없는 시험 자료이며 전화나 작업 날짜, 가격을 기재하지 않습니다.'};
+ response=await call('/admin/posts/new/',{cookie,form:direct});assert.equal(response.status,303);const directId=Number(response.headers.get('location').split('/')[3]);
+ response=await call('/admin/posts/'+directId+'/',{cookie,form:{...direct,version:1,publish_now:1},headers:{'x-editor-action':'1'}});assert.equal(response.status,200,await response.clone().text());assert.equal((await response.json()).status,'PUBLISHED');assert.equal((await DB.prepare('SELECT COUNT(*) n FROM post_events WHERE post_id=?').bind(directId).first()).n,3);checks++;
  response=await call('/admin/account/',{cookie,form:{csrf,current_password:password,new_password:'runtime-new-'+randomToken(),confirm_password:'mismatch'}});assert.equal(response.status,409);checks++;
  const nextPassword='runtime-new-'+randomToken();response=await call('/admin/account/',{cookie,form:{csrf,current_password:password,new_password:nextPassword,confirm_password:nextPassword}});assert.equal(response.status,200);assert.equal((await call('/admin/',{cookie})).status,303);checks++;
  await mf.dispose();mf=new Miniflare(options);await mf.ready;DB=await mf.getD1Database('DB');assert.equal((await call('/post/'+id+'/')).status,200);assert.equal((await call(image.storage_key)).status,200);assert.equal((await DB.prepare('SELECT credential_version FROM users WHERE id=1').first()).credential_version,2);checks++;
