@@ -4,7 +4,7 @@ import {readDeployment} from './deploy-check.mjs';
 export function productionErrors(config,staging,phase='prepare'){
  const errors=[],db=config.d1_databases?.find(item=>item.binding==='DB'),photos=config.r2_buckets?.find(item=>item.binding==='PHOTOS');
  if(!['prepare','connect','index'].includes(phase))errors.push('운영 확인 단계가 올바르지 않습니다.');
- if(config.name!=='localservice-platform-production'||config.vars?.APP_ENV!=='production')errors.push('별도 이웃핀 운영 Worker와 APP_ENV=production이 필요합니다.');
+ if(config.name!=='localservice-platform-production'||config.vars?.APP_ENV!=='production')errors.push('별도 동네핀 운영 Worker와 APP_ENV=production이 필요합니다.');
  if(!/^[a-f0-9]{32}$/.test(config.account_id||'')||config.account_id!==staging?.account_id)errors.push('확인한 시험 계정과 같은 Cloudflare 계정이 필요합니다.');
  if(db?.database_name!=='localservice-platform-production-db'||!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(db?.database_id||'')||db?.database_id===staging?.d1_databases?.find(item=>item.binding==='DB')?.database_id)errors.push('시험 DB와 분리된 운영 전용 D1이 필요합니다.');
  if(photos?.bucket_name!=='localservice-platform-production-photos'||photos.bucket_name===staging?.r2_buckets?.find(item=>item.binding==='PHOTOS')?.bucket_name)errors.push('시험 저장소와 분리된 운영 전용 비공개 R2가 필요합니다.');

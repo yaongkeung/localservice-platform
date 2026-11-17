@@ -1,4 +1,4 @@
-export const currentMigration='0012_existing_publication_contract.sql';
+export const currentMigration='0013_simplified_publishing.sql';
 export function storageReady(env){return typeof env.DB?.prepare==='function'&&typeof env.DB?.batch==='function'&&typeof env.PHOTOS?.get==='function'&&typeof env.PHOTOS?.put==='function'&&typeof env.ASSETS?.fetch==='function';}
 export async function health(request,env){
  let ready=false;

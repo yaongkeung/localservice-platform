@@ -28,7 +28,7 @@ async function fixture(){
  return {DB,objects,PHOTOS,auth,call,create,row,transition,upload,changePhoto};
 }
 const photo=()=>readFile(new URL('../public/media/plumbing-cover.jpg',import.meta.url));
-const company={name:'시험 설비 업체',description:'자동 검증을 위해 등록한 출장 설비 업체입니다.',area:'서울 마포구',hours:'평일 09:00~18:00',phone:'',status:'ACTIVE',sample:'1'};
+const company={customer_name:'시험 고객명',name:'시험 설비 업체',description:'자동 검증을 위해 등록한 출장 설비 업체입니다.',area:'서울 마포구',hours:'평일 09:00~18:00',phone:'',status:'ACTIVE',sample:'1'};
 
 test('JPEG sanitation preserves pixels, removes metadata and trailing payloads, and requires a matching thumbnail',async()=>{
  const original=await photo(),pair=preparePhoto(original),privateText=Buffer.from('PRIVATE-GPS-COMMENT'),metadata=Buffer.concat([Buffer.from([255,225,0,privateText.length+6,255,217]),privateText,Buffer.from([0,0])]);
@@ -131,22 +131,16 @@ test('worker creation and assignments are restricted and stale assignment edits 
   assert.equal((await f.call('/admin/users/1/',{as:1})).status,404);
  }finally{f.DB.close();}
 });
-test('contracts count publication once and atomically stop excess or expired publication',async()=>{
+test('historical contract quantities and expiry never limit new real publications',async()=>{
  const f=await fixture();try{
-  const values={company_id:1,package_name:'시험 1건 계약',contract_quantity:1,price:10000,start_date:'2026-01-01',end_date:'2030-12-31',status:'ACTIVE'};
-  assert.equal((await f.call('/admin/contracts/new/',{as:1,form:values})).status,303);
-  const c=await f.DB.prepare('SELECT * FROM contracts').first(),a=await f.create({contract_id:c.id}),b=await f.create({contract_id:c.id});
-  for(const id of [a,b])for(const action of ['submit','approve'])assert.equal((await f.transition(id,action)).status,303);
-  assert.equal((await f.DB.prepare('SELECT published_quantity FROM contracts').first()).published_quantity,0);
-  const results=await Promise.all([f.transition(a,'publish'),f.transition(b,'publish')]);assert.deepEqual(results.map(r=>r.status).sort(),[303,409]);
-  assert.equal((await f.DB.prepare('SELECT published_quantity FROM contracts').first()).published_quantity,1);
-  assert.equal((await f.call('/admin/contracts/'+c.id+'/',{as:1,form:{...values,contract_quantity:0,version:2}})).status,409);
-  assert.equal((await f.call('/admin/contracts/new/',{as:1,form:{...values,start_date:'2026-02-30'}})).status,409);
-  const id=await f.create();await f.DB.prepare('UPDATE companies SET sample=0 WHERE id=1').run();for(const action of ['submit','approve'])assert.equal((await f.transition(id,action)).status,303);assert.equal((await f.transition(id,'publish')).status,409);
-  await f.DB.prepare("UPDATE contracts SET contract_quantity=10,start_date='2020-01-01',end_date='2020-12-31' WHERE id=?").bind(c.id).run();
-  const expired=await f.create({contract_id:c.id});for(const action of ['submit','approve'])assert.equal((await f.transition(expired,action)).status,303);assert.equal((await f.transition(expired,'publish')).status,409);
+  await f.DB.prepare("UPDATE companies SET sample=0 WHERE id=1").run();
+  await f.DB.prepare("INSERT INTO contracts(id,company_id,package_name,contract_quantity,published_quantity,start_date,end_date,status) VALUES(80,1,'historical closed full contract',1,1,'2020-01-01','2020-12-31','CLOSED')").run();
+  const before=await f.DB.prepare('SELECT * FROM contracts WHERE id=80').first();
+  for(let i=0;i<2;i++){const id=await f.create({contract_id:80},1),post=await f.row(id);assert.equal(post.contract_id,null);const response=await f.call('/admin/posts/'+id+'/',{as:1,form:{...post,content:JSON.parse(post.content).join('\n\n'),confirm_publish:1}});assert.equal(response.status,303,await response.clone().text());assert.equal((await f.call('/post/'+id+'/')).status,200);}
+  assert.deepEqual(await f.DB.prepare('SELECT * FROM contracts WHERE id=80').first(),before);
  }finally{f.DB.close();}
 });
+
 test('photo limit and reversible exclusion are enforced transactionally on upload and restore',async()=>{
  const f=await fixture();try{
   const id=await f.create();
@@ -207,5 +201,19 @@ test('JPEG validation bounds oversized images and image responses revoke access 
  const f=await fixture();try{
   const id=await f.create();await f.upload(id,await photo());const image=await f.DB.prepare('SELECT * FROM post_images WHERE post_id=?').bind(id).first();for(const action of ['submit','approve','publish'])await f.transition(id,action);
   await f.DB.prepare("UPDATE companies SET status='DISABLED' WHERE id=1").run();assert.equal((await f.call(image.storage_key)).status,404);assert.equal((await f.call('/post/'+id+'/')).status,404);assert.equal((await f.call(image.storage_key)).headers.get('cache-control'),'no-store');
+ }finally{f.DB.close();}
+});
+
+test('private customer labels select the correct company and never enter public pages or feeds',async()=>{
+ const f=await fixture();try{
+  const details={...company,customer_name:'PRIVATE-CUSTOMER-<김사장>',name:'서로 비슷한 유리 업체',sample:'',phone:'010-0000-0000',phone_verified:'1'};
+  assert.equal((await f.call('/admin/companies/new/',{as:1,form:{...details,customer_name:''}})).status,409);
+  assert.equal((await f.call('/admin/companies/new/',{as:1,form:{...details,customer_name:'가'.repeat(81)}})).status,409);
+  assert.equal((await f.call('/admin/companies/new/',{as:1,form:details})).status,303);
+  const c=await f.DB.prepare('SELECT * FROM companies ORDER BY id DESC LIMIT 1').first();assert.equal(c.customer_name,details.customer_name);
+  const compose=await(await f.call('/admin/compose/',{as:1})).text();assert.match(compose,/PRIVATE-CUSTOMER-&lt;김사장&gt;/);assert.ok(compose.includes('value="'+c.id+'" data-company-name="'+details.name+'"'));assert.match(compose,/data-selected-company/);
+  const legacy={...details,version:c.version};delete legacy.customer_name;assert.equal((await f.call('/admin/companies/'+c.id+'/',{as:1,form:legacy})).status,303);assert.equal((await f.DB.prepare('SELECT customer_name FROM companies WHERE id=?').bind(c.id).first()).customer_name,details.customer_name);
+  const id=await f.create({company_id:c.id},1),post=await f.row(id);assert.equal((await f.call('/admin/posts/'+id+'/',{as:1,form:{...post,content:JSON.parse(post.content).join('\n\n'),confirm_publish:1}})).status,303);
+  for(const path of ['/','/company/'+c.id+'/','/post/'+id+'/','/rss.xml','/sitemap.xml'])assert.doesNotMatch(await(await f.call(path)).text(),/PRIVATE-CUSTOMER|customer_name/);
  }finally{f.DB.close();}
 });

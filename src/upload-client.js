@@ -17,7 +17,7 @@ export function uploadClient(){
   const body=new URLSearchParams({csrf:form.querySelector('[name=csrf]').value,version:version??form.querySelector('[name=version]').value});
   const response=await fetch(form.dataset.generateUrl||form.action,{method:'POST',body,credentials:'same-origin',headers:{'x-draft-generation':'1'}});
   if(!response.headers.get('content-type')?.includes('application/json'))throw Error('로그인 상태를 확인하고 페이지를 다시 열어 주세요.');
-  const result=await response.json();if(!response.ok)throw Error(result.error||'초안을 작성하지 못했습니다.');location.assign(result.location);
+  const result=await response.json();if(!response.ok)throw Error(result.error||'작성 내용을 작성하지 못했습니다.');location.assign(result.location);
  };
  const prepare=async file=>{
   const bitmap=await createImageBitmap(file);

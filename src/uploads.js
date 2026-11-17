@@ -16,7 +16,7 @@ export async function photoActions(request,env,user,id){
  if(request.method!=='POST')return page('페이지 없음','<h1>사진은 게시글 화면에서 관리해 주세요.</h1>',user,405);
  const db=env.DB,post=await first(db,'SELECT * FROM posts WHERE id=?',id);
  if(!post||!await canManagePost(db,user,post))return errorPage(request,user,id,'게시글을 찾을 수 없습니다.',404);
- if(post.status!=='DRAFT')return errorPage(request,user,id,'초안 상태에서만 사진을 변경할 수 있습니다.',409);
+ if(post.status!=='DRAFT')return errorPage(request,user,id,'작성 내용 상태에서만 사진을 변경할 수 있습니다.',409);
  let savedKeys=[];
  try{
   const type=request.headers.get('content-type')||'',bytes=await boundedBytes(request,6*1024*1024);
@@ -54,7 +54,7 @@ export async function photoActions(request,env,user,id){
  }catch(error){
   // Delete only new random objects owned by this failed request, never a user's existing objects.
   if(savedKeys.length)try{await env.PHOTOS.delete(savedKeys);}catch{/* Orphan cleanup must be retried operationally; no DB row exposes these objects. */}
-  const expected=/^(사진|정상|초안|다른|올바른|요청|이미|제외된)/.test(error.message);
+  const expected=/^(사진|정상|작성 내용|다른|올바른|요청|이미|제외된)/.test(error.message);
   return errorPage(request,user,id,expected?error.message:'사진을 저장하지 못했습니다. 수량·중복 여부를 확인하고 다시 시도해 주세요.',409);
  }
 }

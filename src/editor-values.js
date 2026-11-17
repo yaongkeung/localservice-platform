@@ -1,5 +1,4 @@
 import {titleFor} from './editor-title.js';
-import {seoulDate} from './photos.js';
 const normal=value=>String(value||'').normalize('NFKC').replace(/[^\p{L}\p{N}]/gu,'').replace(/샤시/g,'샷시').replace(/쇼파/g,'소파').replace(/밧데리/g,'배터리').replace(/렌터카/g,'렌트카').replace(/닥트/g,'덕트').toLowerCase();
 export function serviceForKeyword(keyword,services,current,company={}){
  const score=(service,text)=>{
@@ -20,9 +19,8 @@ export function simplePostForm(form,data,post={}){
  const sameCompany=companyId===post.company_id;
  form.set('service_id',String(serviceForKeyword(keyword,data.services,sameCompany?post.service_id:null,company)||''));
  form.set('post_type',post.post_type||'서비스안내');
- let contractId=sameCompany?post.contract_id:null;
- if(!contractId){const today=seoulDate();contractId=data.contracts.filter(item=>item.company_id===companyId&&item.status==='ACTIVE'&&item.published_quantity<item.contract_quantity&&(!item.start_date||item.start_date<=today)&&(!item.end_date||item.end_date>=today)).sort((a,b)=>String(a.end_date||'9999').localeCompare(String(b.end_date||'9999'))||a.id-b.id)[0]?.id;}
- form.set('contract_id',String(contractId||''));
+ // Historical references remain attached; new publications do not use contracts.
+ form.set('contract_id',String(sameCompany?post.contract_id||'':''));
  const targetChanged=region!==post.search_region||keyword!==post.search_keyword;
  if(targetChanged||!form.get('title'))form.set('title',titleFor(region,keyword));
  const text=String(form.get('content')||'').replace(/\[사진:\d+\]/g,'').replace(/^## .*$/gm,'').replace(/[*#]/g,'').replace(/\s+/g,' ').trim();

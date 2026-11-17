@@ -14,36 +14,36 @@ async function fixture(){
  const create=async extra=>{const response=await call('/admin/posts/new/',{...values,...extra});assert.equal(response.status,303);return Number(response.headers.get('location').split('/')[3]);};
  const row=id=>DB.prepare('SELECT * FROM posts WHERE id=?').bind(id).first();return {DB,call,values,create,row};
 }
-test('draft save returns a visible result without publishing; new companies are real by default and trial pages explain their exclusion',async()=>{
+
+test('authoring has one confirm-and-publish action and no review, contract or worker controls',async()=>{
  const f=await fixture();try{
-  const id=await f.create(),post=await f.row(id),response=await f.call(`/admin/posts/${id}/`,{...f.values,version:post.version});assert.equal(response.status,200);const saved=await response.json();assert.equal(saved.status,'DRAFT');assert.equal(saved.version,post.version+1);assert.equal((await f.call('/post/'+id+'/')).status,404);
-  const html=await(await f.call(`/admin/posts/${id}/`,null,{json:false})).text();assert.match(html,/초안으로 저장/);assert.match(html,/초안 저장만으로는 메인에 나오지 않습니다/);assert.match(html,/시험용으로 공개/);assert.match(html,/\/assets\/cms-actions.js/);
-  const companyForm=await(await f.call('/admin/companies/new/',null,{json:false})).text();assert.doesNotMatch(companyForm,/<input[^>]*name="sample"[^>]*checked/);
-  const native=await f.call(`/admin/posts/${id}/`,{...f.values,version:saved.version},{json:false});assert.match(native.headers.get('location'),/saved=1/);assert.match(await(await f.call(native.headers.get('location'),null,{json:false})).text(),/초안 저장 완료/);const latest=await f.row(id),published=await f.call(`/admin/posts/${id}/`,{...f.values,version:latest.version,publish_now:1},{json:false});assert.equal(published.status,303);assert.match(published.headers.get('location'),/published=1/);assert.equal((await f.row(id)).status,'PUBLISHED');
+  const id=await f.create(),post=await f.row(id),response=await f.call('/admin/posts/'+id+'/',{...f.values,version:post.version});assert.equal(response.status,200);const saved=await response.json();assert.equal(saved.status,'DRAFT');assert.equal(saved.version,post.version+1);assert.equal((await f.call('/post/'+id+'/')).status,404);
+  const html=await(await f.call('/admin/posts/'+id+'/',null,{json:false})).text();assert.match(html,/name="confirm_publish"/);assert.match(html,/고객 선택/);assert.doesNotMatch(html,/초안으로 저장|검수 요청|승인 완료|href="\/admin\/(?:contracts|users)\//);assert.match(html,/\/assets\/cms-actions.js/);
+  const companyForm=await(await f.call('/admin/companies/new/',null,{json:false})).text();assert.doesNotMatch(companyForm,/<input[^>]*name="sample"[^>]*checked/);assert.match(companyForm,/name="customer_name"/);
+  const published=await f.call('/admin/posts/'+id+'/',{...f.values,version:saved.version,confirm_publish:1},{json:false});assert.equal(published.status,303);assert.match(published.headers.get('location'),/published=1/);assert.equal((await f.row(id)).status,'PUBLISHED');
  }finally{f.DB.close();}
 });
-test('admin save-and-publish runs the complete workflow once and rejects CSRF, editors, stale versions and unreviewed generated content',async()=>{
+test('confirmation publishes a real page directly without a contract, blocks CSRF, unauthorized editors and stale duplicate clicks',async()=>{
  const f=await fixture();try{
-  await f.DB.prepare('UPDATE companies SET sample=0 WHERE id=1').run();await f.DB.prepare("INSERT INTO contracts(id,company_id,package_name,contract_quantity) VALUES(80,1,'공개 시험',1)").run();
-  const id=await f.create({contract_id:80}),form={...f.values,contract_id:80,version:1,publish_now:1};
-  await f.DB.prepare('UPDATE posts SET writer_id=2 WHERE id=?').bind(id).run();assert.equal((await f.call(`/admin/posts/${id}/`,form,{csrf:false})).status,403);assert.equal((await f.call(`/admin/posts/${id}/`,form,{as:2})).status,403);
-  await f.DB.prepare('UPDATE posts SET generation_reviewed=0 WHERE id=?').bind(id).run();assert.equal((await f.call(`/admin/posts/${id}/`,form)).status,409);assert.equal((await f.row(id)).version,1);
-  const response=await f.call(`/admin/posts/${id}/`,{...form,generation_reviewed:1});assert.equal(response.status,200,await response.clone().text());const result=await response.json();assert.equal(result.status,'PUBLISHED');assert.equal(result.visible,true);assert.equal(result.version,5);assert.equal((await f.call(result.publicUrl)).status,200);assert.match(await(await f.call('/')).text(),/새롭게 작성한 전화 상담/);
-  assert.deepEqual((await f.DB.prepare('SELECT to_status FROM post_events WHERE post_id=? ORDER BY id').bind(id).all()).results.map(row=>row.to_status),['REVIEW','APPROVED','PUBLISHED']);assert.equal((await f.DB.prepare('SELECT published_quantity FROM contracts WHERE id=80').first()).published_quantity,1);
-  assert.equal((await f.call(`/admin/posts/${id}/`,form)).status,409);assert.equal((await f.DB.prepare('SELECT published_quantity FROM contracts WHERE id=80').first()).published_quantity,1);
+  await f.DB.prepare('UPDATE companies SET sample=0 WHERE id=1').run();const id=await f.create(),form={...f.values,version:1,confirm_publish:1};
+  await f.DB.prepare('UPDATE posts SET writer_id=2,generation_reviewed=0 WHERE id=?').bind(id).run();assert.equal((await f.call('/admin/posts/'+id+'/',form,{csrf:false})).status,403);assert.equal((await f.call('/admin/posts/'+id+'/',form,{as:2})).status,403);assert.equal((await f.row(id)).version,1);
+  const response=await f.call('/admin/posts/'+id+'/',form);assert.equal(response.status,200,await response.clone().text());const result=await response.json();assert.equal(result.status,'PUBLISHED');assert.equal(result.visible,true);assert.equal(result.version,3);assert.equal((await f.call(result.publicUrl)).status,200);assert.match(await(await f.call('/')).text(),/새롭게 작성한 전화 상담/);
+  assert.deepEqual((await f.DB.prepare('SELECT from_status,to_status FROM post_events WHERE post_id=? ORDER BY id').bind(id).all()).results.map(row=>({...row})),[{from_status:'DRAFT',to_status:'PUBLISHED'}]);assert.equal((await f.row(id)).contract_id,null);assert.equal((await f.row(id)).generation_reviewed,1);
+  assert.equal((await f.call('/admin/posts/'+id+'/',form)).status,409);assert.equal((await f.DB.prepare('SELECT COUNT(*) n FROM post_events WHERE post_id=?').bind(id).first()).n,1);
  }finally{f.DB.close();}
 });
-test('a full contract rolls back content and all workflow events during save-and-publish',async()=>{
+test('a publication database failure rolls back changed content and events atomically',async()=>{
  const f=await fixture();try{
-  await f.DB.prepare('UPDATE companies SET sample=0 WHERE id=1').run();await f.DB.prepare("INSERT INTO contracts(id,company_id,package_name,contract_quantity,published_quantity) VALUES(80,1,'정원 검사',1,1)").run();
-  const id=await f.create({contract_id:80}),before=await f.row(id),response=await f.call(`/admin/posts/${id}/`,{...f.values,contract_id:80,version:before.version,publish_now:1,title:'저장되지 않아야 하는 변경 제목'});assert.equal(response.status,409);assert.match((await response.json()).error,/계약 기간과 잔여 수량/);assert.deepEqual(await f.row(id),before);assert.equal((await f.DB.prepare('SELECT COUNT(*) n FROM post_events WHERE post_id=?').bind(id).first()).n,0);
+  await f.DB.prepare('UPDATE companies SET sample=0 WHERE id=1').run();const id=await f.create(),before=await f.row(id);
+  f.DB.raw.exec("CREATE TRIGGER simulated_publish_failure BEFORE UPDATE OF status ON posts WHEN NEW.id="+id+" AND NEW.status='PUBLISHED' BEGIN SELECT RAISE(ABORT,'simulated storage failure'); END;");
+  const response=await f.call('/admin/posts/'+id+'/',{...f.values,version:before.version,confirm_publish:1,title:'저장되지 않아야 하는 변경 제목'});assert.equal(response.status,409);assert.deepEqual(await f.row(id),before);assert.equal((await f.DB.prepare('SELECT COUNT(*) n FROM post_events WHERE post_id=?').bind(id).first()).n,0);assert.equal((await f.call('/post/'+id+'/')).status,404);
  }finally{f.DB.close();}
 });
-test('a new real page still requires a contract, while an explicitly promoted existing publication preserves its original contract decision',async()=>{
+test('editing and republishing retains URL, original publication date, historic contract counts and snapshot',async()=>{
  const f=await fixture();try{
-  const id=await f.create();const published=await f.call(`/admin/posts/${id}/`,{...f.values,publish_now:1,version:1});assert.equal((await published.json()).visible,false);
-  await f.DB.prepare('UPDATE companies SET sample=0 WHERE id=1').run();await f.DB.prepare('UPDATE posts SET sample=0 WHERE id=?').bind(id).run();await f.call(`/admin/posts/${id}/status/`,{action:'withdraw',version:(await f.row(id)).version});
-  const existing=await f.row(id),again=await f.call(`/admin/posts/${id}/`,{...f.values,publish_now:1,version:existing.version});assert.equal(again.status,200);assert.equal((await again.json()).visible,true);assert.equal((await f.row(id)).contract_id,null);
-  const next=await f.create({title:'처음 공개할 실제 업체의 새 상담 안내',content:f.values.content+' 이 글은 새로 작성한 별도의 내용입니다.'});assert.equal((await f.call(`/admin/posts/${next}/`,{...f.values,version:1,publish_now:1})).status,409);assert.equal((await f.row(next)).status,'DRAFT');
+  await f.DB.prepare('UPDATE companies SET sample=0 WHERE id=1').run();await f.DB.prepare("INSERT INTO contracts(id,company_id,package_name,contract_quantity,published_quantity,status) VALUES(80,1,'historical full contract',1,1,'CLOSED')").run();const contract=await f.DB.prepare('SELECT * FROM contracts WHERE id=80').first();
+  const id=await f.create(),published=await f.call('/admin/posts/'+id+'/',{...f.values,confirm_publish:1,version:1});assert.equal((await published.json()).visible,true);const original=await f.row(id);
+  assert.equal((await f.call('/admin/posts/'+id+'/status/',{action:'withdraw',version:original.version})).status,200);assert.equal((await f.call('/post/'+id+'/')).status,404);
+  const existing=await f.row(id),again=await f.call('/admin/posts/'+id+'/',{...f.values,title:'수정해서 다시 발행한 전화 상담 안내',confirm_publish:1,version:existing.version});assert.equal(again.status,200);assert.equal((await again.json()).visible,true);assert.equal((await f.row(id)).published_at,original.published_at);assert.deepEqual(await f.DB.prepare('SELECT * FROM contracts WHERE id=80').first(),contract);assert.equal((await f.DB.prepare('SELECT COUNT(*) n FROM post_snapshots WHERE post_id=?').bind(id).first()).n,1);
  }finally{f.DB.close();}
 });

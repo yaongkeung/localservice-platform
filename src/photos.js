@@ -1,4 +1,5 @@
 import {descendantServiceIds} from './services.js';
+import {randomSample} from './random-selection.js';
 import {published,services} from './data.js';
 // Illustrative sample imagery. Replace with verified post uploads when CMS is added.
 export const postImages=[
@@ -20,4 +21,14 @@ export function dailyHighlights(date=seoulDate(),posts=published,categories=serv
     const post=candidates[(day+service.id)%candidates.length];
     return [{service,post,image:postImage(post.id,images)}];
   });
+}
+export function randomHighlights(companies,posts,categories,images,limit=6,random=Math.random,date=seoulDate()){
+ const publicImages=images.filter(image=>!image.excluded&&!image.sample);
+ const candidates=companies.filter(company=>!company.sample&&(!company.status||company.status==='ACTIVE')).flatMap(company=>{
+  const options=posts.filter(post=>post.company_id===company.id&&post.status==='PUBLISHED'&&!post.sample&&post.published_at<=date&&categories.some(service=>service.id===post.service_id)&&postImage(post.id,publicImages));
+  if(!options.length)return [];
+  const post=randomSample(options,1,random)[0];
+  return [{post,service:categories.find(service=>service.id===post.service_id),image:postImage(post.id,publicImages)}];
+ });
+ return randomSample(candidates,Math.min(limit,6),random);
 }

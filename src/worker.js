@@ -74,7 +74,7 @@ async function handle(request,env={}){
   if(url.pathname==='/admin'||url.pathname.startsWith('/admin/')){
     if(env.APP_ENV==='staging'&&env.CMS_READ_ONLY==='true'){
       if(['GET','HEAD'].includes(request.method))return new Response(null,{status:302,headers:{location:origin+url.pathname+url.search,'cache-control':'no-store'}});
-      return new Response(`<!doctype html><html lang="ko"><meta charset="utf-8"><title>운영 관리 화면 안내</title><h1>운영 관리 화면에서 이어서 작성해 주세요.</h1><p>이전 시험 주소에서는 저장하지 않습니다.</p><a href="${origin}/admin/">이웃핀 운영 관리로 이동</a></html>`,{status:409,headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store','x-robots-tag':'noindex, nofollow'}});
+      return new Response(`<!doctype html><html lang="ko"><meta charset="utf-8"><title>운영 관리 화면 안내</title><h1>운영 관리 화면에서 이어서 작성해 주세요.</h1><p>이전 시험 주소에서는 저장하지 않습니다.</p><a href="${origin}/admin/">동네핀 운영 관리로 이동</a></html>`,{status:409,headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store','x-robots-tag':'noindex, nofollow'}});
     }
     if(url.pathname==='/admin')return Response.redirect(url.origin+'/admin/',308);
     const response=await cms(request,env);return request.method==='HEAD'?new Response(null,{status:response.status,headers:response.headers}):response;

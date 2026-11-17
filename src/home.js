@@ -5,7 +5,7 @@ import {sampleDataset} from './store.js';
 import {regionFilter} from './regions.js';
 import {groupForCode} from './township-groups.js';
 import {regionData} from './regions-data.js';
-import {postImage,dailyHighlights,seoulDate} from './photos.js';
+import {postImage,randomHighlights,seoulDate} from './photos.js';
 const e=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export const postKinds={case:'작업사례',guide:'서비스안내',local:'지역정보',tip:'작업팁'};
 const a=(url,label,cls='')=>`<a class="${cls}" href="${e(url)}">${e(label)}</a>`;
@@ -31,7 +31,7 @@ export function portalHeader(params=new URLSearchParams()){
 }
 function photoStrip(data){
   const {published,services,postImages:images}=data;
-  const day=seoulDate(),picks=dailyHighlights(day,published,services,images);
+  const day=seoulDate(),picks=randomHighlights(data.companies,published,services,images,6,Math.random,day);
   if(!picks.length)return '';
   return `<section class="photo-highlights" aria-labelledby="photo-heading"><div class="photo-heading"><h2 id="photo-heading">${icon('📸','lilac')}오늘의 업종 한 컷</h2><span class="photo-date">${e(day.slice(5).replace('-','.'))} <span>${picks.every(p=>p.image.sample)?'· 샘플 이미지':''}</span></span></div><div class="photo-strip">${picks.map(({service,post,image},i)=>`<a class="photo-pick tone-${service.tone}" href="/post/${post.id}/"><div class="pick-photo"><img src="${e(image.storage_key)}" srcset="${e(image.thumbnail_key)} 180w, ${e(image.storage_key)} 960w" sizes="(max-width:760px) 58vw, 260px" alt="${e(image.alt_text)}" width="960" height="640" decoding="async" ${i?'loading="lazy"':'fetchpriority="high"'}><span class="pick-service"><span aria-hidden="true">${service.icon}</span> ${e(service.name)}</span>${image.sample?'<span class="pick-sample">샘플</span>':''}</div><div class="pick-caption"><strong>${e(post.title)}</strong><span>작업 이야기 보기 <span aria-hidden="true">↗</span></span></div></a>`).join('')}</div></section>`;
 }

@@ -71,10 +71,12 @@ test('validation, escaped input, duplicate checks and optimistic updates protect
   assert.equal((await f.DB.prepare('SELECT status,version FROM posts WHERE id=?').bind(id).first()).status,'DRAFT');
  }finally{f.DB.close();}
 });
-test('database triggers block workflow bypass and concurrent duplicate publications',async()=>{
+test('database triggers require content confirmation and prevent duplicate publications',async()=>{
  const f=await fixture();try{
   const auth=await f.signIn(),id=await create(f,auth);
-  await assert.rejects(f.DB.prepare("UPDATE posts SET status='PUBLISHED',published_at='2026-11-14',last_actor_id=1 WHERE id=?").bind(id).run(),/Invalid post status transition/);
+  await f.DB.prepare('UPDATE posts SET generation_reviewed=0 WHERE id=?').bind(id).run();
+  await assert.rejects(f.DB.prepare("UPDATE posts SET status='PUBLISHED',published_at='2026-11-14',last_actor_id=1 WHERE id=?").bind(id).run(),/review/i);
+  await f.DB.prepare('UPDATE posts SET generation_reviewed=1 WHERE id=?').bind(id).run();
   await f.DB.prepare("UPDATE posts SET status='REVIEW',last_actor_id=1 WHERE id=?").bind(id).run();await f.DB.prepare("UPDATE posts SET status='APPROVED',last_actor_id=1 WHERE id=?").bind(id).run();
   await f.DB.prepare('UPDATE posts SET title_hash=(SELECT title_hash FROM posts WHERE id=101) WHERE id=?').bind(id).run();
   await assert.rejects(f.DB.prepare("UPDATE posts SET status='PUBLISHED',published_at='2026-11-14' WHERE id=?").bind(id).run(),/UNIQUE/);
@@ -95,7 +97,7 @@ test('migrations are repeatable and saved drafts persist after database restart'
   db=sqliteDatabase(path);await migrate(db);await seed(db);
   assert.equal((await db.prepare('SELECT title FROM posts WHERE id=?').bind(id).first()).title,values().title);
   assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM posts').first()).n,4);
-  assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM d1_migrations').first()).n,12);
+  assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM d1_migrations').first()).n,13);
  }finally{db?.close();assert.ok(resolve(dir).startsWith(resolve(tmpdir())+sep)&&basename(dir).startsWith('localservice-cms-'));await rm(dir,{recursive:true,force:true});}
 });
 test('missing DB does not expose a login bypass; production admin requires HTTPS',async()=>{

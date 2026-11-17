@@ -61,14 +61,14 @@ test('withdrawing a post hides every public surface and snapshots the previous p
   assert.equal((await f.transition(id,'withdraw',1,old.version)).status,409);assert.equal((await f.DB.prepare('SELECT COUNT(*) AS n FROM post_snapshots WHERE post_id=?').bind(id).first()).n,1);
  }finally{f.DB.close();}
 });
-test('edited posts keep their URL, first publication date and original contract usage even after the contract closes',async()=>{
+test('edited posts keep their URL, first publication date and publication metadata without consuming a contract',async()=>{
  const f=await fixture();try{
   await f.DB.prepare("INSERT INTO contracts(company_id,package_name,contract_quantity,start_date,end_date) VALUES(1,'기존 계약',1,'2020-01-01','2030-12-31')").run();
   const id=await f.create({contract_id:1});await f.publish(id);const old=await f.row(id);assert.equal(old.published_once,1);
   await f.transition(id,'withdraw');await f.DB.prepare("UPDATE contracts SET status='CLOSED' WHERE id=1").run();
   assert.equal((await f.save(id,{title:'수정 검수 후 다시 공개한 작업 이야기'})).status,303);
   assert.equal((await f.call('/post/'+id+'/')).status,404);await f.publish(id);
-  const post=await f.row(id);assert.equal(post.published_at,old.published_at);assert.equal((await f.DB.prepare('SELECT published_quantity FROM contracts WHERE id=1').first()).published_quantity,1);
+  const post=await f.row(id);assert.equal(post.published_at,old.published_at);assert.equal((await f.DB.prepare('SELECT published_quantity FROM contracts WHERE id=1').first()).published_quantity,0);
   assert.match(await(await f.call('/post/'+id+'/')).text(),/수정 검수 후 다시 공개한 작업 이야기/);
   const rss=await(await f.call('/rss.xml')).text();assert.equal((rss.match(new RegExp('<guid isPermaLink="true">'+origin+'/post/'+id+'/</guid>','g'))||[]).length,1);
   await f.transition(id,'withdraw');assert.equal((await f.save(id,{company_id:2,contract_id:null},1)).status,409);
