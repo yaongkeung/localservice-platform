@@ -1,4 +1,6 @@
 import {postUrl,normalizedPath} from './post-urls.js';
+import {indexNowProof} from './indexnow.js';
+import {aboutPage} from './about.js';
 import {operationUi} from './operation-ui.js';
 import {editorActions} from './editor-actions.js';
 import {storageReady,health} from './readiness.js';
@@ -47,6 +49,7 @@ function phone(c){return c.phone?`<a class="button call" href="tel:${e(c.phone)}
 function crumbs(items){breadcrumbItems=[{name:'홈',url:'/'},...items.map(i=>({name:i.name,url:i.url||url.pathname}))];return `<nav class="crumb" aria-label="현재 위치">${link('/','홈')}${items.map(i=>` / ${i.url?link(i.url,i.name):`<span>${e(i.name)}</span>`}`).join('')}</nav>`;}
 
 const path=url.pathname;const params=url.searchParams;
+  if(path==='/about/')return shell({title:'동네핀 소개와 콘텐츠 작성 기준',description:'동네핀의 지역 서비스 안내, 사진과 자동 작성 본문의 확인 기준, 업체 정보와 상담 방법을 소개합니다.',path,noindex:!!url.search,body:aboutPage()});
   if(path==='/') {
     let list=published;
     const r=regions.find(r=>r.slug===params.get('region'));
@@ -62,11 +65,11 @@ const path=url.pathname;const params=url.searchParams;
     return shell({title:'우리 동네 작업사례·서비스 게시판',description:'전국 지역과 업종별 작업사례, 서비스 안내, 작업팁과 업체 정보를 찾아보세요.',path:'/',noindex:!!url.search,params,body:homePage(params,list,data)});
   }
   const r=regions.find(r=>regionUrl(r)===path);const s=services.find(s=>serviceUrl(s)===path);if(r||s){const list=published.filter(p=>r?regionIds(r).includes(p.region_id):descendantServiceIds(s,services).includes(p.service_id));return shell({title:`${(r||s).name} 게시판`,description:`${(r||s).name}의 출장서비스 작업사례와 업체를 확인하세요.`,path,noindex:!list.length,body:`<div class="wrap">${crumbs([{name:(r||s).name+' 게시판'}])}<span class="eyebrow">${r?'LOCAL AREA':'SERVICE GUIDE'}</span><h1 class="page-title">${e((r||s).name)} ${r?'지역':'업종'} 게시판</h1><p class="muted">작업사례에서 과정과 업체 정보를 함께 확인하세요.</p><section class="section">${s&&services.length>16?serviceFilter(services,new URLSearchParams({service:s.slug})):`<div class="chips">${(r?regions:services).map(x=>`<a class="chip" ${x.id===(r||s).id?'aria-current="page"':''} href="${r?regionUrl(x):serviceUrl(x)}">${e(x.name)}</a>`).join('')}</div>`}</section><section class="section"><div class="section-head"><h2>작업사례와 안내</h2><span class="count">${list.length&&list.every(p=>p.sample)?'샘플 ':''}${list.length}건</span></div>${cards(list)}</section></div>`});}
-  const p=published.find(p=>postUrl(p)===normalizedPath(path));if(p){if(path!==postUrl(p))return new Response(null,{status:301,headers:{location:postUrl(p),'cache-control':'no-store'}});const c=company(p);return shell({title:p.seo_title||p.title,description:p.seo_description||p.summary,path,image:postImage(p.id,images),schema:{'@context':'https://schema.org','@type':'Article',headline:p.title,description:p.summary,datePublished:p.published_at,dateModified:isoDate(p.updated_at||p.published_at),image:images.filter(i=>i.post_id===p.id).map(i=>absolute(i.storage_key)),mainEntityOfPage:origin+path,author:{'@type':'Organization',name:c.name,url:origin+companyUrl(c)}},body:`<div class="wrap">${crumbs([{name:region(p).name,url:regionUrl(region(p))},{name:p.title}])}<span class="tag">${e(service(p).name)} · ${p.sample?'샘플 ':''}${e(p.post_type)}</span><h1 class="page-title">${e(p.title)}</h1><p class="muted">${e(region(p).name)} · <time datetime="${p.published_at}">${p.published_at}</time></p><div class="detail consultation-detail"><article class="panel prose consultation-article">${postArticle(p,images,c,false,{region:region(p),service:service(p),related:published})}<hr>${p.sample?'<p class="muted">이 글은 기능 확인용 샘플이며 실제 시공 실적이 아닙니다.</p>':''}<div class="chips">${link(regionUrl(region(p)),region(p).name+' 사례','chip')}${link(serviceUrl(service(p)),service(p).name+' 사례','chip')}</div></article></div></div>`});}
+  const p=published.find(p=>postUrl(p)===normalizedPath(path));if(p){if(path!==postUrl(p))return new Response(null,{status:301,headers:{location:postUrl(p),'cache-control':'no-store'}});const c=company(p);return shell({title:p.seo_title||p.title,description:p.seo_description||p.summary,path,image:postImage(p.id,images),schema:{'@context':'https://schema.org','@type':'Article',headline:p.title,description:p.summary,datePublished:/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(p.published_at)?isoDate(p.published_at):undefined,dateModified:isoDate(p.updated_at||p.published_at),image:images.filter(i=>i.post_id===p.id).map(i=>absolute(i.storage_key)),mainEntityOfPage:origin+path,author:{'@type':'Organization',name:c.name,url:origin+companyUrl(c)}},body:`<div class="wrap">${crumbs([{name:region(p).name,url:regionUrl(region(p))},{name:p.title}])}<span class="tag">${e(service(p).name)} · ${p.sample?'샘플 ':''}${e(p.post_type)}</span><h1 class="page-title">${e(p.title)}</h1><p class="muted">${e(region(p).name)} · <time datetime="${p.published_at}">${p.published_at}</time></p><div class="detail consultation-detail"><article class="panel prose consultation-article">${postArticle(p,images,c,false,{region:region(p),service:service(p),related:published})}<hr>${p.sample?'<p class="muted">이 글은 기능 확인용 샘플이며 실제 시공 실적이 아닙니다.</p>':''}<div class="chips">${link(regionUrl(region(p)),region(p).name+' 사례','chip')}${link(serviceUrl(service(p)),service(p).name+' 사례','chip')}</div></article></div></div>`});}
   const c=companies.find(c=>companyUrl(c)===path);if(c)return shell({title:c.name+' 업체 프로필',description:c.description,path,body:`<div class="wrap">${crumbs([{name:'업체 프로필'}])}<div class="detail"><section class="panel"><span class="tag">${c.sample?'샘플 업체':'업체 프로필'}</span><h1 class="page-title">${e(c.name)}</h1><p>${e(c.description)}</p><p><strong>서비스 지역</strong><br>${e(c.area)}</p><p><strong>상담 시간${c.sample?' (예시)':''}</strong><br>${e(c.hours||'전화로 문의해 주세요.')}</p>${placeCard(c)}</section><aside class="panel aside"><h2>작업 상담 안내</h2><p>증상과 현장 상황을 정리하면 상담에 도움이 됩니다.</p>${phone(c)}</aside></div><section class="section"><div class="section-head"><h2>이 업체의 포스팅</h2></div>${published.some(p=>p.company_id===c.id)?cards(published.filter(p=>p.company_id===c.id)):'<div class="empty"><h3>아직 등록된 작업사례가 없습니다</h3><p>서비스 내용과 작업 가능 여부는 업체에 문의해 주세요.</p></div>'}</section></div>`});
   return shell({title:'페이지를 찾을 수 없습니다',description:'주소를 확인하거나 메인에서 작업사례를 찾아보세요.',path,status:404,noindex:true,body:'<div class="wrap section"><h1>페이지를 찾을 수 없습니다</h1><p>주소가 변경되었거나 등록되지 않은 페이지입니다.</p><a class="button" href="/">메인으로 돌아가기</a></div>'});
 }
-async function handle(request,env={}){
+async function handle(request,env={},ctx){
   const url=new URL(request.url);
   if(env.APP_ENV==='production'&&['gongsa8282.xyz','www.gongsa8282.xyz'].includes(url.hostname)&&url.origin!==origin)return Response.redirect(origin+url.pathname+url.search,308);
   if(url.pathname==='/healthz'){if(!['GET','HEAD'].includes(request.method))return new Response(null,{status:405});return health(request,env);}
@@ -77,9 +80,10 @@ async function handle(request,env={}){
       return new Response(`<!doctype html><html lang="ko"><meta charset="utf-8"><title>운영 관리 화면 안내</title><h1>운영 관리 화면에서 이어서 작성해 주세요.</h1><p>이전 시험 주소에서는 저장하지 않습니다.</p><a href="${origin}/admin/">동네핀 운영 관리로 이동</a></html>`,{status:409,headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store','x-robots-tag':'noindex, nofollow'}});
     }
     if(url.pathname==='/admin')return Response.redirect(url.origin+'/admin/',308);
-    const response=await cms(request,env);return request.method==='HEAD'?new Response(null,{status:response.status,headers:response.headers}):response;
+    const response=await cms(request,env,ctx);return request.method==='HEAD'?new Response(null,{status:response.status,headers:response.headers}):response;
   }
   if(!['GET','HEAD'].includes(request.method))return new Response('Method not allowed',{status:405,headers:{Allow:'GET, HEAD'}});
+  const proof=indexNowProof(request,env);if(proof)return proof;
   if(['/sitemap.xml','/rss.xml','/robots.txt'].includes(url.pathname)){
     const body=url.pathname==='/robots.txt'?robots(launchState(request,env).blocked):url.pathname==='/sitemap.xml'?sitemap(env.DB?await publicDataset(env.DB,{includeSamples:env.APP_ENV!=='production'}):sampleDataset()):rss(env.DB?await publicDataset(env.DB,{includeSamples:env.APP_ENV!=='production'}):sampleDataset());
     const type=url.pathname==='/robots.txt'?'text/plain':url.pathname==='/rss.xml'?'application/rss+xml':'application/xml';
@@ -110,7 +114,7 @@ async function handle(request,env={}){
   const response=render(url,data,env);
   return request.method==='HEAD'?new Response(null,{status:response.status,headers:response.headers}):response;
 }
-export default {async fetch(request,env={}){
- try{const response=await handle(request,env);if(!launchState(request,env).blocked)return response;const headers=new Headers(response.headers);headers.set('x-robots-tag','noindex, nofollow');return new Response(response.body,{status:response.status,statusText:response.statusText,headers});}
+export default {async fetch(request,env={},ctx){
+ try{const response=await handle(request,env,ctx);if(!launchState(request,env).blocked)return response;const headers=new Headers(response.headers);headers.set('x-robots-tag','noindex, nofollow');return new Response(response.body,{status:response.status,statusText:response.statusText,headers});}
  catch(error){const message=String(error?.message||''),category=/D1|database/i.test(message)?'database':/body|stream|formdata/i.test(message)?'request_stream':/memory|CPU|allocation|heap/i.test(message)?'resource':'other';console.error('Worker request failed',error?.name||'Error',category);return new Response('서비스 준비 중입니다. 잠시 후 다시 시도해 주세요.',{status:503,headers:{'cache-control':'no-store','x-robots-tag':'noindex, nofollow'}});}
 }};

@@ -31,7 +31,7 @@ async function fixture(){
 }
 test('safe bold/headings and source links preserve photo order and never permit HTML or script links',()=>{
  const html=postContent({id:1,content:['## 업무 안내','**방충망 교체** <script>alert(1)</script>','[출처](https://gimpo.go.kr/?a=1&b=2)','[실행](javascript:alert(1))','[위장](https://user:pass@example.com/)']});
- assert.match(html,/<h2>업무 안내<\/h2>/);assert.match(html,/<strong>방충망 교체<\/strong>/);assert.ok(!html.includes('<script>'));assert.match(html,/&lt;script&gt;/);assert.match(html,/rel="noopener noreferrer"/);assert.ok(!html.includes('href="javascript:'));assert.ok(!html.includes('href="https://user:'));
+ assert.match(html,/<h2>업무 안내<\/h2>/);assert.match(html,/<strong>방충망 교체<\/strong>/);assert.ok(!html.includes('<script>'));assert.match(html,/&lt;script&gt;/);assert.match(html,/rel="noopener noreferrer ugc nofollow"/);assert.ok(!html.includes('href="javascript:'));assert.ok(!html.includes('href="https://user:'));
 });
 test('regional facts require an exact supported locality inside Gimpo and target inputs reject markup',()=>{
  assert.ok(localContext('사우동','41570540').length);assert.deepEqual(localContext('사우동','11110'),[]);assert.deepEqual(localContext('모르는동','41570'),[]);assert.throws(()=>searchFields(new URLSearchParams({search_region:'<img>',search_keyword:'유리'})));assert.throws(()=>searchFields(new URLSearchParams({search_region:'사우동'})));

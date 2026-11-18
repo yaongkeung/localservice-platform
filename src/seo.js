@@ -13,7 +13,7 @@ export function isoDate(value){
 }
 export function breadcrumbSchema(items){return {'@context':'https://schema.org','@type':'BreadcrumbList',itemListElement:items.map((item,i)=>({'@type':'ListItem',position:i+1,name:item.name,item:absolute(item.url)}))};}
 export function sitemap(data){
- const entries=[{path:'/'}];
+ const entries=[{path:'/'},{path:'/about/'}];
  for(const p of data.published)entries.push({path:postUrl(p),lastmod:isoDate(p.updated_at||p.published_at)});
  for(const c of data.companies)if(data.published.some(p=>p.company_id===c.id))entries.push({path:'/company/'+c.id+'/'});
  for(const r of data.regions)if(data.published.some(p=>{const area=data.regions.find(a=>a.id===p.region_id);return area&&(area.id===r.id||area.slug.startsWith(r.slug+'/'));}))entries.push({path:'/region/'+r.slug+'/'});

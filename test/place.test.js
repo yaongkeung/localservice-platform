@@ -10,5 +10,5 @@ test('place URLs accept Naver sharing and canonical place pages while rejecting 
 });
 test('place cards escape copied business details and contain only a deliberate external link',()=>{
  const html=placeCard({name:'시험 업체',naver_place_url:'https://naver.me/Test1234',naver_place_name:'업체 <script>alert(1)</script>',naver_place_address:'주소 & 안내',naver_place_hours:'상담 "안내"'});
- assert.match(html,/&lt;script&gt;/);assert.match(html,/주소 &amp; 안내/);assert.match(html,/rel="noopener noreferrer"/);assert.match(html,/target="_blank"/);assert.doesNotMatch(html,/<script|<iframe|<img|<form/);assert.equal(placeCard({naver_place_url:'https://evil.example/'}),'');assert.equal(placeCard({}), '');
+ assert.match(html,/&lt;script&gt;/);assert.match(html,/주소 &amp; 안내/);assert.match(html,/rel="noopener noreferrer nofollow"/);assert.match(html,/target="_blank"/);assert.doesNotMatch(html,/<script|<iframe|<img|<form/);assert.equal(placeCard({naver_place_url:'https://evil.example/'}),'');assert.equal(placeCard({}), '');
 });

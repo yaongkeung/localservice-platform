@@ -17,7 +17,7 @@ async function fixture(){
 test('production indexing requires the explicit flag and canonical origin; staging stays excluded even with the flag',async()=>{
  const f=await fixture();try{
   let response=await f.call();assert.equal(response.status,200);assert.match(response.headers.get('x-robots-tag'),/noindex/);assert.match(await response.text(),/content="noindex,follow"/);assert.match(await(await f.call('/robots.txt')).text(),/Disallow: \/\n$/);
-  response=await f.call('/',{SEARCH_INDEXING:'enabled'});assert.equal(response.headers.get('x-robots-tag'),null);assert.match(await response.text(),/content="index,follow"/);assert.match(await(await f.call('/robots.txt',{SEARCH_INDEXING:'enabled'})).text(),/Disallow: \/admin\//);
+  response=await f.call('/',{SEARCH_INDEXING:'enabled'});assert.equal(response.headers.get('x-robots-tag'),null);assert.match(await response.text(),/content="index,follow,max-image-preview:large"/);assert.match(await(await f.call('/robots.txt',{SEARCH_INDEXING:'enabled'})).text(),/Disallow: \/admin\//);
   response=await f.call('/',{SEARCH_INDEXING:'enabled'},'https://localservice-platform-production.example.workers.dev');assert.match(response.headers.get('x-robots-tag'),/noindex/);assert.match(await(await f.call('/robots.txt',{SEARCH_INDEXING:'enabled'},'https://other.example')).text(),/Disallow: \/\n$/);
   response=await f.call('/',{APP_ENV:'staging',SEARCH_INDEXING:'enabled'});assert.match(response.headers.get('x-robots-tag'),/noindex/);assert.match(await response.text(),/content="noindex,follow"/);
  }finally{f.DB.close();}

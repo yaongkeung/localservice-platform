@@ -9,7 +9,8 @@
     "APP_ENV": "production",
     "SEARCH_INDEXING": "disabled",
     "NAVER_SITE_VERIFICATION": "SET_ACTUAL_VERIFICATION_VALUE",
-    "GOOGLE_SITE_VERIFICATION": ""
+    "GOOGLE_SITE_VERIFICATION": "",
+    "INDEXNOW_KEY": ""
   },
   "ai": {
     "binding": "AI"

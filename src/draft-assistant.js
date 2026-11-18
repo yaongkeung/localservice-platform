@@ -37,7 +37,7 @@ export function assembleDraft(raw,post,company,region,images){
  if(title.length>120)throw Error('자동 작성 제목이 너무 깁니다.');
  const authored=data.page?validatePageWriting(data.page):null;
  if(authored&&/서비스\s*지역.{0,10}(?:아니|아닙|않|불가)/.test(authored.overview))authored.overview=`${post.search_region} ${post.search_keyword} 상담을 위해 업체 제공 사진과 확인할 항목을 정리했습니다. ${clean(data.photos?.[0]?.description,2400)} 방문 가능 지역과 일정은 업체에 직접 확인해 주세요.`;
- const summary=authored?`${post.search_region} ${post.search_keyword} · ${authored.overview.replace(/[*#]/g,'').replace(/\s+/g,' ')}`.slice(0,240):`${post.search_region} ${post.search_keyword} 상담을 위한 사진 안내입니다. 사진별 구조와 상담 전 확인할 항목을 살펴보세요.`;
+ const summary=authored?authored.overview.replace(/[*#]/g,'').replace(/\s+/g,' ').slice(0,240):`${post.search_region} ${post.search_keyword} 상담을 위한 사진 안내입니다. 사진별 구조와 상담 전 확인할 항목을 살펴보세요.`;
  const intro=authored?.overview||`${post.search_region}에서 **${post.search_keyword}** 상담을 준비하시는 분을 위해 업체가 제공한 사진을 살펴봅니다. 아래에서는 사진에 보이는 대상과 상담 시 확인할 사항을 함께 안내합니다.`;
  if(!Array.isArray(data.photos)||data.photos.length!==images.length||new Set(data.photos.map(x=>Number(x.id))).size!==images.length)throw Error('사진별 설명을 모두 만들지 못했습니다. 다시 시도해 주세요.');
  const content=[`## ${post.search_region} ${post.search_keyword} 안내`,intro,...regionalSection(post.search_region,region.admin_code||region.group_key,post.search_keyword),...(authored?[`## ${post.search_keyword} 상담에서 확인할 내용`,...authored.details.map(item=>`**${item.title}** — ${item.text}`),'## 사진과 함께 준비할 상담 정보',authored.preparation]:serviceSections(post.search_keyword)),`## 사진으로 살펴보는 작업 대상`];

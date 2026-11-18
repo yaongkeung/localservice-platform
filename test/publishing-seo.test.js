@@ -10,14 +10,26 @@ import {catalogBranch,registerRegion} from '../src/cms-regions.js';
 import {regionData} from '../src/regions-data.js';
 import {isoDate} from '../src/seo.js';
 const origin='https://gongsa8282.xyz';
-async function fixture(){
+test('IndexNow runs only after a successful real publication and never blocks it on remote rejection',async t=>{
+ const pending=[],sent=[];t.mock.method(globalThis,'fetch',async(url,init)=>{sent.push({url,body:JSON.parse(init.body)});return new Response(null,{status:429});});
+ const f=await fixture({env:{APP_ENV:'production',SEARCH_INDEXING:'enabled',INDEXNOW_KEY:'0123456789abcdef0123456789abcdef',PHOTOS:{get(){},put(){}},ASSETS:{fetch(){}}},ctx:{waitUntil(promise){pending.push(promise);}}});
+ try{
+  const sample=await f.create();assert.equal((await f.save(sample,{confirm_publish:1},1)).status,303);assert.equal(pending.length,0);
+  await f.DB.prepare('UPDATE companies SET sample=0 WHERE id IN (1,2)').run();
+  const id=await f.create({title:'실제 업체의 독립적인 발행 알림 테스트',content:'창문 프레임의 연결 부분과 손잡이 상태를 살펴봅니다. 이 시험 콘텐츠에서는 유리 두께를 미리 확인하고 창틀의 개폐 방향을 기록하는 별도의 안내를 제공합니다. '+randomToken()});
+  assert.equal((await f.save(id,{confirm_publish:1},1)).status,303);await Promise.all(pending);assert.equal(sent.length,1);const path=(await f.DB.prepare('SELECT path FROM post_urls WHERE post_id=?').bind(id).first()).path;assert.deepEqual(sent[0].body.urlList,[origin+path]);assert.equal((await f.row(id)).status,'PUBLISHED');assert.equal((await f.call(path)).status,200);
+  assert.equal((await f.save(id,{confirm_publish:1},1)).status,409);assert.equal(pending.length,1);
+  const legacy=await f.create({company_id:2,title:'전기 장치 연결 안내 발행 알림 테스트',content:'분전반 표시와 조명의 전원 연결 상태를 확인하는 독립적인 안내입니다. 전구 규격과 기존 스위치의 동작 조건을 정리하고 전기 전문가에게 확인할 사항을 묻습니다. '+randomToken()},1);await f.publish(legacy);await Promise.all(pending);assert.equal(sent.length,2);
+ }finally{f.DB.close();}
+});
+async function fixture({env={},ctx}={}){
  const DB=sqliteDatabase();await migrate(DB);await seed(DB);const auth={};
  for(const [id,role] of [[1,'ADMIN'],[2,'EDITOR'],[3,'EDITOR']]){
   await DB.prepare('INSERT INTO users(id,name,login_id,password_hash,role) VALUES(?,?,?,?,?)').bind(id,'시험 사용자'+id,'test'+id,'not-a-login-password',role).run();
   const token=randomToken(),csrf=randomToken();await DB.prepare('INSERT INTO sessions(token_hash,user_id,csrf,expires_at) VALUES(?,?,?,?)').bind(await digest(token),id,csrf,Date.now()+3600000).run();auth[id]={cookie:'ls_session='+token,csrf};
  }
  await DB.prepare('INSERT INTO company_assignments(user_id,company_id) VALUES(2,1),(3,2)').run();
- const call=(path,{as,form,headers={},method=form?'POST':'GET'}={})=>fetchCanonical(new Request(origin+path,{method,headers:{...(as?{cookie:auth[as].cookie}:{}),...(form?{origin,'content-type':'application/x-www-form-urlencoded'}:{}),...headers},body:form?new URLSearchParams({...form,...(as?{csrf:auth[as].csrf}:{})}):undefined}),{DB});
+ const call=(path,{as,form,headers={},method=form?'POST':'GET'}={})=>fetchCanonical(new Request(origin+path,{method,headers:{...(as?{cookie:auth[as].cookie}:{}),...(form?{origin,'content-type':'application/x-www-form-urlencoded'}:{}),...headers},body:form?new URLSearchParams({...form,...(as?{csrf:auth[as].csrf}:{})}):undefined}),{...env,DB},ctx);
  const row=id=>DB.prepare('SELECT * FROM posts WHERE id=?').bind(id).first();
  const values=(override={})=>({title:'국내 지역 작업사례 '+randomToken().slice(0,8),summary:'전국 지역 선택과 재공개 기능을 점검하는 샘플 안내입니다.',content:'이 글은 지역 선택과 게시 상태 변경을 확인하기 위한 시험 콘텐츠입니다. 실제 작업 실적이 아니며, 작업 내용을 기록하고 검수한 뒤 공개하는 과정을 검증합니다. '+randomToken(),company_id:1,region_id:2,service_id:1,post_type:'작업사례',...override});
  const create=async(overrides={},as=2)=>{const response=await call('/admin/posts/new/',{as,form:values(overrides)});assert.equal(response.status,303,await response.clone().text());return Number(response.headers.get('location').split('/')[3]);};
@@ -92,6 +104,7 @@ test('article metadata and breadcrumbs describe the visible post and its actual 
   const response=await f.call('/post/101/'),html=await response.text();assert.match(html,/<meta property="og:type" content="article">/);assert.match(html,/<meta property="og:image" content="https:\/\/gongsa8282.xyz\/media\/plumbing-cover.jpg">/);
   const graph=JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1])['@graph'];
   const article=graph.find(n=>n['@type']==='Article'),crumb=graph.find(n=>n['@type']==='BreadcrumbList');assert.equal(article.mainEntityOfPage,origin+'/post/101/');assert.ok(article.dateModified);assert.deepEqual(article.image,[origin+'/media/plumbing-cover.jpg']);assert.equal(crumb.itemListElement.at(-1).item,origin+'/post/101/');assert.equal(crumb.itemListElement.at(-1).name,article.headline);
+  assert.equal(article.datePublished,undefined);assert.match(html,/<time datetime="\d{4}-\d{2}-\d{2}">/); // No invented time for day-only publication records.
   const id=await f.create();await f.publish(id);assert.doesNotMatch(await(await f.call('/post/'+id+'/')).text(),/<meta property="og:image"/);
   assert.equal(isoDate('2026-11-15 01:23:45'),'2026-11-15T01:23:45.000Z');assert.equal(isoDate('bad-date'),null);
  }finally{f.DB.close();}
