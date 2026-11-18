@@ -1,4 +1,5 @@
 import {postUrl} from './post-urls.js';
+import {populatedServices} from './public-catalog.js';
 import {descendantServiceIds,sortServices} from './services.js';
 import {registeredCompanies} from './companies.js';
 import {brandMark,siteName} from './brand.js';
@@ -66,7 +67,7 @@ export function homePage(params,posts,data=sampleDataset()){
       <section class="latest-section" id="services" aria-labelledby="latest-heading"><div class="section-head"><h2 id="latest-heading">업종별 최근 글</h2><span class="count">관심 있는 분야부터 살펴보세요</span></div><div class="mini-boards">${services.filter(s=>!s.parent_id&&published.some(post=>descendantServiceIds(s,services).includes(post.service_id))).map(s=>`<section class="mini-board tone-${s.tone}"><div><h3>${icon(s.icon,s.tone)}${e(s.name)}</h3>${a('/service/'+s.slug+'/','더보기 →','all-link')}</div><ul>${published.filter(p=>descendantServiceIds(s,services).includes(p.service_id)).slice(0,3).map(p=>`<li>${a(postUrl(p),p.title)}</li>`).join('')}</ul></section>`).join('')||'<p class="cms-help">아직 등록된 글이 없습니다.</p>'}</div></section>
     </div><aside class="portal-sidebar" aria-label="빠른 탐색">
       <section class="sidebar-guide expert-guide" aria-labelledby="expert-guide-heading"><div class="expert-portrait"><img src="/media/expert-mascot.png" alt="" width="1254" height="1254" loading="lazy" decoding="async"><a class="expert-admin-entry" href="/admin/login/" aria-label="관리자 로그인" rel="nofollow"></a></div><div class="expert-guide-copy"><span class="guide-label">${siteName}의 동네 안내</span><h2 id="expert-guide-heading">필요한 순간,<br> 가까운 전문가를 찾아보세요.</h2><p>작업 이야기부터 살펴보고<br> 우리 동네 업체를 만나보세요.</p>${a('/#cases','작업사례 둘러보기 →')}</div></section>
-      <section class="sidebar-panel"><div class="sidebar-heading"><h2>${icon('🧰','lilac')}업종 게시판</h2><span class="accent-dot"></span></div>${allServiceLinks(services)}</section>
+      <section class="sidebar-panel"><div class="sidebar-heading"><h2>${icon('🧰','lilac')}업종 게시판</h2><span class="accent-dot"></span></div>${allServiceLinks(populatedServices(services,published))}<p class="cms-help">글이 등록된 업종입니다. 전체 업종은 위 선택창에서 찾을 수 있습니다.</p></section>
       <section class="sidebar-panel"><div class="sidebar-heading"><h2>${icon('🧭','mint')}지역 바로가기</h2><a href="#regions" class="all-link">전체</a></div><div class="region-shortcuts">${quickProvinces.map(p=>a(filterUrl(params,{province:p.code,district:'',dong:'',region:''}),p.name)).join('')}</div></section>
     </aside></div></div>`;
 }

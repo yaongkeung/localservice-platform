@@ -24,7 +24,9 @@ export function simplePostForm(form,data,post={}){
  // Historical references remain attached; new publications do not use contracts.
  form.set('contract_id',String(sameCompany?post.contract_id||'':''));
  const targetChanged=region!==post.search_region||keyword!==post.search_keyword;
- if(targetChanged||!form.get('title'))form.set('title',titleFor(region,keyword));
+ const title=String(form.get('title')||'').trim(),prefix=titleFor(region,keyword);
+ // A writer may supply a photo-specific ending while correcting the area.
+ if(!title||targetChanged&&!title.startsWith(prefix))form.set('title',prefix);
  const content=String(form.get('content')||'');
  const text=content.split(/\n\s*\n/).map(part=>part.replace(/\[사진:\d+\]/g,'').replace(/^## .*$/gm,'').replace(/[*#]/g,'').replace(/\s+/g,' ').trim()).find(part=>part.length>=10)||'';
  const unchanged=content===(Array.isArray(post.content)?post.content.join('\n\n'):post.content);

@@ -33,12 +33,12 @@ test('all 56 requested labels are supported without replacing existing service I
  for(const [alias,name] of [['렌터카','렌트카'],['소파천갈이','쇼파천갈이'],['자동차배터리','자동차밧데리'],['덕트','닥트']])assert.equal(serviceForKeyword(alias,complete),complete.find(service=>service.name===name).id,alias);
  const ordered=sortServices(complete);assert.equal(ordered[0].name,'간병인');assert.equal(ordered.at(-1).name,'흥신소');assert.ok(ordered.findIndex(service=>service.name==='간병인')<ordered.findIndex(service=>service.name==='간판'));
 });
-test('large catalogues use a Korean-sorted selector and expandable links; empty categories stay out of the sitemap',async()=>{
+test('large catalogues use a Korean-sorted selector and populated board links; empty categories stay out of the sitemap',async()=>{
  const f=await fixture();try{
   const beforePosts=(await f.DB.prepare('SELECT COUNT(*) n FROM posts').first()).n,additions=catalogAdditions(await f.rows());
   for(const row of additions)await f.DB.prepare('INSERT INTO services(name,slug,icon,tone,parent_id,description) VALUES(?,?,?,?,?,?)').bind(row.name,row.slug,row.icon,row.tone,row.parent_id,row.description).run();
   const html=await(await f.call('/?province=11&q=glass')).text(),options=html.match(/<select id="service-select"[^>]*>([\s\S]*?)<\/select>/)[1],names=[...options.matchAll(/<option value="[^"]+"[^>]*>([^<]+)<\/option>/g)].map(match=>match[1]);
-  assert.deepEqual(names,sortServices(await f.rows()).map(row=>row.name));assert.match(html,/name="province" value="11"/);assert.match(html,/name="q" value="glass"/);assert.match(html,/업종 더보기/);assert.match(html,/간병인/);assert.match(html,/흥신소/);assert.doesNotMatch(html,/<h3>[^<]*간병인<\/h3>/);
+  assert.deepEqual(names,sortServices(await f.rows()).map(row=>row.name));assert.match(html,/name="province" value="11"/);assert.match(html,/name="q" value="glass"/);assert.match(html,/글이 등록된 업종입니다/);assert.match(html,/간병인/);assert.match(html,/흥신소/);assert.doesNotMatch(html,/<h3>[^<]*간병인<\/h3>/);
   const admin=await(await f.call('/admin/services/?q='+encodeURIComponent('중고'))).text();assert.match(admin,/중고가구/);assert.doesNotMatch(admin,/<h2><a[^>]*>[^<]*간판/);
   const rental=await(await f.call('/service/car-rental/')).text();assert.match(rental,/noindex,follow/);assert.match(rental,/<option value="car-rental" selected>렌트카/);assert.doesNotMatch(rental,/샘플 0건/);assert.ok(!(await(await f.call('/sitemap.xml')).text()).includes('/service/car-rental/'));assert.equal((await f.DB.prepare('SELECT COUNT(*) n FROM posts').first()).n,beforePosts);
  }finally{f.DB.close();}

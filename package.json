@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "audit:search": "node scripts/search-audit.mjs",
     "dev": "node scripts/dev.mjs",
     "test": "node --test test/*.test.js",
     "check": "node --check src/worker.js && node --check src/cms.js && node --check src/auth.js",
