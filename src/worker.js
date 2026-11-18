@@ -20,7 +20,7 @@ import {cms} from './cms.js';
 import {uploadedPhoto} from './uploads.js';
 import {uploadClient} from './upload-client.js';
 import {pageShell} from './public-shell.js';
-import {siteOrigin,absolute,isoDate,sitemap,rss,robots} from './seo.js';
+import {siteOrigin,absolute,isoDate,sitemap,sitemapText,rss,robots} from './seo.js';
 import {cmsRegionClient} from './cms-regions.js';
 import {formatTitleRegion} from './title-region.js';
 import {districtForPost, adminCodeForPost, provinceForPost} from './regions.js';
@@ -88,9 +88,9 @@ async function handle(request,env={},ctx){
   }
   if(!['GET','HEAD'].includes(request.method))return new Response('Method not allowed',{status:405,headers:{Allow:'GET, HEAD'}});
   const proof=indexNowProof(request,env);if(proof)return proof;
-  if(['/sitemap.xml','/rss.xml','/robots.txt'].includes(url.pathname)){
-    const body=url.pathname==='/robots.txt'?robots(launchState(request,env).blocked):url.pathname==='/sitemap.xml'?sitemap(env.DB?await publicDataset(env.DB,{includeSamples:env.APP_ENV!=='production'}):sampleDataset()):rss(env.DB?await publicDataset(env.DB,{includeSamples:env.APP_ENV!=='production'}):sampleDataset());
-    const type=url.pathname==='/robots.txt'?'text/plain':url.pathname==='/rss.xml'?'application/rss+xml':'application/xml';
+  if(['/sitemap.xml','/sitemap.txt','/rss.xml','/robots.txt'].includes(url.pathname)){
+    const body=url.pathname==='/robots.txt'?robots(launchState(request,env).blocked):(url.pathname==='/sitemap.xml'?sitemap:url.pathname==='/sitemap.txt'?sitemapText:rss)(env.DB?await publicDataset(env.DB,{includeSamples:env.APP_ENV!=='production'}):sampleDataset());
+    const type=['/robots.txt','/sitemap.txt'].includes(url.pathname)?'text/plain':url.pathname==='/rss.xml'?'application/rss+xml':'application/xml';
     return new Response(request.method==='HEAD'?null:body,{headers:{'content-type':type+'; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'}});
   }
   if(url.pathname.startsWith('/uploads/')||url.pathname.startsWith('/company-photos/'))return uploadedPhoto(request,env);

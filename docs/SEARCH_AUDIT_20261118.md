@@ -82,3 +82,43 @@ Google 보고서 오류를 숨기려고 제출을 삭제하거나 이름을 바�
 - 전체 운영 준비도는 **약 80%**를 유지합니다. 실제 네이버 노출 축적·고객 확인/비용 지불·지속 운영 검증이 남아 있습니다.
 
 추가 기준: [네이버 제목·설명](https://searchadvisor.naver.com/guide/markup-content), [콘텐츠 권장 사항](https://searchadvisor.naver.com/guide/content-basic), [콘텐츠 스팸 사례](https://searchadvisor.naver.com/guide/content-abusing), [Google 발행자 정보](https://developers.google.com/search/docs/appearance/structured-data/organization), [사이트 이름](https://developers.google.com/search/docs/appearance/site-names), [검색 설명](https://developers.google.com/search/docs/appearance/snippet).
+
+## 17시 후속: Google 공식19개 자료와 전체 사이트맵 오류 대조
+
+대상은 사이트맵 생성·전체 오류 목록, 크롤링/robots/HTTP/대표 주소, Search Essentials·스팸/AI, URL 검사/통계와 최근 문서 변경·상태입니다. Google의 모든 제품·언어·문서 전체를 열람했다는 뜻이 아닙니다. 공식자료19개(구글18개와 사이트맵 프로토콜1개)를 보관·대조했습니다.
+
+| 공식 자료 | 동네핀 확인·적용 |
+| --- | --- |
+| [사이트맵 생성](https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap) | UTF-8·같은 호스트의 절대 대표 주소·공개 내용만 포함. XML/텍스트가 같은21개 목록을 사용하도록 공통화. |
+| [보고서·전체 오류 목록](https://support.google.com/webmasters/answer/7451001?hl=ko) | 가져오기 실패와 파싱 오류를 분리. XML 보고서는 구체적 파싱 오류 없이 가져오기 실패 상태. |
+| [대형 사이트맵](https://developers.google.com/search/docs/crawling-indexing/sitemaps/large-sitemaps) | 현재21개/2,318바이트로 분할 불필요. 자동 검사는50,000개·50MB 한도 초과를 보고. |
+| [사이트맵 프로토콜](https://www.sitemaps.org/protocol.html) | 공식 XSD 검증 오류0개, URL 최대167자. 기존 XML 원문의 배포 전후 SHA-256 동일. |
+| [검색 필수사항](https://developers.google.com/search/docs/essentials?hl=en) | 수집·색인·검색 노출을 분리하고 기술 검사 통과를 노출 보증으로 쓰지 않음. |
+| [기술 요건](https://developers.google.com/search/docs/essentials/technical) | 공개21개 HTTP200·자기 canonical·본문/메타 확인. 관리자·비공개는 계속 제외. |
+| [robots 규칙](https://developers.google.com/crawling/docs/robots-txt/robots-txt-spec?hl=en) | Google 저장본도 /admin/만 제한. 추가 사이트맵2개를 안내하고 변경 후 재크롤링 요청 접수. |
+| [메타·HTTP 검색 지시](https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag) | 운영 sitemap XML/텍스트·RSS에 noindex 없음. 시험 주소·비공개 보호 유지. |
+| [대표 주소](https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls) | 기존 한글 URL·301·내부 링크를 유지. 호스트/HTTPS/슬래시·대표 주소 충돌 없음. |
+| [수집 오류 진단](https://developers.google.com/search/docs/crawling-indexing/troubleshoot-crawling-errors?hl=en) | 사이트맵 실시간 가져오기 성공과 처리 실패가 함께 관찰됨. 크롤링 통계는 아직 데이터 없음. |
+| [HTTP 응답](https://developers.google.com/crawling/docs/troubleshooting/http-status-codes) | 일반/Googlebot 형식 GET의 XML 해시 동일, GET/HEAD200. 실제 Googlebot 방문 증명으로 계산하지 않음. |
+| [검색봇 확인](https://developers.google.com/crawling/docs/crawlers-fetchers/verify-google-requests?hl=en) | 실시간 검사 도구와 일반 검색봇을 구분. User-Agent 문자열만으로 실제 검색봇을 인증하지 않음. |
+| [스팸 정책](https://developers.google.com/search/docs/essentials/spam-policies?hl=en) | 지역명 치환 대량 페이지·키워드 나열·허위 후기·동의어 변형을 해결책으로 추가하지 않음. 직접 조치 보고서 문제 없음. |
+| [생성형 AI](https://developers.google.com/search/docs/fundamentals/using-gen-ai-content?hl=en) | 사진 관찰·사실 확인·검토/발행과 작성 과정 공개 유지. 자동 작성 자체를 순위 보장으로 해석하지 않음. |
+| [수집 가능한 링크](https://developers.google.com/search/docs/crawling-indexing/links-crawlable) | 서버 HTML의 실제 href와 공개 주소/사진 등27개 리소스 접근 정상. 빈 분류 제외 유지. |
+| [URL 검사](https://support.google.com/webmasters/answer/9012289?hl=ko) | 기존17:14 스마트폰 검사에서 실제 XML200/application/xml·수집 허용 확인. XML 자체를 일반 글로 색인 요청하지 않음. |
+| [크롤링 통계](https://support.google.com/webmasters/answer/9679690?hl=ko) | 등록11/17, 보고서에 사용 가능한 데이터 없음. 이를 차단/제재나 오류 원인으로 단정하지 않음. |
+| [문서 최근 변경](https://developers.google.com/search/updates) | 11/12 유입 식별·10/23 URL 구분자·10/21 검색 공유 제어·10/1 AI 안내 등과 대조. XML 새 필수 태그 요구 없음. |
+| [검색 상태](https://status.search.google.com/) | 확인 시 활성 core update는 Ranking 영향. Crawling/Indexing 장애로 표시되지 않아 이번 원인으로 단정하지 않음. |
+
+### 원인 판단
+
+XML 원문은 공식 XSD 검증 오류0개이며21개 URL, 최대167자,2,318바이트입니다. 일반/Googlebot 형식 GET은200·동일 해시이며 HTML 오류/챌린지/리디렉션/noindex가 없습니다. Google 실제 검사 도구도17:14에 XML을200/application/xml로 받았습니다. 저장 robots.txt도 가져옴/문제 없음이며 /admin/만 제한합니다. Google 직접 조치·보안 문제는 모두 감지된 문제 없음입니다. Cloudflare 최근24시간 보안 샘플의 차단5건은 /wp-json/batch/v1과 /wp-config.php.swp/.save/.old/.bak에 대한 공격 탐색으로, 사이트맵·RSS 경로는 없었습니다. 표본 조사이지 전체 과거 요청에서 검색봇 차단이 절대 없었다는 증명은 아닙니다.
+
+현재 확인한 정보는 전체 사이트 접근 실패·XML 문법 오류·직접 조치가 원인이라는 가설을 뒷받침하지 않습니다. 기존 XML 경로의 가져오기 실패 원인을 확정할 실제 실패 요청 상태나 Google 내부 처리 사유는 제공되지 않았습니다. 이를 구글 버그·도메인 제재·콘텐츠 어뷰징·core update 때문이라고 단정하지 않습니다.
+
+### 적용 및 실제 결과
+
+Google 공식 지원 형식인 /sitemap.txt를 추가했습니다. 기존 XML과 같은 공통 공개 목록에서 생성해 최근 글만 담는 RSS와 달리 전체 주소를 제공합니다. robots.txt에 XML·텍스트·RSS를 함께 안내하고 Google의 robots 재크롤링 요청 접수를 확인했습니다. 검색 준비 자동 감사에 양쪽 목록 일치·호스트/절대 주소·공개 경로·개수/크기·중복·수정 날짜·noindex 검사를 추가했습니다. 문자열 감사와 별도의 공식 XSD 검증은 구분합니다.
+
+정상 Search Console에 새 sitemap.txt를 한 번 제출해 **Sitemap/성공/마지막 읽기11월18일/발견된 페이지21개**를 확인했습니다. RSS도 성공6개이며 기존 XML의 가져올 수 없음/0은 그대로 남겨 두었습니다. 오래된 실패를 숨기려고 삭제하거나 동일 파일을 반복 제출하지 않았습니다. 발견21개는 글5개와 홈/소개·업체·지역·업종16개를 포함하며, 색인21개·검색 노출21건·판매 가능 글21개가 아닙니다.
+
+운영 코드2cc98134-8a0d-474f-8d71-e5aade8a799d에 반영했고 DB/스키마/사진/글/대표 URL/보안 설정은 변경하지 않았습니다. 기존 XML은 원문 바이트까지 동일합니다. Node137개·문법·빌드·실제workerd/D1/R2 34개 통과, 운영 공개 감사21개 주소/27개 리소스/추가3개 링크 오류0입니다. 텍스트 사이트맵의 새 공개 경로도 시험 환경에서는 noindex를 유지합니다.

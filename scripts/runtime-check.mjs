@@ -27,7 +27,9 @@ try{
   const document={addEventListener(){},querySelector:()=>null,querySelectorAll:selector=>selector==='[data-cms-regions]'?[group]:[]};
   const source=await(await mf.dispatchFetch(origin+path)).text();runInNewContext(source,{document,URLSearchParams,Option:function(){}},{timeout:1000});checks++;
  }
- await seed(DB);await DB.prepare("INSERT INTO users(id,name,login_id,password_hash,role) VALUES(1,'실행 시험 관리자','runtime-admin',?,'ADMIN')").bind(await hashPassword(password)).run();
+ await seed(DB);
+ const textMapResponse=await mf.dispatchFetch(origin+'/sitemap.txt'),textMap=await textMapResponse.text(),xmlMap=await(await mf.dispatchFetch(origin+'/sitemap.xml')).text();assert.equal(textMapResponse.status,200);assert.equal(textMapResponse.headers.get('content-type'),'text/plain; charset=utf-8');assert.match(textMapResponse.headers.get('x-robots-tag'),/noindex/);assert.deepEqual(textMap.trim().split('\n'),[...xmlMap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m=>m[1]));checks++;
+ await DB.prepare("INSERT INTO users(id,name,login_id,password_hash,role) VALUES(1,'실행 시험 관리자','runtime-admin',?,'ADMIN')").bind(await hashPassword(password)).run();
  await DB.prepare("INSERT INTO contracts(id,company_id,package_name,contract_quantity,start_date,end_date) VALUES(1,1,'Runtime single post',1,'2020-01-01','2030-12-31')").run();
  const rawCall=(path,{cookie,form,body,headers={},method=form||body?'POST':'GET'}={})=>mf.dispatchFetch(origin+path,{method,redirect:'manual',headers:{...(cookie?{cookie}:{}),...((form||body)?{origin}:{}),...(form?{'content-type':'application/x-www-form-urlencoded'}:{}),...headers},body:form?new URLSearchParams(form).toString():body});
  const call=async(path,options={})=>{let response=await rawCall(path,options);for(let i=0;i<3&&response.status===301&&!options.form&&!options.body&&(!options.method||['GET','HEAD'].includes(options.method));i++)response=await rawCall(response.headers.get('location'),options);return response;};
