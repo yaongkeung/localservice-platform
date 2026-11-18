@@ -1,3 +1,5 @@
+import {postDashboard,postArchiveOperation} from './post-admin.js';
+import {searchCheckPage} from './search-checks.js';
 import {postUrl,publicationUrlStatement} from './post-urls.js';
 import {scheduleIndexNow} from './indexnow.js';
 import {pageCopy,repeatedPageCopy,repeatedParagraphs} from './page-copy.js';
@@ -49,19 +51,13 @@ async function validateRelations(db,user,values,post={}){
  for(const [key,list] of [['company_id','companies'],['region_id','regions'],['service_id','services']])if(!data[list].some(x=>x.id===values[key]))throw Error('접근 가능한 업체·지역·업종을 선택해 주세요.');
 }
 async function duplicate(db,post){
- const other=await first(db,'SELECT id FROM posts WHERE id!=? AND (title_hash=? OR content_hash=?) LIMIT 1',post.id,post.title_hash,post.content_hash);
+ const other=await first(db,'SELECT id FROM posts WHERE deleted_at IS NULL AND id!=? AND (title_hash=? OR content_hash=?) LIMIT 1',post.id,post.title_hash,post.content_hash);
  if(other)throw Error(`제목 또는 본문이 기존 글 #${other.id}와 같습니다. 고유한 작업 내용으로 수정해 주세요.`);
- const previous=await all(db,'SELECT id,company_id,search_region,search_keyword,related_keyword,page_copy,content FROM posts WHERE company_id=? AND id!=?',post.company_id,post.id),similar=similarContent(post,previous);
+ const previous=await all(db,'SELECT id,company_id,search_region,search_keyword,related_keyword,page_copy,content FROM posts WHERE deleted_at IS NULL AND company_id=? AND id!=?',post.company_id,post.id),similar=similarContent(post,previous);
  if(similar.length)throw Error(`본문이 같은 업체의 글 #${similar[0].id}와 매우 비슷합니다. 사진별 설명과 업무에 맞는 고유 내용을 보강해 주세요.`);
  const copy=pageCopy(post);if(copy){const region=await first(db,'SELECT admin_code,group_key FROM regions WHERE id=?',post.region_id);if(repeatedPageCopy(copy,previous,post.search_region,post.search_keyword).length||repeatedParagraphs(post,previous,localContext(post.search_region,region?.admin_code||region?.group_key)))throw Error('본문의 제목·구성 문구 또는 주요 문단이 기존 글과 반복됩니다. 사진과 업무에 맞는 고유 내용을 보강해 주세요.');}
- const same=await first(db,'SELECT a.id FROM post_images a JOIN post_images b ON a.content_hash=b.content_hash WHERE a.post_id=? AND b.post_id!=a.post_id AND a.excluded=0 AND b.excluded=0 AND a.content_hash IS NOT NULL LIMIT 1',post.id);
+ const same=await first(db,'SELECT a.id FROM post_images a JOIN post_images b ON a.content_hash=b.content_hash JOIN posts other_post ON other_post.id=b.post_id AND other_post.deleted_at IS NULL WHERE a.post_id=? AND b.post_id!=a.post_id AND a.excluded=0 AND b.excluded=0 AND a.content_hash IS NOT NULL LIMIT 1',post.id);
  if(same)throw Error('다른 글과 동일한 사진이 있습니다. 사진을 확인해 주세요.');
-}
-async function dashboard(db,user,url){
- const args=isAdmin(user)?[]:[user.id,user.id];
- const posts=await all(db,`SELECT p.*,c.name AS company_name,c.customer_name AS customer_name FROM posts p JOIN companies c ON c.id=p.company_id ${isAdmin(user)?'':'WHERE p.writer_id=? AND EXISTS(SELECT 1 FROM company_assignments a WHERE a.user_id=? AND a.company_id=p.company_id)'} ORDER BY p.updated_at DESC,p.id DESC`,...args);
- const filter=url.searchParams.get('status');const list=filter?posts.filter(p=>filter==='DRAFT'?p.status!=='PUBLISHED':p.status===filter):posts;
- return page('콘텐츠 관리',`<div class="cms-head"><div><h1>🗂️ 게시글 관리</h1><p class="cms-help">고객 선택 → 글·사진 작성 → 확인하고 발행</p></div><a class="button" href="/admin/compose/">✨ 사진으로 새 글 쓰기</a></div><nav class="cms-counts" aria-label="상태 필터"><a href="/admin/">전체 ${posts.length}</a>${Object.entries({DRAFT:'작성 중',PUBLISHED:'발행 완료'}).map(([key,label])=>`<a href="/admin/?status=${key}">${label} ${posts.filter(p=>key==='DRAFT'?p.status!=='PUBLISHED':p.status===key).length}</a>`).join('')}</nav><div class="cms-list">${list.map(p=>`<article class="cms-item"><span class="cms-status ${p.status}">${labels[p.status]}</span><h2><a href="/admin/posts/${p.id}/">${e(p.title)}</a></h2><span class="cms-help">#${p.id} · ${e(p.customer_name||'고객명 미등록')} · ${e(p.company_name)} · ${e(p.post_type)}${p.sample?' · 샘플':''}</span></article>`).join('')||'<p class="empty">이 단계의 글이 없습니다. 새 글을 작성해 보세요.</p>'}</div>`,user);
 }
 export async function cms(request,env,ctx){
  const url=new URL(request.url),path=url.pathname,db=env.DB;
@@ -90,16 +86,18 @@ export async function cms(request,env,ctx){
  if(path==='/admin/logout/'&&form){await run(db,'DELETE FROM sessions WHERE token_hash=?',user.token_hash);const response=redirect('/admin/login/');response.headers.set('set-cookie',sessionCookie(request,'',0));return response;}
  if(path==='/admin/account/')return accountPage(request,db,user,form);
  if(path==='/admin/search-readiness/')return searchReadiness(request,env,user);
+ const archive=await postArchiveOperation(db,user,url,form,env,ctx);if(archive)return archive;
+ const searchCheck=path.match(/^\/admin\/posts\/(\d+)\/search-check\/$/);if(searchCheck)return searchCheckPage(db,user,url,form,Number(searchCheck[1]));
  const resetMatch=path.match(/^\/admin\/users\/(\d+)\/reset-password\/$/);if(resetMatch)return resetWorkerPassword(db,user,Number(resetMatch[1]),form);
  if(/^\/admin\/(companies|users|services|contracts)\//.test(path))return management(db,user,url,form);
- if(path==='/admin/'&&!form)return dashboard(db,user,url);
+ if(path==='/admin/'&&!form)return postDashboard(db,user,url);
  if(path==='/admin/compose/'&&!form)return composePage(user,await choices(db,user));
  const generateMatch=path.match(/^\/admin\/posts\/(\d+)\/generate\/$/);if(generateMatch)return generateDraft(request,env,user,Number(generateMatch[1]),form);
  const match=path.match(/^\/admin\/posts\/(new|\d+)\/(status\/|history\/|preview\/|generations\/)?$/);
  if(!match)return page('페이지 없음','<h1>페이지를 찾을 수 없습니다.</h1>',user,404);
  const id=Number(match[1]),data=await choices(db,user);data.aiAvailable=!!env.AI?.run;
  let post=id?decodePost(await first(db,'SELECT p.*,u.path AS public_path FROM posts p LEFT JOIN post_urls u ON u.post_id=p.id WHERE p.id=?',id)):{};
- if(id&&(!post||!await canAccess(db,user,post)))return page('페이지 없음','<h1>게시글을 찾을 수 없습니다.</h1>',user,404);
+ if(id&&(!post||post.deleted_at||!await canAccess(db,user,post)))return page('페이지 없음','<h1>게시글을 찾을 수 없습니다.</h1>',user,404);
  if(match[2]==='preview/'){
   if(form)return page('허용되지 않은 요청','<p>미리보기는 조회만 가능합니다.</p>',user,405);
   const images=await all(db,'SELECT * FROM post_images WHERE post_id=? AND excluded=0 ORDER BY sort_order,id',id);

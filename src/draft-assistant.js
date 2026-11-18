@@ -77,7 +77,7 @@ export async function visionInput(env,post,company,images){
 export async function generateDraft(request,env,user,id,form){
  const json=request.headers.get('x-draft-generation')==='1',failure=(message,status=409)=>json?Response.json({error:message},{status,headers:{'cache-control':'no-store'}}):page('작성 내용 작성 확인',`<p class="cms-error">${e(message)}</p><a href="/admin/posts/${id}/">글로 돌아가기</a>`,user,status);
  const db=env.DB,post=await first(db,'SELECT * FROM posts WHERE id=?',id);
- if(!post||!await canManagePost(db,user,post))return failure('게시글을 찾을 수 없습니다.',404);
+ if(!post||post.deleted_at||!await canManagePost(db,user,post))return failure('게시글을 찾을 수 없습니다.',404);
  if(!form)return failure('글쓰기 화면에서 작성 내용 작성을 요청해 주세요.',405);
  if(post.status!=='DRAFT'||post.version!==Number(form.get('version')))return failure('작성 내용 상태와 저장 버전을 확인해 주세요. 먼저 저장한 뒤 다시 시도하세요.');
  if(!env.AI?.run)return failure('자동 작성 연결을 준비 중입니다. 직접 작성하거나 연결 후 다시 시도해 주세요.',503);
@@ -96,7 +96,7 @@ export async function generateDraft(request,env,user,id,form){
   // Validate all image IDs before the second inference, then author page-specific guidance.
   assembleDraft(observed,post,company,region,images);
   diagnostics={...diagnostics,stage:'page-writing'};
-  const previous=await all(db,"SELECT id,title,search_region,search_keyword,related_keyword,page_copy,content FROM posts WHERE company_id=? AND id!=? AND (status='PUBLISHED' OR writer_id=? OR ?=1) ORDER BY CASE WHEN search_keyword=? THEN 0 ELSE 1 END,updated_at DESC LIMIT 500",post.company_id,id,user.id,isAdmin(user)?1:0,post.search_keyword);
+  const previous=await all(db,"SELECT id,title,search_region,search_keyword,related_keyword,page_copy,content FROM posts WHERE deleted_at IS NULL AND company_id=? AND id!=? AND (status='PUBLISHED' OR writer_id=? OR ?=1) ORDER BY CASE WHEN search_keyword=? THEN 0 ELSE 1 END,updated_at DESC LIMIT 500",post.company_id,id,user.id,isAdmin(user)?1:0,post.search_keyword);
   const written=await env.AI.run(writingModel,pageWritingInput(post,company,region,observed,previous));
   const writing=writingResponse(written);diagnostics={...diagnostics,writing:pageWritingShape(writing)};
   const authored=validatePageWriting(writing,{requireCopy:true});

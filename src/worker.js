@@ -1,3 +1,4 @@
+import {postListClient} from './post-admin.js';
 import {siteName} from './brand.js';
 import {populatedServices,populatedRegions} from './public-catalog.js';
 import {postUrl,normalizedPath} from './post-urls.js';
@@ -102,6 +103,7 @@ async function handle(request,env={},ctx){
   else if(url.pathname==='/assets/editor.js'){body=browserScript(editorClient,{titleFor});type='text/javascript';}
   else if(url.pathname==='/assets/upload.js'){body=browserScript(uploadClient,{operationUi});type='text/javascript';}
   else if(url.pathname==='/assets/cms-actions.js'){body=browserScript(editorActions,{operationUi});type='text/javascript';}
+  else if(url.pathname==='/assets/post-list.js'){body=browserScript(postListClient);type='text/javascript';}
   else if(url.pathname==='/assets/portal.js'){body=browserScript(portalClient);type='text/javascript';}
   else if(url.pathname==='/assets/regions.json'){body=JSON.stringify({provinces:regionData.provinces,districts:regionData.districts});type='application/json';}
   else if(/^\/assets\/regions\/\d{5}\.json$/.test(url.pathname)){

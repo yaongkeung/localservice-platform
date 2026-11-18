@@ -130,3 +130,11 @@ publish_contract_guard/count를 업체 활성 검사와 최초 발행 표시로 
 post_urls(post_id PRIMARY KEY/FK, path UNIQUE, created_at)는 작성 원문과 별도로 공개 주소를 보관합니다. path는 인코딩한 /업종/광역지역/작업지역/지역명-키워드.html 형식입니다. 중복 후보는 --게시글ID 접미사를 사용하고 입력 정규화에서 이 접미사를 예약하여 동시 발행 충돌을 막습니다. 최초 발행의 상태/변경 토큰 조건으로 같은 batch 안에서만 새 행을 만들며 주소 저장 실패 시 글/상태 이력도 함께 롤백합니다. UPDATE는 DB trigger로 차단합니다.
 
 이전 공개 글은 별도 전환 도구가 공개 상태와 원래 버전을 비교하여 주소 행만 추가합니다. posts·본문·사진·시각·계약/사용자/감사 기록을 재작성하지 않습니다. 숫자 URL의 GET/HEAD는 공개 데이터에 포함된 글만 301 이동하며 비공개 글의 주소는 추측해도 노출하지 않습니다. 제목/업종/지역 수정·공개 해제/재발행에도 최초 주소를 유지합니다.
+
+## migration 0017 (게시글 삭제 보관·직접 검색 확인)
+
+posts.deleted_at/deleted_operation_id와 목록 인덱스를 추가합니다. 기존 자료의 값은 NULL이고 자동 삭제·발행·노출 확인은 하지 않습니다. post_archive_batches는 작업자·DELETE/RESTORE·건수·고객명·시각, post_archive_events는 해당 작업의 글 ID·이전 버전·상태/제목 요약을 기록합니다. 본문·사진·영구 주소와 기존 발행 스냅샷/감사 기록은 원본 테이블에 남습니다.
+
+삭제/복원은 사용자 활성 상태·역할·인증 세대와 선택한 글/업체 버전, 고객 전체 범위를 재검사하는 단일 D1 batch입니다. 실제 변경된 대상 수를 SQL 제약으로 확인하여 일부만 변경되는 경우 전체를 되돌립니다. 삭제 글은 DRAFT여야 하며 복원 전에 수정·사진 추가·자동 작성이 차단됩니다. 복원도 DRAFT이며 명시적 재발행이 필요합니다.
+
+post_search_checks는 post_id/user_id/post_version/query/public_path/result(FOUND/NOT_FOUND/FAILED)/device(PC/MOBILE)/method(MANUAL_BROWSER)/note/checked_at을 추가 기록합니다. 확인 시 글 버전·공개 상태·실제 활성 업체·사용자 권한을 재확인합니다. 관찰 결과 저장은 게시글 버전을 바꾸지 않습니다. 목록은 최신 기록을 읽고 글 버전·동+대표 키워드·대표 주소 일치와 경과 7일 기준으로 재확인을 표시합니다. 관리자 전용 기록으로 공개 데이터에는 넣지 않습니다.

@@ -15,7 +15,7 @@ const errorPage=(request,user,id,error,status)=>request.headers.get('x-photo-upl
 export async function photoActions(request,env,user,id){
  if(request.method!=='POST')return page('페이지 없음','<h1>사진은 게시글 화면에서 관리해 주세요.</h1>',user,405);
  const db=env.DB,post=await first(db,'SELECT * FROM posts WHERE id=?',id);
- if(!post||!await canManagePost(db,user,post))return errorPage(request,user,id,'게시글을 찾을 수 없습니다.',404);
+ if(!post||post.deleted_at||!await canManagePost(db,user,post))return errorPage(request,user,id,'게시글을 찾을 수 없습니다.',404);
  if(post.status!=='DRAFT')return errorPage(request,user,id,'작성 내용 상태에서만 사진을 변경할 수 있습니다.',409);
  let savedKeys=[];
  try{
@@ -43,7 +43,7 @@ export async function photoActions(request,env,user,id){
    if((await first(db,'SELECT COUNT(*) AS n FROM post_images WHERE post_id=? AND excluded=0',id)).n>=8)throw Error('사진은 최대 8장까지 등록할 수 있습니다.');
    const {cover,thumb,width,height}=processPhoto(new Uint8Array(await file.arrayBuffer()),new Uint8Array(await thumbnail.arrayBuffer()));
    const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',cover)),b=>b.toString(16).padStart(2,'0')).join('');
-   if(await first(db,'SELECT id FROM post_images WHERE content_hash=? AND excluded=0',hash))throw Error('이미 등록된 사진과 동일합니다. 다른 작업 사진을 선택해 주세요.');
+   if(await first(db,'SELECT i.id FROM post_images i JOIN posts p ON p.id=i.post_id WHERE i.content_hash=? AND i.excluded=0 AND p.deleted_at IS NULL',hash))throw Error('이미 등록된 사진과 동일합니다. 다른 작업 사진을 선택해 주세요.');
    const key=id+'/'+randomToken();savedKeys=[key+'-cover.jpg',key+'-thumb.jpg'];
    // All objects remain private; only the authenticated/publication-aware route can serve them.
    await env.PHOTOS.put(savedKeys[0],cover,{httpMetadata:{contentType:'image/jpeg'}});await env.PHOTOS.put(savedKeys[1],thumb,{httpMetadata:{contentType:'image/jpeg'}});

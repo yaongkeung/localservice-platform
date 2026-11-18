@@ -37,17 +37,17 @@ export async function searchReadiness(request,env,user){
  const selected=Number.isSafeInteger(companyId)&&companyId>0?companyId:null;
  const status=labels[url.searchParams.get('status')]?url.searchParams.get('status'):'';
  const companies=await all(db,"SELECT id,name FROM companies WHERE status='ACTIVE' AND sample=0 ORDER BY name,id");
- const where="p.sample=0 AND c.sample=0 AND c.status='ACTIVE'"+(selected?' AND p.company_id=?':'')+(status?' AND p.status=?':'');
+ const where="p.deleted_at IS NULL AND p.sample=0 AND c.sample=0 AND c.status='ACTIVE'"+(selected?' AND p.company_id=?':'')+(status?' AND p.status=?':'');
  const args=[...(selected?[selected]:[]),...(status?[status]:[])];
  const stats=await first(db,`SELECT COUNT(*) AS total,COALESCE(SUM(CASE WHEN p.status='PUBLISHED' AND p.published_at<=? THEN 1 ELSE 0 END),0) AS published FROM posts p JOIN companies c ON c.id=p.company_id WHERE ${where}`,seoulDate(),...args);
  const totalPages=Math.max(1,Math.ceil(stats.total/25)),requested=Number(url.searchParams.get('page'));
  const currentPage=Math.max(1,Math.min(totalPages,Number.isSafeInteger(requested)?requested:1));
  const posts=await all(db,`SELECT p.*,u.path AS public_path,c.name AS company_name,c.naver_place_url,
  (SELECT COUNT(*) FROM post_images i WHERE i.post_id=p.id AND i.excluded=0) AS active_photos,
- EXISTS(SELECT 1 FROM posts other WHERE other.id!=p.id AND ((p.title_hash IS NOT NULL AND other.title_hash=p.title_hash) OR (p.content_hash IS NOT NULL AND other.content_hash=p.content_hash))) AS duplicate_text,
- EXISTS(SELECT 1 FROM post_images a JOIN post_images b ON a.content_hash=b.content_hash WHERE a.post_id=p.id AND b.post_id!=p.id AND a.excluded=0 AND b.excluded=0 AND a.content_hash IS NOT NULL) AS duplicate_photo
+ EXISTS(SELECT 1 FROM posts other WHERE other.deleted_at IS NULL AND other.id!=p.id AND ((p.title_hash IS NOT NULL AND other.title_hash=p.title_hash) OR (p.content_hash IS NOT NULL AND other.content_hash=p.content_hash))) AS duplicate_text,
+ EXISTS(SELECT 1 FROM post_images a JOIN post_images b ON a.content_hash=b.content_hash JOIN posts other_post ON other_post.id=b.post_id AND other_post.deleted_at IS NULL WHERE a.post_id=p.id AND b.post_id!=p.id AND a.excluded=0 AND b.excluded=0 AND a.content_hash IS NOT NULL) AS duplicate_photo
  FROM posts p LEFT JOIN post_urls u ON u.post_id=p.id JOIN companies c ON c.id=p.company_id WHERE ${where} ORDER BY p.updated_at DESC,p.id DESC LIMIT 25 OFFSET ?`,...args,(currentPage-1)*25);
- const companyIds=[...new Set(posts.map(post=>post.company_id))],previous=companyIds.length?await all(db,`SELECT id,company_id,search_region,search_keyword,related_keyword,content FROM posts WHERE status='PUBLISHED' AND company_id IN (${companyIds.map(()=>'?').join(',')}) ORDER BY updated_at DESC,id DESC LIMIT 1000`,...companyIds):[];
+ const companyIds=[...new Set(posts.map(post=>post.company_id))],previous=companyIds.length?await all(db,`SELECT id,company_id,search_region,search_keyword,related_keyword,content FROM posts WHERE deleted_at IS NULL AND status='PUBLISHED' AND company_id IN (${companyIds.map(()=>'?').join(',')}) ORDER BY updated_at DESC,id DESC LIMIT 1000`,...companyIds):[];
  const canonicalHost=url.origin===siteOrigin,launch=launchState(request,env),production=launch.production&&canonicalHost;
  const notice=env.APP_ENV==='staging'?'현재 시험 사이트는 검색 제외 상태입니다. 공개한 글도 네이버 노출 시험 대상이 아닙니다. 운영 주소 연결과 검색 수집 설정을 완료한 뒤 실제 검색결과를 확인해야 합니다.':production?(launch.indexing?'현재 운영 주소는 검색 수집을 허용하도록 설정했습니다. 실제 네이버 수집·색인·검색 노출은 서치어드바이저와 검색결과에서 별도로 확인해야 합니다.':'현재 운영 주소의 검색 수집은 대기 중입니다. 사이트 소유 확인 후 수집 설정을 활성화해야 합니다.'):'현재 개발·미리보기 주소입니다. 운영 주소 연결과 검색 수집 설정을 확인한 뒤 노출을 시험해야 합니다.';
  const pageLink=number=>{const params=new URLSearchParams();if(selected)params.set('company',String(selected));if(status)params.set('status',status);params.set('page',String(number));return '/admin/search-readiness/?'+params;};
