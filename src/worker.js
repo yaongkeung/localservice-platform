@@ -92,7 +92,7 @@ async function handle(request,env={},ctx){
   }
   if(url.pathname.startsWith('/uploads/')||url.pathname.startsWith('/company-photos/'))return uploadedPhoto(request,env);
   if(url.pathname.startsWith('/media/')){
-    if(!/^\/media\/[a-z0-9-]+\.(?:jpg|png)$/.test(url.pathname))return new Response('Not found',{status:404});
+    if(!/^\/media\/[a-z0-9-]+\.(?:jpg|png|woff2)$/.test(url.pathname)&&url.pathname!=='/media/pretendard-ofl.txt')return new Response('Not found',{status:404});
     return env.ASSETS?env.ASSETS.fetch(request):new Response('Image assets not configured',{status:503});
   }
   let body,type;

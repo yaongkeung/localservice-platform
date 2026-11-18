@@ -1,3 +1,4 @@
+import {softUi} from './soft-ui.js';
 export const css = `
 :root{font-size:17px;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-synthesis:none;line-height:1.6;color:#23344a;background:#f6f7f9}
 *{box-sizing:border-box}body{margin:0}a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}
@@ -165,4 +166,5 @@ footer .wrap{position:relative}.admin-pin-link{position:absolute;right:0;bottom:
  .registered-companies{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.registered-company{padding:0;overflow:hidden}.registered-company .company-cover{height:110px;margin:0;border-radius:0}.registered-company .company-cover img{width:100%;height:100%;object-fit:cover}.registered-company h3{padding:13px 12px;margin:0;font-size:16px;line-height:1.55;overflow-wrap:anywhere}.registered-company>.tag,.registered-company>.company-area,.registered-company>.company-summary,.registered-company>.company-contact{display:none}.company-directory .section-head .count{display:none}.company-cover-empty{flex-direction:column;gap:3px;font-size:13px}
  .consultation-page .post-company-info .contact-facts{grid-template-columns:1fr;margin:22px 0;gap:10px}.consultation-page .post-company-info .contact-facts>div{padding:16px 18px}.consultation-page .post-company-info .contact-facts dt{font-size:15px;margin-bottom:5px}.consultation-page .post-company-info .contact-facts dd{font-size:18px}.consultation-page .post-company-info .contact-facts a{font-size:27px}.admin-pin-link{right:14px}
 }
+${softUi}
 `;

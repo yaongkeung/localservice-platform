@@ -6,6 +6,14 @@ import {localMedia} from '../scripts/local-media.mjs';
 import {postImage,postImages,dailyHighlights,seoulDate} from '../src/photos.js';
 const get=(path,method='GET')=>worker.fetch(new Request('https://gongsa8282.xyz'+path,{method}),{ASSETS:localMedia});
 const boardHtml=html=>html.match(/<div class="post-board">[\s\S]*?<\/table><\/div>/)?.[0]||'';
+
+test('the self-hosted font and license load without opening other media or external font sources',async()=>{
+ const font=await get('/media/pretendard-variable-139.woff2');assert.equal(font.status,200);assert.equal(font.headers.get('content-type'),'font/woff2');assert.equal(Buffer.from(await font.arrayBuffer()).subarray(0,4).toString(),'wOF2');
+ assert.equal(await(await get('/media/pretendard-variable-139.woff2','HEAD')).text(),'');
+ const license=await get('/media/pretendard-ofl.txt');assert.equal(license.status,200);assert.match(await license.text(),/SIL OPEN FONT LICENSE/);
+ assert.equal((await get('/media/private.txt')).status,404);assert.equal((await get('/media/missing.woff2')).status,404);assert.equal((await get('/media/pretendard-variable-139.woff2','POST')).status,405);
+ const policy=(await get('/')).headers.get('content-security-policy');assert.match(policy,/font-src 'self';/);assert.match(policy,/default-src 'none';/);assert.doesNotMatch(policy,/https?:|\*/);
+});
 test('all internal links resolve, pages contain HTML and a canonical',async()=>{
  const queue=['/'];const seen=new Set();
  while(queue.length){const path=queue.shift();const key=path.split('?')[0];if(seen.has(key))continue;seen.add(key);const res=await get(path);assert.equal(res.status,200,path);const html=await res.text();if(!res.headers.get('content-type').includes('text/html')){assert.ok(['/rss.xml','/sitemap.xml'].includes(key));continue;}assert.match(html,/<html lang="ko">/);assert.equal((html.match(/rel="canonical"/g)||[]).length,1);for(const [,href]of html.matchAll(/href="(\/[^"#]*)(?:#[^"]*)?"/g)){if(!href.startsWith('/admin/')&&!seen.has(href.split('?')[0]))queue.push(href.replaceAll('&amp;','&'));}}

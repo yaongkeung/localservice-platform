@@ -1,0 +1,63 @@
+// A restrained type scale and surface treatment for the existing portal layout.
+export const softUi=`
+@font-face{font-family:'Pretendard';src:url('/media/pretendard-variable-139.woff2') format('woff2');font-style:normal;font-weight:100 900;font-display:swap}
+:root{--font-ui:'Pretendard',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Segoe UI','Malgun Gothic',sans-serif;font-family:var(--font-ui);font-size:16px;line-height:1.65;color:#263640;background:#f5f5f7;font-synthesis:none}
+body{font-weight:400;letter-spacing:-.012em}h1,h2,h3{font-weight:600;letter-spacing:-.025em}strong,b{font-weight:650}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline-color:#277b72}
+button,.button{font-weight:550;border-radius:10px}input,select{border-color:#d9dfe4;border-radius:10px}
+.header{min-height:100px}.brand small{font-weight:400;letter-spacing:0;color:#66717a}
+.header-search{border:1px solid #d8dfe4;border-radius:12px;padding:3px;background:#f7f8fa;height:46px}
+.header-search input{background:transparent;font-size:15px;padding:8px 12px}.header-search button{font-size:14px;font-weight:550;border-radius:9px;background:#304d60;width:64px}
+.header-note{font-size:13px;color:#687781}.nav-band{background:#253b4d;border-bottom:1px solid #bddbd7}
+.main-nav{min-height:46px}.main-nav a,.main-nav a:first-child{font-size:15px;font-weight:500;padding-top:12px;padding-bottom:12px}
+.main-nav a[aria-current]{background:#ffffff0c;color:#fff;box-shadow:inset 0 -2px #e5958b}.main-nav a:hover{background:#ffffff12}.nav-emoji{font-size:14px}
+.notice{font-size:13px;background:#f0f2f4;color:#64727e}
+.portal-intro{background:none;border-color:#e0e5e9;padding-bottom:18px;margin-bottom:22px}.portal-intro h1{font-size:20px;font-weight:600}.portal-intro p{font-size:14px;color:#64727e}
+.portal-intro>.color-icon{width:32px;height:32px;font-size:21px}.intro-flower{font-size:22px;color:#d7b57a}
+.filter-panel,.sidebar-panel,.mini-board,.registered-company,.card,.panel{border:1px solid #e0e5e9;border-radius:14px;box-shadow:0 3px 14px #253b4a04}
+.filter-panel{background:#fff;padding:18px}.filter-heading h2{font-size:16px;font-weight:600}.filter-heading>span,.region-filter label{font-size:13px;color:#62717c}
+.region-filter label select,.region-filter button{height:44px;font-size:15px}.region-filter button{background:#3b716b;font-weight:550}
+.board-heading h2{font-size:20px;font-weight:600}.board-kicker,.board-summary,.count,.board-bottom{font-size:13px;color:#62717c}
+.service-picker{border:1px solid #dfe5e9;border-radius:12px 12px 0 0;background:#fff;padding:16px}.service-picker label{font-size:13px}.service-picker select,.service-picker button{height:44px;font-size:15px}
+.board-notice{background:#f3f5f8;border-color:#e0e5e9;color:#62717c;font-size:13px}.board-notice>span{background:#e8eef4;color:#47647a;font-weight:550;border-radius:5px}
+.post-board{border-color:#e0e5e9;border-radius:0 0 12px 12px;overflow:hidden}.post-board th{background:#f9fafb;font-size:13px;border-color:#e5e9ed}.post-board td{border-color:#edf0f3}
+.post-board tr:hover td{background:#f8fafb}.board-title,.post-copy .board-title{font-size:16px;font-weight:500;line-height:1.6}.board-category,.post-kind,.post-copy .post-kind,.post-number{font-size:13px;font-weight:400}
+.post-thumb{border:0;border-radius:9px}.section-head h2,.photo-heading h2,.sidebar-heading h2{font-size:18px;font-weight:600;line-height:1.45}.all-link{font-size:14px;font-weight:450;color:#426b80}
+.mini-board{padding:18px}.mini-board h3{font-size:16px;font-weight:600}.mini-board li{font-size:15px;line-height:1.75}.sidebar-panel{padding:20px}.sidebar-heading{border-color:#e7ebee}
+.service-links a,.service-group summary,.region-shortcuts a{font-size:15px;line-height:1.6;font-weight:450;min-height:44px}.sub-service-links a{font-size:14px}.industry-more summary{font-size:14px;font-weight:550}
+.color-icon{border-radius:9px}.sidebar-heading .color-icon,.photo-heading .color-icon{width:25px;height:25px;font-size:17px}.service-links .color-icon{width:27px;height:27px;font-size:17px}
+.photo-pick{border:1px solid #e0e5e9;border-radius:12px;background:#fff;box-shadow:0 3px 12px #253b4a04}.photo-pick:hover{border-color:#b9cdd2}
+.pick-caption strong{font-size:15px;font-weight:550;line-height:1.5;min-height:45px}.pick-caption>span,.pick-service,.photo-date,.photo-date>span{font-size:13px}.pick-service{font-weight:550;border-radius:7px;box-shadow:none}
+.expert-guide{background:linear-gradient(135deg,#fffaf2,#f5f9f8);border:1px solid #e8e4dc;border-radius:16px;box-shadow:none}.expert-guide h2{font-size:18px;line-height:1.5;font-weight:600}.expert-guide p{font-size:15px;line-height:1.7}.expert-guide .guide-label{font-size:13px;font-weight:550}.expert-guide a{font-size:14px;font-weight:550;border-radius:10px;background:#fffdfa}
+.registered-company h3{font-size:18px;font-weight:600;line-height:1.5}.registered-company p{font-size:15px;line-height:1.7}.company-contact .call,.company-contact .all-link{font-size:15px}
+.crumb,.muted{font-size:14px}.tag{font-size:13px;border-radius:7px;padding:4px 8px}.page-title{font-size:clamp(24px,3vw,30px);line-height:1.4;letter-spacing:-.025em;font-weight:600}
+.prose{font-size:17px;line-height:1.8}.prose p{line-height:1.8;margin:20px 0}.prose h2{font-size:22px;font-weight:600}.card h3{font-size:17px;font-weight:600}.card p,.aside p{font-size:15px;line-height:1.75}.card .meta,.post-photo figcaption{font-size:13px;line-height:1.65}
+.consultation-page{font-size:17px;line-height:1.8;color:#2b3c45}.consultation-page h2{font-size:25px;line-height:1.4;letter-spacing:-.025em;font-weight:600;color:#29424f}.consultation-page h3{font-size:17px;line-height:1.5;font-weight:600}
+.consultation-hero{border:1px solid #e1e5df;border-radius:20px;background:linear-gradient(115deg,#faf8f2,#f2f6f1);padding:40px;gap:30px}.consultation-hero:before{opacity:.35}.consultation-page .consultation-hero h2{font-size:32px;line-height:1.35;font-weight:600}.consultation-hero h2 strong{font-weight:600;text-decoration-thickness:3px;text-underline-offset:6px}
+.consultation-page .consultation-kicker{font-size:14px;font-weight:500;letter-spacing:0}.consultation-intro{font-size:16px;line-height:1.75}.consultation-provider,.consultation-page .consultation-hours{font-size:14px}.consultation-art p{font-size:13px}.contact-graphic text{font-family:var(--font-ui)}
+.consultation-call{border-radius:16px;grid-template-columns:36px 1fr 18px;gap:12px;padding:13px 18px!important;background:#b54e44;border-color:#b54e44;box-shadow:0 4px 12px #873f3012;font-weight:550}.consultation-call strong{font-size:24px;font-weight:650}.consultation-call-icon{width:36px;height:36px;font-size:23px!important}.consultation-call-arrow{font-size:20px!important}
+.consultation-nav{padding:20px;gap:22px;font-size:15px;border-color:#e5e9ed}.consultation-nav a{font-weight:500}.landing-chapter{padding:38px 36px}.landing-content .landing-chapter:nth-child(2n){background:#f6f8fa}
+.landing-eyebrow{font-size:12px;font-weight:550;letter-spacing:.08em}.landing-lead{font-size:16px;line-height:1.75}.landing-section-title>span{font-size:13px;font-weight:550}
+.landing-service-card{border:1px solid #e0e7ea;border-radius:14px;background:#f8fafb;padding:22px;box-shadow:inset 0 2px #b8dcd9}.landing-service-card:nth-child(2){border-top-color:#e0e7ea;box-shadow:inset 0 2px #eed1c8}.landing-service-card:nth-child(3){border-top-color:#e0e7ea;box-shadow:inset 0 2px #d9d3e6}.landing-service-card p,.consultation-steps p{font-size:15px;line-height:1.75}
+.landing-card-icon{width:36px;height:36px;font-size:20px;border-radius:11px;margin-bottom:16px}.consultation-page figcaption{font-size:13px;line-height:1.65}.consultation-mid-cta{background:#f8f6f0;border-color:#e8e5dc;padding:30px 36px}.consultation-mid-cta p{font-size:15px}.consultation-steps li>span{width:32px;height:32px;font-size:14px;font-weight:550;background:#3c636c}
+.landing-review-grid blockquote,.landing-related a{border-color:#e0e7ea;border-radius:14px}.landing-review-grid blockquote{font-size:16px}.landing-related p{font-size:14px}
+.consultation-page .post-company-info{border:1px solid #d6e2db;border-radius:18px;box-shadow:none;background:linear-gradient(120deg,#f6faf7,#fdfbf7)}
+.consultation-page .post-company-info>h2{font-size:22px;font-weight:600}.consultation-page .post-company-info .contact-company-name{font-size:20px;font-weight:600}
+.consultation-page .post-company-info .contact-facts>div{border-color:#e0e7e2;border-radius:12px;padding:18px}.consultation-page .post-company-info .contact-facts dt{font-size:14px;font-weight:450}.consultation-page .post-company-info .contact-facts dd{font-size:17px;font-weight:550}.consultation-page .post-company-info .contact-facts a{font-size:24px;font-weight:650;letter-spacing:0}
+.place-card{border:1px solid #d9e9df;border-radius:14px;background:#f6fbf8}.place-heading h3{font-size:18px;font-weight:600}.place-card dl>div{font-size:15px}.place-link{font-size:15px;font-weight:550;border-radius:10px}
+footer{background:#f9fafb;border-color:#e3e7ea;font-size:13px;color:#64727e}footer strong{font-size:14px;font-weight:550}
+@media(max-width:760px){
+ .header{min-height:0;padding-top:18px;padding-bottom:18px;gap:14px}.header-search{height:46px}.header-search input{font-size:16px}.header-search button{font-size:14px}.main-nav{min-height:46px}.main-nav a,.main-nav a:first-child{font-size:14px;padding:12px 11px}.nav-emoji{font-size:14px;margin-right:5px}
+ .portal-intro h1{font-size:20px}.portal-intro p{font-size:13px}.portal-intro>.color-icon{width:30px;height:30px;font-size:20px}.filter-panel{padding:16px}.board-heading h2{font-size:21px}.board-summary,.board-kicker{font-size:13px}
+ .post-board tr{padding:14px 12px;gap:6px 10px}.post-board td{font-size:13px}.post-preview{gap:11px}.post-copy .board-title{font-size:16px;line-height:1.55}.board-category,.post-copy .post-kind{font-size:13px}.post-thumb{width:78px;height:60px;flex-basis:78px}
+ .photo-pick{flex-basis:180px}.pick-photo{height:104px}.pick-caption{padding:10px}.pick-caption strong{font-size:15px;line-height:1.5;min-height:45px}.photo-heading h2,.section-head h2,.sidebar-heading h2,.company-directory .section-head h2{font-size:18px}.photo-heading{gap:8px}.photo-date,.photo-date>span{font-size:13px}
+ .expert-guide{grid-template-columns:82px minmax(0,1fr);gap:13px;padding:18px 16px}.expert-guide h2{font-size:18px;line-height:1.5}.expert-guide p{font-size:15px;line-height:1.7}.expert-guide a{font-size:14px}.expert-guide .guide-label{font-size:13px}.mini-board h3{font-size:16px}.mini-board li{font-size:15px}.service-links a,.service-group summary,.region-shortcuts a{font-size:15px}
+ .registered-company h3{font-size:15px;font-weight:550;line-height:1.5;padding:12px}.registered-company{border-radius:12px}.company-contact .call{font-size:15px}
+ .consultation-layout .header{min-height:80px;padding:14px}.consultation-layout .page-title{font-size:23px;line-height:1.4}.prose,.consultation-page{font-size:16px;line-height:1.8}.prose h2,.consultation-page h2{font-size:22px}.consultation-page h3{font-size:17px}
+ .consultation-hero{padding:24px 20px;gap:24px;border-radius:16px}.consultation-page .consultation-hero h2{font-size:26px;line-height:1.35}.consultation-intro{font-size:16px;line-height:1.75}.consultation-page .consultation-kicker{font-size:13px}
+ .consultation-call strong{font-size:23px}.consultation-nav{font-size:14px;gap:18px;padding:17px 12px}.landing-chapter{padding:28px 20px}.landing-service-card{padding:20px}.landing-lead{font-size:16px}.consultation-mid-cta{padding:28px 20px}.landing-section-title{gap:10px}
+ .page-call-bar{font-size:13px;border-color:#e0e6e9;box-shadow:0 -3px 16px #253b4a0d}.page-call-button{font-size:13px;border-radius:12px;background:#b54e44;font-weight:500}.page-call-button strong{font-size:17px;font-weight:600}
+ .consultation-page .post-company-info>h2{font-size:21px}.consultation-page .post-company-info .contact-company-name{font-size:19px}.consultation-page .post-company-info .contact-facts dt{font-size:14px}.consultation-page .post-company-info .contact-facts dd{font-size:16px}.consultation-page .post-company-info .contact-facts a{font-size:24px}.place-heading h3{font-size:17px}.place-card dl>div,.place-link{font-size:15px}
+}
+@media(max-width:360px){.consultation-page .consultation-call strong{font-size:21px}.consultation-call{grid-template-columns:32px 1fr}.consultation-call-icon{width:32px;height:32px}}
+`;
