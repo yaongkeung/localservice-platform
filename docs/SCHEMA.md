@@ -1,6 +1,14 @@
 # Data Model
 
-현행 발행/주소/글별 구성은 migration 0015 기준입니다. 아래 0001~0014 설명은 단계별 변경 기록이며 계약 제약·3단계 검수는 현행 UI/발행 조건에 적용하지 않습니다.
+현행 스키마는 migration 0016 기준입니다. 아래 0001~0015 설명은 단계별 변경 기록이며 계약 제약·3단계 검수는 현행 UI/발행 조건에 적용하지 않습니다.
+
+## migration 0016 (업체·업종 삭제 보관함)
+
+companies와 services에 nullable deleted_at을 추가합니다. 삭제 시 시각을 기록하고 version을 증가시키며 행·사진·게시글·기존 관계는 유지합니다. 업체는 DISABLED 상태로 바꾸고 복원 시에도 비활성 상태를 유지합니다. 공개 조회의 기존 ACTIVE 조건으로 메인/게시판/프로필/피드/사진 접근에서 제외됩니다. 업종 선택/공개 목록은 deleted_at IS NULL만 사용합니다.
+
+catalog_events는 operation_id UNIQUE, kind, item_id, user_id, action, item_version, snapshot(JSON), created_at을 보관합니다. 현재 관리자 상태/역할/credential_version·대상 버전·연결 조건을 확인한 INSERT SELECT와 대상 UPDATE를 한 D1 batch로 처리합니다. 중간 실패 시 작업 기록과 변경을 함께 롤백하며 경쟁 요청에서는 하나만 성공합니다. 저장된 snapshot은 삭제/복원 이전 행이며 고객명을 포함할 수 있으므로 관리 DB와 백업 안에만 보관합니다.
+
+DB trigger로 삭제 업체의 ACTIVE 전환, 게시글/활성 자식이 있는 업종 삭제, 삭제 부모 아래의 자식 복원/활성 연결, 삭제 업종에 새 글 연결을 차단합니다. 기존 모든 행은 deleted_at NULL로 유지하며 보관함을 일괄 채우거나 기존 항목을 삭제하지 않습니다.
 
 ## migration 0015 (자동 연관 키워드·글별 구성)
 

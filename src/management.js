@@ -4,6 +4,7 @@ import {all,first,run} from './store.js';
 import {isAdmin,randomToken,hashPassword,digest} from './auth.js';
 import {serviceIcons,sortServices,normalServiceName} from './services.js';
 import {page,csrf,redirect,e} from './admin-ui.js';
+import {catalogList,catalogOperation} from './catalog-admin.js';
 const kinds={companies:'업체',users:'작업자·배정',services:'업종',contracts:'계약'};
 const tones={sky:'하늘색',mint:'민트',peach:'살구색',lilac:'라일락'};
 const icons=serviceIcons;
@@ -29,7 +30,7 @@ async function validate(kind,form,row,data){
   return {customer_name,...reviewValues(form,row),...placeFields,name:text(form,'name',2,80),description:text(form,'description',10,1000),area:text(form,'area',2,200),hours:text(form,'hours',0,120),phone:phone||null,phone_verified:phone?1:0,status:form.get('status'),sample:form.get('sample')==='1'?1:0};
  }
  if(kind==='services'){
-  const name=text(form,'name',2,60);if(data.services.some(service=>service.id!==row.id&&normalServiceName(service.name)===normalServiceName(name)))throw Error('이미 등록된 업종입니다. 기존 업종을 선택해 주세요.');
+  const name=text(form,'name',2,60);if((data.catalogServices||data.services).some(service=>service.id!==row.id&&normalServiceName(service.name)===normalServiceName(name)))throw Error('이미 등록된 업종입니다. 현재 목록 또는 삭제 보관함에서 확인해 주세요.');
   const slug=row.id?row.slug:(text(form,'slug',0,60)||'service-'+(await digest(normalServiceName(name))).slice(0,12));if(!/^[a-z][a-z0-9-]{1,59}$/.test(slug))throw Error('주소용 이름은 영문 소문자·숫자·하이픈으로 입력해 주세요.');
   const parent_id=form.has('parent_id')?Number(form.get('parent_id'))||null:row.parent_id||null;let cursor=parent_id;const seen=new Set(row.id?[row.id]:[]);
   while(cursor){if(seen.has(cursor))throw Error('상위 업종이 순환하지 않도록 선택해 주세요.');seen.add(cursor);const p=data.services.find(s=>s.id===cursor);if(!p)throw Error('상위 업종을 확인해 주세요.');cursor=p.parent_id;}
@@ -50,20 +51,21 @@ async function validate(kind,form,row,data){
 }
 export async function management(db,user,url,form){
  if(!isAdmin(user))return page('권한 없음','<h1>관리자만 사용할 수 있습니다.</h1>',user,403);
+ const operation=url.pathname.match(/^\/admin\/(companies|services)\/(\d+)\/(delete|restore)\/$/);if(operation)return catalogOperation(db,user,url,form,operation[1],Number(operation[2]),operation[3]);
  const match=url.pathname.match(/^\/admin\/(companies|users|services|contracts)\/(?:(new|\d+)\/)?$/);if(!match)return page('페이지 없음','<h1>페이지를 찾을 수 없습니다.</h1>',user,404);
  const [,kind,key]=match,label=kinds[kind];
  if(!key){
   if(form)return page('잘못된 요청','<h1>등록 화면에서 저장해 주세요.</h1>',user,405);
+  if(kind==='companies'||kind==='services')return catalogList(db,user,url,kind);
   let rows=await all(db,`SELECT * FROM ${kind} ${kind==='users'?"WHERE role='EDITOR'":''} ORDER BY id DESC`);
-  if(kind==='services'){
-   rows=sortServices(rows);const total=rows.length,query=(url.searchParams.get('q')||'').trim().slice(0,60),list=rows.filter(row=>normalServiceName(row.name).includes(normalServiceName(query)));
-   return page('업종 관리',`<div class="cms-head"><div><h1>업종 관리</h1><p class="cms-help">가나다순 · 전체 ${total}개 · 필요할 때 계속 추가할 수 있습니다.</p></div><a class="button" href="/admin/services/new/">＋ 업종 추가</a></div><form method="get" class="cms-actions"><label style="flex:1;margin:0">업종 찾기<input name="q" value="${e(query)}" maxlength="60" placeholder="업종명을 입력하세요"></label><button>검색</button></form><div class="cms-list">${list.map(row=>`<article class="cms-item"><h2><a href="/admin/services/${row.id}/">${e(row.icon)} ${e(row.name)}</a></h2><span class="cms-help">${row.parent_id?'상위 업종: '+e(rows.find(parent=>parent.id===row.parent_id)?.name||'미지정'):'대표 업종'}</span></article>`).join('')||'<p class="empty">검색한 업종이 없습니다. 새 업종을 추가할 수 있습니다.</p>'}</div>`,user);
-  }
+
   return page(label+' 관리',`<div class="cms-head"><h1>${label} 관리</h1><a class="button" href="/admin/${kind}/new/">＋ ${label} 등록</a></div><div class="cms-list">${rows.map(r=>`<article class="cms-item"><h2><a href="/admin/${kind}/${r.id}/">${e(r.name||r.package_name)}</a></h2><span class="cms-help">#${r.id}${kind==='companies'?' · 고객: '+e(r.customer_name||'미등록'):''}${r.login_id?' · '+e(r.login_id):''}${r.status?' · '+({ACTIVE:'활성',DISABLED:'비활성',CLOSED:'종료'}[r.status]||e(r.status)):''}${kind==='contracts'?` · 공개 ${r.published_quantity} / ${r.contract_quantity}건`:''}${r.slug?' · '+e(r.slug):''}</span></article>`).join('')||'<p class="empty">등록된 항목이 없습니다.</p>'}</div>`,user);
  }
  let row=key==='new'?{}:await first(db,`SELECT * FROM ${kind} WHERE id=?`,Number(key));
  if(!row||kind==='users'&&row.id&&row.role!=='EDITOR')return page('항목 없음','<h1>항목을 찾을 수 없습니다.</h1>',user,404);
- const data={companies:await all(db,'SELECT * FROM companies ORDER BY name'),services:sortServices(await all(db,'SELECT * FROM services')),assignments:row.id&&kind==='users'?(await all(db,'SELECT company_id FROM company_assignments WHERE user_id=?',row.id)).map(r=>r.company_id):[]};
+ if(row.deleted_at)return page('삭제된 항목',`<h1>삭제 보관함에 있는 ${label}입니다.</h1><p>복원한 뒤 수정할 수 있습니다.</p><a class="button" href="/admin/${kind}/${row.id}/restore/">복원 화면</a>`,user,409);
+ const catalogServices=await all(db,'SELECT * FROM services');
+ const data={companies:await all(db,'SELECT * FROM companies WHERE deleted_at IS NULL ORDER BY name'),services:sortServices(catalogServices.filter(service=>!service.deleted_at)),catalogServices,assignments:row.id&&kind==='users'?(await all(db,'SELECT company_id FROM company_assignments WHERE user_id=?',row.id)).map(r=>r.company_id):[]};
  let error='';
  if(form)try{
   const values=await validate(kind,form,row,data);
@@ -88,7 +90,7 @@ export async function management(db,user,url,form){
    }
    if(password)return page('작업자 계정 발급',`<h1>작업자 계정을 만들었습니다.</h1><section class="panel"><p>아이디: <strong>${e(values.login_id)}</strong></p><p>임시 비밀번호:</p><code style="overflow-wrap:anywhere;user-select:all">${password}</code><p class="cms-note">이 비밀번호는 지금 한 번만 표시됩니다. 안전한 방법으로 해당 작업자에게 전달해 주세요.</p></section><p><a href="/admin/users/">작업자 목록으로</a></p>`,user);
   }else if(row.id){
-   const result=await run(db,`UPDATE ${kind} SET ${keys.map(k=>k+'=?').join(',')},version=version+1 WHERE id=? AND version=?`,...Object.values(values),row.id,Number(form.get('version')));
+   const result=await run(db,`UPDATE ${kind} SET ${keys.map(k=>k+'=?').join(',')},version=version+1 WHERE id=? AND version=?${['companies','services'].includes(kind)?' AND deleted_at IS NULL':''}`,...Object.values(values),row.id,Number(form.get('version')));
    if(!result.meta.changes)throw Error('다른 화면에서 변경되었습니다. 새로고침 후 다시 확인해 주세요.');
   }else await run(db,`INSERT INTO ${kind}(${keys.join(',')}) VALUES(${keys.map(()=>'?').join(',')})`,...Object.values(values));
   return redirect('/admin/'+kind+'/');

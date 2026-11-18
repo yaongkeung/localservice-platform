@@ -40,7 +40,7 @@ export async function postValues(form){
  return {...searchFields(form),contact_phone:normalizeContactPhone(form.get('contact_phone')),title,summary,content:text.split(/\n\s*\n/).map(t=>t.trim()).filter(Boolean),company_id:Number(form.get('company_id')),region_id:Number(form.get('region_id')),service_id:Number(form.get('service_id')),post_type,contract_id:Number(form.get('contract_id'))||null,title_hash:await digest(normalize(title)),content_hash:await digest(normalize(text))};
 }
 async function choices(db,user){
- return {companies:await all(db,isAdmin(user)?"SELECT * FROM companies WHERE status='ACTIVE'":"SELECT c.* FROM companies c JOIN company_assignments a ON a.company_id=c.id WHERE a.user_id=? AND c.status='ACTIVE'",...(isAdmin(user)?[]:[user.id])),regions:await all(db,'SELECT * FROM regions ORDER BY slug'),services:sortServices(await all(db,'SELECT * FROM services'))};
+ return {companies:await all(db,isAdmin(user)?"SELECT * FROM companies WHERE status='ACTIVE'":"SELECT c.* FROM companies c JOIN company_assignments a ON a.company_id=c.id WHERE a.user_id=? AND c.status='ACTIVE'",...(isAdmin(user)?[]:[user.id])),regions:await all(db,'SELECT * FROM regions ORDER BY slug'),services:sortServices(await all(db,'SELECT * FROM services WHERE deleted_at IS NULL'))};
 }
 async function canAccess(db,user,post){return isAdmin(user)||post.writer_id===user.id&&!!await first(db,'SELECT id FROM company_assignments WHERE user_id=? AND company_id=?',user.id,post.company_id);}
 async function validateRelations(db,user,values,post={}){

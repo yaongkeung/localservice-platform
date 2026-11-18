@@ -31,6 +31,68 @@ async function fixture(){
 const photo=()=>readFile(new URL('../public/media/plumbing-cover.jpg',import.meta.url));
 const company={customer_name:'시험 고객명',name:'시험 설비 업체',description:'자동 검증을 위해 등록한 출장 설비 업체입니다.',area:'서울 마포구',hours:'평일 09:00~18:00',phone:'',status:'ACTIVE',sample:'1'};
 
+test('compact company lists lead with customer names, sort naturally and preserve search over 50-row pages',async()=>{
+ const f=await fixture();try{
+  for(let i=55;i>=1;i--)await f.DB.prepare('INSERT INTO companies(name,customer_name,description) VALUES(?,?,?)').bind('카탈로그 업체 '+i,'카탈로그 고객 '+i,'목록 페이지 검증용 업체입니다.').run();
+  const html=await(await f.call('/admin/companies/?q=카탈로그',{as:1})).text(),body=html.match(/<tbody>([\s\S]*?)<\/tbody>/)[1];assert.equal((body.match(/<tr>/g)||[]).length,50);assert.ok(body.indexOf('카탈로그 고객 1<')<body.indexOf('카탈로그 고객 2<'));assert.match(body,/<td class="catalog-customer">[\s\S]*?카탈로그 고객 1<\/a><\/td><td class="catalog-name">카탈로그 업체 1/);assert.match(html,/q=.*page=2/);
+  const second=await(await f.call('/admin/companies/?q=카탈로그&page=2',{as:1})).text();assert.equal((second.match(/<tbody>([\s\S]*?)<\/tbody>/)[1].match(/<tr>/g)||[]).length,5);assert.match(second,/카탈로그 고객 55/);assert.doesNotMatch(second,/카탈로그 고객 1<\/a>/);
+  await f.DB.prepare("UPDATE companies SET phone='01012345678' WHERE customer_name='카탈로그 고객 1'").run();const phoneResult=await(await f.call('/admin/companies/?q=010-1234-5678',{as:1})).text();assert.equal((phoneResult.match(/<tbody>([\s\S]*?)<\/tbody>/)[1].match(/<tr>/g)||[]).length,1);assert.match(phoneResult,/카탈로그 고객 1<\/a>/);
+ }finally{f.DB.close();}
+});
+
+test('company deletion is confirmed, authenticated and reversible without changing posts, URLs or photo objects',async()=>{
+ const f=await fixture();try{
+  const id=await f.create();await f.upload(id,await photo());for(const action of ['submit','approve','publish'])assert.equal((await f.transition(id,action)).status,303);
+  const before=await f.row(id),images=(await f.DB.prepare('SELECT * FROM post_images WHERE post_id=?').bind(id).all()).results,urls=(await f.DB.prepare('SELECT * FROM post_urls').all()).results,objects=[...f.objects.keys()],c=await f.DB.prepare('SELECT * FROM companies WHERE id=1').first(),path='/admin/companies/1/delete/';
+  assert.equal((await f.call(path,{as:1})).status,200);assert.equal((await f.DB.prepare('SELECT deleted_at FROM companies WHERE id=1').first()).deleted_at,null);
+  assert.equal((await f.call(path,{as:2,form:{version:c.version,confirmed:'1'}})).status,403);assert.equal((await f.call(path,{as:1,form:{version:c.version}})).status,409);
+  assert.equal((await f.call(path,{as:1,body:new URLSearchParams({csrf:'wrong',version:c.version,confirmed:'1'}),headers:{'content-type':'application/x-www-form-urlencoded'}})).status,403);
+  assert.equal((await f.call(path,{as:1,form:{version:c.version,confirmed:'1'}})).status,303);
+  const deleted=await f.DB.prepare('SELECT * FROM companies WHERE id=1').first();assert.ok(deleted.deleted_at);assert.equal(deleted.status,'DISABLED');assert.equal((await f.call('/post/'+id+'/')).status,404);assert.deepEqual(await f.row(id),before);assert.deepEqual((await f.DB.prepare('SELECT * FROM post_images WHERE post_id=?').bind(id).all()).results,images);assert.deepEqual((await f.DB.prepare('SELECT * FROM post_urls').all()).results,urls);assert.deepEqual([...f.objects.keys()],objects);
+  assert.doesNotMatch(await(await f.call('/admin/compose/',{as:1})).text(),/<option value="1" data-company-name/);assert.equal((await f.call('/admin/companies/1/',{as:1})).status,409);assert.equal((await f.call(path,{as:1,form:{version:c.version,confirmed:'1'}})).status,404);
+  const event=await f.DB.prepare('SELECT * FROM catalog_events').first();assert.equal(event.user_id,1);assert.equal(event.action,'DELETE');assert.equal(JSON.parse(event.snapshot).name,c.name);
+  assert.equal((await f.call('/admin/companies/1/restore/',{as:1,form:{version:c.version,confirmed:'1'}})).status,409);assert.equal((await f.call('/admin/companies/1/restore/',{as:1,form:{version:deleted.version,confirmed:'1'}})).status,303);
+  const restored=await f.DB.prepare('SELECT * FROM companies WHERE id=1').first();assert.equal(restored.deleted_at,null);assert.equal(restored.status,'DISABLED');assert.equal((await f.call('/post/'+id+'/')).status,404);
+  assert.equal((await f.call('/admin/companies/1/',{as:1,form:{name:c.name,description:c.description,area:c.area,hours:c.hours,phone:'',customer_name:c.customer_name,status:'ACTIVE',sample:'1',version:restored.version}})).status,303);assert.equal((await f.call('/post/'+id+'/')).status,200);assert.deepEqual(await f.row(id),before);
+ }finally{f.DB.close();}
+});
+
+test('unused services can be deleted and restored while retaining their identity and blocking reuse while deleted',async()=>{
+ const f=await fixture();try{
+  assert.equal((await f.call('/admin/services/new/',{as:1,form:{name:'카탈로그 삭제 검증'}})).status,303);let service=await f.DB.prepare("SELECT * FROM services WHERE name='카탈로그 삭제 검증'").first();const path='/admin/services/'+service.id+'/';
+  assert.equal((await f.call(path+'delete/',{as:1,form:{version:service.version,confirmed:'1'}})).status,303);assert.equal((await f.call('/service/'+service.slug+'/')).status,404);assert.doesNotMatch(await(await f.call('/admin/compose/',{as:1})).text(),new RegExp('<option value="'+service.id+'">카탈로그'));
+  assert.equal((await f.call('/admin/services/new/',{as:1,form:{name:service.name}})).status,409);const id=await f.create();await assert.rejects(()=>f.DB.prepare('UPDATE posts SET service_id=? WHERE id=?').bind(service.id,id).run(),/Service is archived/);
+  service=await f.DB.prepare('SELECT * FROM services WHERE id=?').bind(service.id).first();assert.equal((await f.call(path+'restore/',{as:1,form:{version:service.version,confirmed:'1'}})).status,303);const restored=await f.DB.prepare('SELECT * FROM services WHERE id=?').bind(service.id).first();assert.equal(restored.deleted_at,null);assert.equal(restored.slug,service.slug);assert.equal((await f.call('/service/'+service.slug+'/')).status,200);
+ }finally{f.DB.close();}
+});
+
+test('used services and active children prevent deletion, and a deleted parent must be restored first',async()=>{
+ const f=await fixture();try{
+  const used=await f.DB.prepare('SELECT * FROM services WHERE id=1').first();assert.equal((await f.call('/admin/services/1/delete/',{as:1,form:{version:used.version,confirmed:'1'}})).status,409);assert.equal((await f.DB.prepare('SELECT deleted_at FROM services WHERE id=1').first()).deleted_at,null);
+  await f.call('/admin/services/new/',{as:1,form:{name:'부모 업종 검증'}});let parent=await f.DB.prepare("SELECT * FROM services WHERE name='부모 업종 검증'").first();await f.call('/admin/services/new/',{as:1,form:{name:'자식 업종 검증',parent_id:parent.id}});let child=await f.DB.prepare("SELECT * FROM services WHERE name='자식 업종 검증'").first();
+  const act=(row,action)=>f.call('/admin/services/'+row.id+'/'+action+'/',{as:1,form:{version:row.version,confirmed:'1'}});
+  assert.equal((await act(parent,'delete')).status,409);assert.equal((await act(child,'delete')).status,303);assert.equal((await act(parent,'delete')).status,303);child=await f.DB.prepare('SELECT * FROM services WHERE id=?').bind(child.id).first();assert.equal((await act(child,'restore')).status,409);
+  parent=await f.DB.prepare('SELECT * FROM services WHERE id=?').bind(parent.id).first();assert.equal((await act(parent,'restore')).status,303);assert.equal((await act(child,'restore')).status,303);
+ }finally{f.DB.close();}
+});
+
+test('catalog mutation rechecks the active actor inside its atomic batch',async()=>{
+ const f=await fixture();try{
+  const before=await f.DB.prepare('SELECT * FROM companies WHERE id=1').first(),original=f.DB.batch;
+  f.DB.batch=async statements=>{await f.DB.prepare("UPDATE users SET status='DISABLED' WHERE id=1").run();return original(statements);};
+  assert.equal((await f.call('/admin/companies/1/delete/',{as:1,form:{version:before.version,confirmed:'1'}})).status,409);assert.deepEqual(await f.DB.prepare('SELECT * FROM companies WHERE id=1').first(),before);assert.equal((await f.DB.prepare('SELECT COUNT(*) AS n FROM catalog_events').first()).n,0);
+ }finally{f.DB.close();}
+});
+
+test('service usage appearing after confirmation is checked atomically and failed mutations roll back audit events',async()=>{
+ const f=await fixture();try{
+  await f.call('/admin/services/new/',{as:1,form:{name:'경합 검증 업종'}});const service=await f.DB.prepare("SELECT * FROM services WHERE name='경합 검증 업종'").first(),id=await f.create(),original=f.DB.batch;
+  f.DB.batch=async statements=>{await f.DB.prepare('UPDATE posts SET service_id=? WHERE id=?').bind(service.id,id).run();return original(statements);};
+  assert.equal((await f.call('/admin/services/'+service.id+'/delete/',{as:1,form:{version:service.version,confirmed:'1'}})).status,409);assert.equal((await f.DB.prepare('SELECT deleted_at FROM services WHERE id=?').bind(service.id).first()).deleted_at,null);assert.equal((await f.DB.prepare('SELECT COUNT(*) AS n FROM catalog_events').first()).n,0);
+  f.DB.batch=statements=>original([...statements,f.DB.prepare("UPDATE companies SET status='ACTIVE' WHERE id=1")]);const companyRow=await f.DB.prepare('SELECT * FROM companies WHERE id=1').first();assert.equal((await f.call('/admin/companies/1/delete/',{as:1,form:{version:companyRow.version,confirmed:'1'}})).status,409);assert.deepEqual(await f.DB.prepare('SELECT * FROM companies WHERE id=1').first(),companyRow);assert.equal((await f.DB.prepare('SELECT COUNT(*) AS n FROM catalog_events').first()).n,0);
+ }finally{f.DB.close();}
+});
+
 test('JPEG sanitation preserves pixels, removes metadata and trailing payloads, and requires a matching thumbnail',async()=>{
  const original=await photo(),pair=preparePhoto(original),privateText=Buffer.from('PRIVATE-GPS-COMMENT'),metadata=Buffer.concat([Buffer.from([255,225,0,privateText.length+6,255,217]),privateText,Buffer.from([0,0])]);
  const supplied=Buffer.concat([original.subarray(0,2),metadata,original.subarray(2),Buffer.from('TRAILING-PRIVATE-PAYLOAD')]);
