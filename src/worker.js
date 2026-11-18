@@ -19,6 +19,7 @@ import {uploadClient} from './upload-client.js';
 import {pageShell} from './public-shell.js';
 import {siteOrigin,absolute,isoDate,sitemap,rss,robots} from './seo.js';
 import {cmsRegionClient} from './cms-regions.js';
+import {formatTitleRegion} from './title-region.js';
 import {districtForPost, adminCodeForPost, provinceForPost} from './regions.js';
 import {homePage, postKinds, serviceFilter} from './home.js';
 import {regionData} from './regions-data.js';
@@ -95,7 +96,7 @@ async function handle(request,env={},ctx){
     return env.ASSETS?env.ASSETS.fetch(request):new Response('Image assets not configured',{status:503});
   }
   let body,type;
-  if(url.pathname==='/assets/cms-regions.js'){body=browserScript(cmsRegionClient);type='text/javascript';}
+  if(url.pathname==='/assets/cms-regions.js'){body=browserScript(cmsRegionClient,{formatTitleRegion});type='text/javascript';}
   else if(url.pathname==='/assets/editor.js'){body=browserScript(editorClient,{titleFor});type='text/javascript';}
   else if(url.pathname==='/assets/upload.js'){body=browserScript(uploadClient,{operationUi});type='text/javascript';}
   else if(url.pathname==='/assets/cms-actions.js'){body=browserScript(editorActions,{operationUi});type='text/javascript';}

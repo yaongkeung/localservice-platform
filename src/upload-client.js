@@ -1,7 +1,7 @@
 import {operationUi} from './operation-ui.js';
 export function uploadClient(){
- let unsaved=false;
  const editor=document.querySelector('[data-simple-editor]');
+ let unsaved=editor?.dataset.regionAutofilled==='1';
  const changed=event=>{if(event.target.form===editor)unsaved=true;};
  document.addEventListener('input',changed);document.addEventListener('change',changed);editor?.addEventListener('editor-saved',()=>{unsaved=false;});
  const updateVersions=version=>{for(const field of document.querySelectorAll('[name=version]'))field.value=version;};
@@ -9,15 +9,15 @@ export function uploadClient(){
   if(!editor)return;
   if(!editor.reportValidity())throw Error('업체·지역·업무 키워드를 확인해 주세요.');
   if(!unsaved)return;
-  const response=await fetch(editor.action,{method:'POST',body:new URLSearchParams(new FormData(editor)),credentials:'same-origin',headers:{'x-editor-save':'1'}});
+  const response=await fetch(editor.getAttribute('action')||location.pathname,{method:'POST',body:new URLSearchParams(new FormData(editor)),credentials:'same-origin',headers:{'x-editor-save':'1'}});
   if(!response.ok||!response.headers.get('content-type')?.includes('application/json'))throw Error('기본 정보를 저장하지 못했습니다. 입력 내용을 확인하거나 화면을 다시 열어 주세요.');
   const saved=await response.json();updateVersions(saved.version);unsaved=false;
  };
  const generate=async(form,version)=>{
   const body=new URLSearchParams({csrf:form.querySelector('[name=csrf]').value,version:version??form.querySelector('[name=version]').value});
-  const response=await fetch(form.dataset.generateUrl||form.action,{method:'POST',body,credentials:'same-origin',headers:{'x-draft-generation':'1'}});
+  const response=await fetch(form.dataset.generateUrl||form.getAttribute('action')||location.pathname,{method:'POST',body,credentials:'same-origin',headers:{'x-draft-generation':'1'}});
   if(!response.headers.get('content-type')?.includes('application/json'))throw Error('로그인 상태를 확인하고 페이지를 다시 열어 주세요.');
-  const result=await response.json();if(!response.ok)throw Error(result.error||'작성 내용을 작성하지 못했습니다.');location.assign(result.location);
+  const result=await response.json();if(!response.ok)throw Error(result.error||'작성 내용을 작성하지 못했습니다.');if(new URL(result.location,location.href).href===location.href)location.reload();else location.assign(result.location);
  };
  const prepare=async file=>{
   const bitmap=await createImageBitmap(file);
@@ -43,7 +43,7 @@ export function uploadClient(){
    for(const file of files){
     message.textContent='사진 '+(saved+1)+' / '+files.length+'장을 준비·등록하고 있습니다…';operation.step(1,message.textContent);button.textContent='사진 '+(saved+1)+' / '+files.length+'장 처리 중…';
     const {blob,preview}=await prepare(file),body=new FormData(form);body.set('photo',blob,'photo.jpg');body.set('thumbnail',preview,'thumbnail.jpg');body.set('version',version);
-    const response=await fetch(form.action,{method:'POST',body,credentials:'same-origin',headers:{'x-photo-upload':'1'}});
+    const response=await fetch(form.getAttribute('action')||location.pathname,{method:'POST',body,credentials:'same-origin',headers:{'x-photo-upload':'1'}});
     if(!response.headers.get('content-type')?.includes('application/json'))throw Error('로그인 상태를 확인한 뒤 페이지를 새로 열어 주세요.');
     const result=await response.json();if(!response.ok)throw Error(result.error||'사진을 등록하지 못했습니다.');
     saved++;version=result.version;updateVersions(version);locationAfterSave=result.location;
@@ -51,7 +51,7 @@ export function uploadClient(){
    if(form.dataset.generateUrl){message.textContent='사진을 분석하고 본문을 작성하고 있습니다. 응답을 기다려 주세요…';operation.step(2,message.textContent);button.textContent='사진 분석·본문 작성 중…';await generate(form,version);operation.step(3,'작성 완료! 완성된 페이지를 열고 있습니다.');}
    else{operation.success('사진 등록을 완료했습니다.',locationAfterSave);location.assign(locationAfterSave);}
   }catch(error){
-   message.textContent=(saved?saved+'장은 저장됐습니다. ':'')+(error.message||'사진 등록에 실패했습니다.');operation.error(message.textContent,locationAfterSave||editor?.action||location.pathname);if(saved>0&&saved<files.length)button.disabled=true;
+   message.textContent=(saved?saved+'장은 저장됐습니다. ':'')+(error.message||'사진 등록에 실패했습니다.');operation.error(message.textContent,locationAfterSave||editor?.getAttribute('action')||location.pathname);if(saved>0&&saved<files.length)button.disabled=true;
    if(locationAfterSave){const link=document.createElement('a');link.href=locationAfterSave;link.textContent=' 저장한 사진 확인하기 →';message.append(link);if(saved===files.length){form.dataset.existingPhotos=Number(form.dataset.existingPhotos||0)+saved;form.querySelector('input[type=file]').value='';button.disabled=false;}}else button.disabled=false;
   }
  });

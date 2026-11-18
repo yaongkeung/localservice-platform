@@ -9,7 +9,11 @@ import {digest,randomToken} from '../src/auth.js';
 import {catalogBranch,registerRegion} from '../src/cms-regions.js';
 import {regionData} from '../src/regions-data.js';
 import {isoDate} from '../src/seo.js';
+import {windowCopy} from './page-copy-fixture.js';
 const origin='https://gongsa8282.xyz';
+test('confirm publication rechecks page-specific copy against a competing page saved after generation',async()=>{
+ const f=await fixture();try{const id=await f.create();await f.DB.prepare('UPDATE posts SET page_copy=?,related_keyword=? WHERE id IN (101,?)').bind(JSON.stringify(windowCopy),windowCopy.related_keyword,id).run();const before=await f.row(id),response=await f.save(id,{confirm_publish:1},1);assert.equal(response.status,409);const html=await response.text();assert.match(html.match(/<p class="cms-error"[^>]*>([\s\S]*?)<\/p>/)?.[1]||'No error message',/반복/);assert.equal((await f.row(id)).status,'DRAFT');assert.equal((await f.row(id)).version,before.version);}finally{f.DB.close();}
+});
 test('IndexNow runs only after a successful real publication and never blocks it on remote rejection',async t=>{
  const pending=[],sent=[];t.mock.method(globalThis,'fetch',async(url,init)=>{sent.push({url,body:JSON.parse(init.body)});return new Response(null,{status:429});});
  const f=await fixture({env:{APP_ENV:'production',SEARCH_INDEXING:'enabled',INDEXNOW_KEY:'0123456789abcdef0123456789abcdef',PHOTOS:{get(){},put(){}},ASSETS:{fetch(){}}},ctx:{waitUntil(promise){pending.push(promise);}}});

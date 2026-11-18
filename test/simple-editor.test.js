@@ -41,7 +41,7 @@ test('simple editor derives service/title/summary without visible management fie
  const f=await fixture();try{
   const html=await(await f.call('/admin/posts/new/')).text();assert.doesNotMatch(html,/<(?:select|input)[^>]+name="(?:contract_id|service_id|post_type|summary)"/);assert.match(html,/name="search_region"/);assert.match(html,/name="search_keyword"/);
   const result=await f.call('/admin/posts/new/',{simple_editor:1,company_id:2,region_mode:'catalog',province:'11',district:'11380',dong:'11380:응암동',search_region:'응암동',search_keyword:'조명 교체',title:'이전 잘못된 제목',content:'거실 조명의 상태를 살펴보기 위한 안내입니다. 조명의 모델과 증상을 확인하고, 전원 연결은 전문가에게 점검을 맡기는 과정을 설명합니다. 실제 시공 결과나 가격은 상담 후 확인할 수 있습니다.'});assert.equal(result.status,303,await result.clone().text());
-  const id=Number(result.headers.get('location').split('/')[3]),saved=await f.row(id);assert.equal(saved.service_id,2);assert.equal(saved.post_type,'서비스안내');assert.equal(saved.title,titleFor('응암동','조명 교체'));assert.ok(saved.summary.length>=10);assert.equal(saved.contract_id,null);
+  const id=Number(result.headers.get('location').split('/')[3]),saved=await f.row(id);assert.equal(saved.service_id,2);assert.equal(saved.post_type,'서비스안내');assert.equal(saved.title,titleFor('서울시 은평구 응암동','조명 교체'));assert.ok(saved.summary.length>=10);assert.equal(saved.contract_id,null);
   await f.DB.prepare("INSERT INTO contracts(id,company_id,package_name,contract_quantity,published_quantity,status) VALUES(90,2,'기존 계약',1,0,'ACTIVE')").run();
   await f.DB.prepare('UPDATE posts SET contract_id=90 WHERE id=?').bind(id).run();
   for(const action of ['submit','approve','publish'])assert.equal((await f.call('/admin/posts/'+id+'/status/',{action,version:(await f.row(id)).version})).status,303);

@@ -7,6 +7,7 @@ const names={
  '운양동':'김포시의 지명 안내에는 운양동의 이름에 대해 옛 포구인 운양포와 운양산 주변 마을에서 유래했다는 두 가지 설명이 실려 있습니다.'
 };
 export function localContext(region,adminCode){
+ region=String(region||'').trim().split(/\s+/).at(-1);
  if(String(adminCode||'').startsWith('11380')&&region==='응암동')return [
   '## 응암동 지역 소개',
   '은평문화원은 응암동의 이름을 마을 뒤 산자락에 있던 매 모양의 바위와 연결해 설명합니다. 지역의 옛 이름과 생활권을 이해할 때 **백련산과 매바위**가 함께 등장하는 이유입니다.',

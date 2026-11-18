@@ -1,5 +1,7 @@
 import {postUrl,publicationUrlStatement} from './post-urls.js';
 import {scheduleIndexNow} from './indexnow.js';
+import {pageCopy,repeatedPageCopy,repeatedParagraphs} from './page-copy.js';
+import {localContext} from './local-context.js';
 import {normalizeContactPhone} from './page-contact.js';
 import {similarContent} from './content-similarity.js';
 import {initialDraftText,waitingForPhotos} from './draft-state.js';
@@ -49,8 +51,9 @@ async function validateRelations(db,user,values,post={}){
 async function duplicate(db,post){
  const other=await first(db,'SELECT id FROM posts WHERE id!=? AND (title_hash=? OR content_hash=?) LIMIT 1',post.id,post.title_hash,post.content_hash);
  if(other)throw Error(`제목 또는 본문이 기존 글 #${other.id}와 같습니다. 고유한 작업 내용으로 수정해 주세요.`);
- const similar=similarContent(post,await all(db,'SELECT id,company_id,search_region,search_keyword,content FROM posts WHERE company_id=? AND id!=?',post.company_id,post.id));
+ const previous=await all(db,'SELECT id,company_id,search_region,search_keyword,related_keyword,page_copy,content FROM posts WHERE company_id=? AND id!=?',post.company_id,post.id),similar=similarContent(post,previous);
  if(similar.length)throw Error(`본문이 같은 업체의 글 #${similar[0].id}와 매우 비슷합니다. 사진별 설명과 업무에 맞는 고유 내용을 보강해 주세요.`);
+ const copy=pageCopy(post);if(copy){const region=await first(db,'SELECT admin_code,group_key FROM regions WHERE id=?',post.region_id);if(repeatedPageCopy(copy,previous,post.search_region,post.search_keyword).length||repeatedParagraphs(post,previous,localContext(post.search_region,region?.admin_code||region?.group_key)))throw Error('본문의 제목·구성 문구 또는 주요 문단이 기존 글과 반복됩니다. 사진과 업무에 맞는 고유 내용을 보강해 주세요.');}
  const same=await first(db,'SELECT a.id FROM post_images a JOIN post_images b ON a.content_hash=b.content_hash WHERE a.post_id=? AND b.post_id!=a.post_id AND a.excluded=0 AND b.excluded=0 AND a.content_hash IS NOT NULL LIMIT 1',post.id);
  if(same)throw Error('다른 글과 동일한 사진이 있습니다. 사진을 확인해 주세요.');
 }
@@ -142,17 +145,19 @@ export async function cms(request,env,ctx){
    const values=await postValues(form);if(form.get('region_mode')==='catalog')values.region_id=await registerRegion(db,form);
    if(post.published_once&&(values.company_id!==post.company_id||values.contract_id!==post.contract_id))throw Error('기존 공개 글의 업체는 변경할 수 없습니다.');
    await validateRelations(db,user,values,post);
+   const targetChanged=values.company_id!==post.company_id||values.search_region!==post.search_region||values.search_keyword!==post.search_keyword;
+   const related=targetChanged?'':post.related_keyword||'',copy=targetChanged?'{}':post.page_copy||'{}';
    const args=[values.company_id,values.region_id,values.service_id,values.post_type,values.title,values.summary,JSON.stringify(values.content),values.title_hash,values.content_hash,values.contract_id,values.search_region,values.search_keyword,values.contact_phone];
    if(id){
     const confirmed=form.get('confirm_publish')==='1',publish=confirmed||form.get('publish_now')==='1',reviewed=confirmed?1:post.generation_reviewed===0&&form.get('generation_reviewed')!=='1'?0:1,company=data.companies.find(c=>c.id===values.company_id),token=randomToken();
     if(publish){
      if(!isAdmin(user))return actionJson?Response.json({error:'관리자만 메인에 공개할 수 있습니다.'},{status:403,headers:{'cache-control':'no-store'}}):page('권한 없음','<p>관리자만 공개할 수 있습니다.</p>',user,403);
-     const candidate={...post,...values,generation_reviewed:reviewed};
+     const candidate={...post,...values,related_keyword:related,page_copy:copy,generation_reviewed:reviewed};
      if(waitingForPhotos(candidate))throw Error('본문은 사진을 등록하면 자동으로 생성됩니다. 사진을 먼저 등록해 주세요.');
      if(!reviewed)throw Error('본문과 사진을 확인한 뒤 확인란에 체크해 주세요.');
      await duplicate(db,candidate);
     }
-    const statement=db.prepare("UPDATE posts SET company_id=?,region_id=?,service_id=?,post_type=?,title=?,summary=?,content=?,title_hash=?,content_hash=?,contract_id=?,search_region=?,search_keyword=?,contact_phone=?,generation_reviewed=?,sample=?,mutation_token=?,version=version+1,updated_at=CURRENT_TIMESTAMP,last_actor_id=? WHERE id=? AND version=? AND status='DRAFT' AND EXISTS(SELECT 1 FROM users WHERE id=? AND status='ACTIVE' AND credential_version=? AND role=?) AND EXISTS(SELECT 1 FROM companies WHERE id=? AND status='ACTIVE' AND version=?)").bind(...args,reviewed,company.sample?1:0,token,user.id,id,Number(form.get('version')),user.id,user.credential_version,user.role,company.id,company.version);
+    const statement=db.prepare("UPDATE posts SET company_id=?,region_id=?,service_id=?,post_type=?,title=?,summary=?,content=?,title_hash=?,content_hash=?,contract_id=?,search_region=?,search_keyword=?,contact_phone=?,related_keyword=?,page_copy=?,generation_reviewed=?,sample=?,mutation_token=?,version=version+1,updated_at=CURRENT_TIMESTAMP,last_actor_id=? WHERE id=? AND version=? AND status='DRAFT' AND EXISTS(SELECT 1 FROM users WHERE id=? AND status='ACTIVE' AND credential_version=? AND role=?) AND EXISTS(SELECT 1 FROM companies WHERE id=? AND status='ACTIVE' AND version=?)").bind(...args,related,copy,reviewed,company.sample?1:0,token,user.id,id,Number(form.get('version')),user.id,user.credential_version,user.role,company.id,company.version);
     let result;
     if(publish){
      const publishStatement=db.prepare("UPDATE posts SET status='PUBLISHED',published_at=?,version=version+1,updated_at=CURRENT_TIMESTAMP,last_actor_id=? WHERE id=? AND mutation_token=? AND status='DRAFT'").bind(post.published_once?post.published_at:seoulDate(),user.id,id,token);

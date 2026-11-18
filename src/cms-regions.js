@@ -2,6 +2,7 @@ import {townshipOptions,townshipGroups,groupForCode,townshipName} from './townsh
 import {regionData} from './regions-data.js';
 import {first,run} from './store.js';
 import {e} from './admin-ui.js';
+import {formatTitleRegion} from './title-region.js';
 export function catalogBranch(provinceCode,districtCode='',dongCode=''){
  const province=regionData.provinces.find(p=>p.code===provinceCode);
  const district=districtCode?regionData.districts.find(d=>d.code===districtCode&&d.province===provinceCode):null;
@@ -38,16 +39,16 @@ export function cmsRegionClient(){
   const clear=(select,label)=>{select.replaceChildren(new Option(label,''));};
   const fill=(select,rows)=>{for(const row of rows)select.append(new Option(row.name,row.code));};
   const enabled=()=>{for(const select of [province,district,dong])select.disabled=mode.value==='keep';};
-  const applyName=()=>{const input=group.closest('form')?.querySelector('[name=search_region]'),select=dong.value?dong:district.value?district:province;if(input&&select.value){input.value=select.selectedOptions[0].textContent;input.dispatchEvent(new Event('input',{bubbles:true}));}};
+  const applyName=()=>{const input=group.closest('form')?.querySelector('[name=search_region]');if(input&&province.value){input.value=formatTitleRegion(province.selectedOptions[0].textContent,district.value?district.selectedOptions[0].textContent:'',dong.value?dong.selectedOptions[0].textContent:'');input.dispatchEvent(new Event('input',{bubbles:true}));}};
   dong.addEventListener('change',applyName);
-  mode.addEventListener('change',()=>{revision++;enabled();message.textContent='지역을 확인한 뒤 초안을 저장해 주세요.';});
+  mode.addEventListener('change',()=>{revision++;enabled();if(mode.value==='catalog')applyName();message.textContent='지역을 확인하고 사진으로 작성을 진행해 주세요.';});
   province.addEventListener('change',async()=>{
-   const current=++revision;clear(district,'선택한 시·도 전체');clear(dong,'선택한 시·군·구 전체');enabled();if(!province.value)return;
+   const current=++revision;clear(district,'선택한 시·도 전체');clear(dong,'선택한 시·군·구 전체');enabled();applyName();if(!province.value)return;
    message.textContent='시·군·구 목록을 불러오고 있습니다…';
    try{const response=await fetch('/assets/regions.json');if(!response.ok)throw Error();const data=await response.json();if(current!==revision)return;fill(district,data.districts.filter(d=>d.province===province.value));message.textContent='시·군·구를 선택해 주세요. 전체 범위로도 등록할 수 있습니다.';}catch{if(current===revision)message.textContent='지역 목록을 불러오지 못했습니다. 시·도를 다시 선택해 주세요.';}
   });
   district.addEventListener('change',async()=>{
-   const current=++revision;clear(dong,'선택한 시·군·구 전체');enabled();if(!district.value)return;
+   const current=++revision;clear(dong,'선택한 시·군·구 전체');enabled();applyName();if(!district.value)return;
    message.textContent='읍·면·동 목록을 불러오고 있습니다…';
    try{const response=await fetch('/assets/regions/'+encodeURIComponent(district.value)+'.json');if(!response.ok)throw Error();const rows=await response.json();if(current!==revision)return;fill(dong,rows);message.textContent='읍·면·동을 선택해 주세요. 전체 범위로도 등록할 수 있습니다.';}catch{if(current===revision)message.textContent='지역 목록을 불러오지 못했습니다. 시·군·구를 다시 선택해 주세요.';}
   });

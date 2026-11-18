@@ -1,4 +1,5 @@
 import {titleFor} from './editor-title.js';
+import {titleRegionForCode} from './title-region.js';
 const normal=value=>String(value||'').normalize('NFKC').replace(/[^\p{L}\p{N}]/gu,'').replace(/샤시/g,'샷시').replace(/쇼파/g,'소파').replace(/밧데리/g,'배터리').replace(/렌터카/g,'렌트카').replace(/닥트/g,'덕트').toLowerCase();
 export function serviceForKeyword(keyword,services,current,company={}){
  const score=(service,text)=>{
@@ -14,7 +15,8 @@ export function serviceForKeyword(keyword,services,current,company={}){
 }
 export function simplePostForm(form,data,post={}){
  const companyId=Number(form.get('company_id')),company=data.companies.find(item=>item.id===companyId)||{};
- const region=String(form.get('search_region')||'').trim(),keyword=String(form.get('search_keyword')||'').trim();
+ let region=String(form.get('search_region')||'').trim();const keyword=String(form.get('search_keyword')||'').trim();
+ if(form.get('region_mode')==='catalog'){const formatted=titleRegionForCode(form.get('dong')||form.get('district')||form.get('province'));if(formatted&&(!region||region===formatted.split(' ').at(-1))){region=formatted;form.set('search_region',region);}}
  if(!region||!keyword)throw Error('지역명과 대표 업무 키워드를 입력해 주세요.');
  const sameCompany=companyId===post.company_id;
  form.set('service_id',String(serviceForKeyword(keyword,data.services,sameCompany?post.service_id:null,company)||''));
@@ -23,7 +25,9 @@ export function simplePostForm(form,data,post={}){
  form.set('contract_id',String(sameCompany?post.contract_id||'':''));
  const targetChanged=region!==post.search_region||keyword!==post.search_keyword;
  if(targetChanged||!form.get('title'))form.set('title',titleFor(region,keyword));
- const text=String(form.get('content')||'').replace(/\[사진:\d+\]/g,'').replace(/^## .*$/gm,'').replace(/[*#]/g,'').replace(/\s+/g,' ').trim();
- form.set('summary',text.length>=10?text.slice(0,240):`${region} ${keyword} 상담을 위한 서비스 안내입니다. 사진과 함께 확인할 사항을 살펴보세요.`);
+ const content=String(form.get('content')||'');
+ const text=content.split(/\n\s*\n/).map(part=>part.replace(/\[사진:\d+\]/g,'').replace(/^## .*$/gm,'').replace(/[*#]/g,'').replace(/\s+/g,' ').trim()).find(part=>part.length>=10)||'';
+ const unchanged=content===(Array.isArray(post.content)?post.content.join('\n\n'):post.content);
+ form.set('summary',!targetChanged&&unchanged&&post.summary?post.summary:text.length>=10?text.slice(0,240):`${region} ${keyword} 상담을 위한 서비스 안내입니다. 사진과 함께 확인할 사항을 살펴보세요.`);
  return form;
 }
