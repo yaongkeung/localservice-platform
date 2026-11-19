@@ -138,3 +138,7 @@ posts.deleted_at/deleted_operation_id와 목록 인덱스를 추가합니다. �
 삭제/복원은 사용자 활성 상태·역할·인증 세대와 선택한 글/업체 버전, 고객 전체 범위를 재검사하는 단일 D1 batch입니다. 실제 변경된 대상 수를 SQL 제약으로 확인하여 일부만 변경되는 경우 전체를 되돌립니다. 삭제 글은 DRAFT여야 하며 복원 전에 수정·사진 추가·자동 작성이 차단됩니다. 복원도 DRAFT이며 명시적 재발행이 필요합니다.
 
 post_search_checks는 post_id/user_id/post_version/query/public_path/result(FOUND/NOT_FOUND/FAILED)/device(PC/MOBILE)/method(MANUAL_BROWSER)/note/checked_at을 추가 기록합니다. 확인 시 글 버전·공개 상태·실제 활성 업체·사용자 권한을 재확인합니다. 관찰 결과 저장은 게시글 버전을 바꾸지 않습니다. 목록은 최신 기록을 읽고 글 버전·동+대표 키워드·대표 주소 일치와 경과 7일 기준으로 재확인을 표시합니다. 관리자 전용 기록으로 공개 데이터에는 넣지 않습니다.
+
+## migration 0018 (게시글 간 사진 재사용)
+
+활성 사진의 전역 content_hash 고유 인덱스를 같은 글 안의 `(post_id,content_hash)` 고유 인덱스로 교체합니다. 모든 기존 행·사진 경로·해시·소속·제외 상태는 그대로 보존합니다. 다른 글의 같은 사진은 각각의 별도 객체 경로와 공개 권한을 유지하며, 같은 글에 같은 사진을 다시 선택하면 새 행 없이 성공 처리합니다. 사진 수량·사진 변경 가능 상태·공개 권한 trigger는 유지합니다.

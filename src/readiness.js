@@ -1,4 +1,4 @@
-export const currentMigration='0017_post_archive_search_checks.sql';
+export const currentMigration='0018_reusable_post_photos.sql';
 export function storageReady(env){return typeof env.DB?.prepare==='function'&&typeof env.DB?.batch==='function'&&typeof env.PHOTOS?.get==='function'&&typeof env.PHOTOS?.put==='function'&&typeof env.ASSETS?.fetch==='function';}
 export async function health(request,env){
  let ready=false;

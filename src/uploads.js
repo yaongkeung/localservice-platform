@@ -26,12 +26,14 @@ export async function photoActions(request,env,user,id){
   else throw Error('올바른 사진 양식이 아닙니다.');
   if(form.get('csrf')!==user.csrf)return errorPage(request,user,id,'요청 확인에 실패했습니다. 페이지를 새로 열어 주세요.',403);
   const version=Number(form.get('version'));if(version!==post.version)throw Error('다른 화면에서 변경된 글입니다. 새로고침 후 다시 시도해 주세요.');
+  const complete=(currentVersion=version+1,reused=false)=>{const location='/admin/posts/'+id+'/';return request.headers.get('x-photo-upload')==='1'?Response.json({location,version:currentVersion,reused},{headers:{'cache-control':'no-store'}}):redirect(location);};
   const token=randomToken(),statements=[db.prepare("UPDATE posts SET version=version+1,mutation_token=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND version=? AND status='DRAFT'").bind(token,id,version)];
   const op=form.get('action');
   if(op){
    const image=await first(db,'SELECT * FROM post_images WHERE id=? AND post_id=?',Number(form.get('image_id')),id);if(!image)throw Error('사진을 찾을 수 없습니다.');
    if(!['representative','exclude','restore'].includes(op))throw Error('사진 요청을 확인해 주세요.');
    if(op==='representative'&&image.excluded)throw Error('제외된 사진을 먼저 복원해 주세요.');
+   if(op==='restore'&&image.content_hash&&await first(db,'SELECT id FROM post_images WHERE post_id=? AND content_hash=? AND excluded=0 AND id!=?',id,image.content_hash,image.id))return complete(version,true);
    const sql=op==='representative'?"UPDATE post_images SET sort_order=(SELECT COALESCE(MIN(sort_order),0)-1 FROM post_images WHERE post_id=?) WHERE id=? AND EXISTS(SELECT 1 FROM posts WHERE id=? AND mutation_token=?)":"UPDATE post_images SET excluded=? WHERE id=? AND EXISTS(SELECT 1 FROM posts WHERE id=? AND mutation_token=?)";
    statements.push(db.prepare(sql).bind(op==='representative'?id:op==='exclude'?1:0,image.id,id,token));
   }else{
@@ -40,22 +42,23 @@ export async function photoActions(request,env,user,id){
    if(!file||typeof file.arrayBuffer!=='function'||!file.size||file.size>5*1024*1024)throw Error('5MB 이하의 변환된 JPG 사진을 등록해 주세요.');
    if(!thumbnail||typeof thumbnail.arrayBuffer!=='function'||!thumbnail.size||thumbnail.size>256*1024)throw Error('사진 변환이 필요합니다. 페이지를 새로 열고 사진을 다시 선택해 주세요.');
    if(alt.length<2||alt.length>160)throw Error('사진 설명은 2~160자로 입력해 주세요.');
-   if((await first(db,'SELECT COUNT(*) AS n FROM post_images WHERE post_id=? AND excluded=0',id)).n>=8)throw Error('사진은 최대 8장까지 등록할 수 있습니다.');
    const {cover,thumb,width,height}=processPhoto(new Uint8Array(await file.arrayBuffer()),new Uint8Array(await thumbnail.arrayBuffer()));
    const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',cover)),b=>b.toString(16).padStart(2,'0')).join('');
-   if(await first(db,'SELECT i.id FROM post_images i JOIN posts p ON p.id=i.post_id WHERE i.content_hash=? AND i.excluded=0 AND p.deleted_at IS NULL',hash))throw Error('이미 등록된 사진과 동일합니다. 다른 작업 사진을 선택해 주세요.');
+   // Reusing a photo across posts is allowed. Re-selecting it in this post is a no-op.
+   if(await first(db,'SELECT id FROM post_images WHERE post_id=? AND content_hash=? AND excluded=0',id,hash))return complete(version,true);
+   if((await first(db,'SELECT COUNT(*) AS n FROM post_images WHERE post_id=? AND excluded=0',id)).n>=8)throw Error('사진은 최대 8장까지 등록할 수 있습니다.');
    const key=id+'/'+randomToken();savedKeys=[key+'-cover.jpg',key+'-thumb.jpg'];
    // All objects remain private; only the authenticated/publication-aware route can serve them.
    await env.PHOTOS.put(savedKeys[0],cover,{httpMetadata:{contentType:'image/jpeg'}});await env.PHOTOS.put(savedKeys[1],thumb,{httpMetadata:{contentType:'image/jpeg'}});
    statements.push(db.prepare("INSERT INTO post_images(post_id,storage_key,thumbnail_key,alt_text,sort_order,sample,content_hash,width,height) SELECT id,?,?,?,(SELECT COALESCE(MAX(sort_order),-1)+1 FROM post_images WHERE post_id=?),sample,?,?,? FROM posts WHERE id=? AND mutation_token=?").bind(pathFor(savedKeys[0]),pathFor(savedKeys[1]),alt,id,hash,width,height,id,token));
   }
   const result=await db.batch(statements);if(!result[0].meta.changes)throw Error('다른 화면에서 변경된 글입니다. 새로고침 후 다시 시도해 주세요.');
-  const location='/admin/posts/'+id+'/';return request.headers.get('x-photo-upload')==='1'?Response.json({location,version:version+1},{headers:{'cache-control':'no-store'}}):redirect(location);
+  return complete();
  }catch(error){
   // Delete only new random objects owned by this failed request, never a user's existing objects.
   if(savedKeys.length)try{await env.PHOTOS.delete(savedKeys);}catch{/* Orphan cleanup must be retried operationally; no DB row exposes these objects. */}
   const expected=/^(사진|정상|작성 내용|다른|올바른|요청|이미|제외된)/.test(error.message);
-  return errorPage(request,user,id,expected?error.message:'사진을 저장하지 못했습니다. 수량·중복 여부를 확인하고 다시 시도해 주세요.',409);
+  return errorPage(request,user,id,expected?error.message:'사진을 저장하지 못했습니다. 수량이나 다른 화면의 변경 여부를 확인하고 다시 시도해 주세요.',409);
  }
 }
 export async function uploadedPhoto(request,env){

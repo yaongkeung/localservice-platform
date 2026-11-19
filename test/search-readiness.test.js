@@ -26,11 +26,12 @@ test('search readiness is private, administrator-only, read-only and never repor
   const post=await f.DB.prepare('SELECT title FROM posts WHERE id=101').first();assert.equal(post.title,'싱크대 아래 물 고임, 연결 부위부터 점검했어요');
  }finally{f.DB.close();}
 });
-test('readiness catches effective title mismatch, missing/reused photos and unreviewed copy without assigning an SEO score',()=>{
+test('readiness catches missing photos and unreviewed copy while allowing reused photos',()=>{
  const post={id:8,title:'응암동 강화유리 · 상담 안내',content:['## 응암동 지역 소개','사진 설명을 바탕으로 확인한 정보입니다.','## 자주 묻는 질문'],summary:'강화유리 상담 준비를 위한 안내입니다.',search_region:'응암동',search_keyword:'강화유리',active_photos:2,generation_reviewed:1,naver_place_url:'https://naver.me/Test1234'};
  const valid=inspectSearchPost(post);assert.deepEqual(valid.issues,[]);assert.equal(valid.query,'응암동 강화유리');assert.ok(valid.place&&valid.localIntro&&valid.faq);
- const problem=inspectSearchPost({...post,seo_title:'다른 검색용 제목',active_photos:0,generation_reviewed:0,duplicate_photo:1,duplicate_text:1,naver_place_url:'javascript:alert(1)'});assert.equal(problem.issues.length,5);assert.equal(problem.place,false);
- assert.match(problem.issues.join(' '),/검색용 제목/);assert.match(problem.issues.join(' '),/동일한 사진/);
+ assert.deepEqual(inspectSearchPost({...post,duplicate_photo:1}).issues,[]);
+ const problem=inspectSearchPost({...post,seo_title:'다른 검색용 제목',active_photos:0,generation_reviewed:0,duplicate_photo:1,duplicate_text:1,naver_place_url:'javascript:alert(1)'});assert.equal(problem.issues.length,4);assert.equal(problem.place,false);
+ assert.match(problem.issues.join(' '),/검색용 제목/);assert.doesNotMatch(problem.issues.join(' '),/동일한 사진/);
 });
 test('readiness filters and paginates real posts, and safely renders stored markup and encoded Naver search queries',async()=>{
  const f=await fixture();try{

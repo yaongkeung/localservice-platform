@@ -232,7 +232,7 @@ test('upload sanitizes JPEG containers, strips metadata and keeps drafts private
   assert.equal((await f.transition(id,'withdraw')).status,303);assert.equal((await f.call(image.storage_key)).status,404);assert.equal((await f.call('/post/'+id+'/')).status,404);
  }finally{f.DB.close();}
 });
-test('representative choice, reversible exclusion and photo duplicate checks preserve a single thumbnail source',async()=>{
+test('representative choice and reversible exclusion allow photo reuse across posts',async()=>{
  const f=await fixture();try{
   const id=await f.create();assert.equal((await f.upload(id,await photo())).status,303);
   assert.equal((await f.upload(id,await readFile(new URL('../public/media/cleaning-cover.jpg',import.meta.url)))).status,303);
@@ -240,11 +240,33 @@ test('representative choice, reversible exclusion and photo duplicate checks pre
   assert.equal((await f.changePhoto(id,images[1].id,'representative')).status,303);
   assert.equal((await f.changePhoto(id,images[1].id,'exclude')).status,303);
   assert.equal((await f.changePhoto(id,images[1].id,'restore')).status,303);
-  const second=await f.create();assert.equal((await f.upload(second,await photo())).status,409);
+  const second=await f.create({title:'새 창고의 별도 장비 관리 기록',content:'창고 입구 장비 보관 장소와 운반 동선을 기록했습니다. 바닥에 놓인 자재를 분류하고 보관 선반의 높이와 통로 폭을 살펴봅니다. 사진은 업체가 제공한 참고 자료이며 이 기록의 작업 날짜나 완료 상태를 확정하지 않습니다.'});assert.equal((await f.upload(second,await photo())).status,303);
+  const reused=await f.DB.prepare('SELECT * FROM post_images WHERE post_id=?').bind(second).first();assert.equal(reused.content_hash,images[0].content_hash);assert.notEqual(reused.storage_key,images[0].storage_key);assert.equal((await f.call(reused.storage_key)).status,404);
   assert.equal((await f.changePhoto(id,images[1].id,'exclude',2,1)).status,409);
   for(const action of ['submit','approve','publish'])assert.equal((await f.transition(id,action)).status,303);
   const html=await(await f.call('/')).text();assert.ok(html.includes('src="'+images[1].thumbnail_key+'"'));
   const detail=await(await f.call('/post/'+id+'/')).text();for(const image of images)assert.ok(detail.includes('src="'+image.storage_key+'"'));
+  for(const action of ['submit','approve','publish']){const response=await f.transition(second,action);assert.equal(response.status,303,await response.clone().text());}
+  assert.equal((await f.call(reused.storage_key)).status,200);assert.equal((await f.transition(id,'withdraw')).status,303);assert.equal((await f.call(images[0].storage_key)).status,404);assert.equal((await f.call(reused.storage_key)).status,200);
+ }finally{f.DB.close();}
+});
+
+test('same-post photo retries and restores continue without duplicate rows, objects or version changes',async()=>{
+ const f=await fixture();try{
+  const id=await f.create(),bytes=await photo();assert.equal((await f.upload(id,bytes)).status,303);
+  const before=await f.row(id),objects=[...f.objects.keys()],original=await f.DB.prepare('SELECT * FROM post_images WHERE post_id=?').bind(id).first();
+  const response=await f.upload(id,bytes,2,{});assert.equal(response.status,303);assert.deepEqual(await f.row(id),before);assert.deepEqual([...f.objects.keys()],objects);assert.equal((await f.DB.prepare('SELECT COUNT(*) n FROM post_images WHERE post_id=?').bind(id).first()).n,1);
+  const body=new FormData();body.set('photo',new Blob([bytes],{type:'image/jpeg'}),'same.jpg');body.set('thumbnail',new Blob([preparePhoto(bytes).thumb],{type:'image/jpeg'}),'thumb.jpg');body.set('csrf',f.auth[2].csrf);body.set('version',String(before.version));
+  const json=await f.call('/admin/posts/'+id+'/photos/',{as:2,body,headers:{'x-photo-upload':'1'}});assert.equal(json.status,200);assert.deepEqual(await json.json(),{location:'/admin/posts/'+id+'/',version:before.version,reused:true});
+  assert.equal((await f.changePhoto(id,original.id,'exclude')).status,303);assert.equal((await f.upload(id,bytes)).status,303);const after=await f.row(id);assert.equal((await f.changePhoto(id,original.id,'restore')).status,303);assert.deepEqual(await f.row(id),after);assert.equal((await f.DB.prepare('SELECT COUNT(*) n FROM post_images WHERE post_id=? AND excluded=0').bind(id).first()).n,1);
+ }finally{f.DB.close();}
+});
+
+test('duplicate selections at the eight-photo limit are harmless while a ninth new photo is rejected',async()=>{
+ const f=await fixture();try{
+  const id=await f.create(),photos=Array.from({length:9},(_,i)=>jpeg.encode({width:32,height:32,data:Buffer.from(Array.from({length:32*32},()=>[i*27,100,180,255]).flat())},85).data);
+  for(const bytes of photos.slice(0,8))assert.equal((await f.upload(id,bytes)).status,303);
+  const before=await f.row(id);assert.equal((await f.upload(id,photos[0])).status,303);assert.deepEqual(await f.row(id),before);assert.equal((await f.upload(id,photos[8])).status,409);assert.equal((await f.DB.prepare('SELECT COUNT(*) n FROM post_images WHERE post_id=? AND excluded=0').bind(id).first()).n,8);assert.equal(f.objects.size,16);
  }finally{f.DB.close();}
 });
 test('invalid uploads, missing CSRF, wrong ownership and races never leave exposed media rows',async()=>{

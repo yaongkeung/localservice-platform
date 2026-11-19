@@ -56,8 +56,6 @@ async function duplicate(db,post){
  const previous=await all(db,'SELECT id,company_id,search_region,search_keyword,related_keyword,page_copy,content FROM posts WHERE deleted_at IS NULL AND company_id=? AND id!=?',post.company_id,post.id),similar=similarContent(post,previous);
  if(similar.length)throw Error(`본문이 같은 업체의 글 #${similar[0].id}와 매우 비슷합니다. 사진별 설명과 업무에 맞는 고유 내용을 보강해 주세요.`);
  const copy=pageCopy(post);if(copy){const region=await first(db,'SELECT admin_code,group_key FROM regions WHERE id=?',post.region_id);if(repeatedPageCopy(copy,previous,post.search_region,post.search_keyword).length||repeatedParagraphs(post,previous,localContext(post.search_region,region?.admin_code||region?.group_key)))throw Error('본문의 제목·구성 문구 또는 주요 문단이 기존 글과 반복됩니다. 사진과 업무에 맞는 고유 내용을 보강해 주세요.');}
- const same=await first(db,'SELECT a.id FROM post_images a JOIN post_images b ON a.content_hash=b.content_hash JOIN posts other_post ON other_post.id=b.post_id AND other_post.deleted_at IS NULL WHERE a.post_id=? AND b.post_id!=a.post_id AND a.excluded=0 AND b.excluded=0 AND a.content_hash IS NOT NULL LIMIT 1',post.id);
- if(same)throw Error('다른 글과 동일한 사진이 있습니다. 사진을 확인해 주세요.');
 }
 export async function cms(request,env,ctx){
  const url=new URL(request.url),path=url.pathname,db=env.DB;

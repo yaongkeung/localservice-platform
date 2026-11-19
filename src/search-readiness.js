@@ -22,7 +22,6 @@ export function inspectSearchPost(post,previous=[]){
  if(!post.active_photos)issues.push('등록된 활성 사진이 없습니다.');
  if(post.generation_reviewed===0)issues.push('자동 작성한 사진·본문을 확인하고 저장해 주세요.');
  if(post.duplicate_text)issues.push('다른 글과 동일한 제목 또는 본문이 등록되어 있습니다.');
- if(post.duplicate_photo)issues.push('다른 글과 동일한 사진이 등록되어 있습니다.');
  issues.push(...repeatedContentWarnings(post,previous));
  let place=false;try{place=!!normalizePlaceUrl(post.naver_place_url);}catch{/* Invalid stored links are not presented as connected. */}
  return {query,issues,characters:text.replace(/\[사진:\d+\]/g,'').length,place,localIntro:content.some(part=>/^## .*(?:지역 소개|지역 안내|지역과 방문 상담 안내)$/.test(part)),faq:content.includes('## 자주 묻는 질문')};
@@ -44,8 +43,7 @@ export async function searchReadiness(request,env,user){
  const currentPage=Math.max(1,Math.min(totalPages,Number.isSafeInteger(requested)?requested:1));
  const posts=await all(db,`SELECT p.*,u.path AS public_path,c.name AS company_name,c.naver_place_url,
  (SELECT COUNT(*) FROM post_images i WHERE i.post_id=p.id AND i.excluded=0) AS active_photos,
- EXISTS(SELECT 1 FROM posts other WHERE other.deleted_at IS NULL AND other.id!=p.id AND ((p.title_hash IS NOT NULL AND other.title_hash=p.title_hash) OR (p.content_hash IS NOT NULL AND other.content_hash=p.content_hash))) AS duplicate_text,
- EXISTS(SELECT 1 FROM post_images a JOIN post_images b ON a.content_hash=b.content_hash JOIN posts other_post ON other_post.id=b.post_id AND other_post.deleted_at IS NULL WHERE a.post_id=p.id AND b.post_id!=p.id AND a.excluded=0 AND b.excluded=0 AND a.content_hash IS NOT NULL) AS duplicate_photo
+ EXISTS(SELECT 1 FROM posts other WHERE other.deleted_at IS NULL AND other.id!=p.id AND ((p.title_hash IS NOT NULL AND other.title_hash=p.title_hash) OR (p.content_hash IS NOT NULL AND other.content_hash=p.content_hash))) AS duplicate_text
  FROM posts p LEFT JOIN post_urls u ON u.post_id=p.id JOIN companies c ON c.id=p.company_id WHERE ${where} ORDER BY p.updated_at DESC,p.id DESC LIMIT 25 OFFSET ?`,...args,(currentPage-1)*25);
  const companyIds=[...new Set(posts.map(post=>post.company_id))],previous=companyIds.length?await all(db,`SELECT id,company_id,search_region,search_keyword,related_keyword,content FROM posts WHERE deleted_at IS NULL AND status='PUBLISHED' AND company_id IN (${companyIds.map(()=>'?').join(',')}) ORDER BY updated_at DESC,id DESC LIMIT 1000`,...companyIds):[];
  const canonicalHost=url.origin===siteOrigin,launch=launchState(request,env),production=launch.production&&canonicalHost;

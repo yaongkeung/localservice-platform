@@ -36,7 +36,7 @@ export function uploadClient(){
   event.preventDefault();const files=Array.from(form.querySelector('input[type=file]').files),message=form.querySelector('[role=status]'),button=form.querySelector('button');
   if((!files.length&&!(form.dataset.generateUrl&&Number(form.dataset.existingPhotos)>0))||files.length>8){message.textContent='사진을 1~8장 선택해 주세요.';return;}
   if(files.some(file=>!['image/jpeg','image/png'].includes(file.type)||file.size>20*1024*1024)){message.textContent='각 20MB 이하의 JPG 또는 PNG 사진을 선택해 주세요.';return;}
-  const operation=operationUi(button,form.dataset.generateUrl?'사진으로 자동 작성 중':'사진을 등록하는 중',['기본 정보 저장','사진 준비·등록','사진 분석·본문 작성','완성된 페이지 열기']);if(!operation)return;let saved=0,locationAfterSave;
+  const operation=operationUi(button,form.dataset.generateUrl?'사진으로 자동 작성 중':'사진을 등록하는 중',['기본 정보 저장','사진 준비·등록','사진 분석·본문 작성','완성된 페이지 열기']);if(!operation)return;let saved=0,added=0,locationAfterSave;
   try{
    message.textContent='기본 정보를 저장하고 사진을 준비하고 있습니다…';operation.step(0,message.textContent);await saveEditor();
    let version=form.querySelector('[name=version]').value;
@@ -46,13 +46,13 @@ export function uploadClient(){
     const response=await fetch(form.getAttribute('action')||location.pathname,{method:'POST',body,credentials:'same-origin',headers:{'x-photo-upload':'1'}});
     if(!response.headers.get('content-type')?.includes('application/json'))throw Error('로그인 상태를 확인한 뒤 페이지를 새로 열어 주세요.');
     const result=await response.json();if(!response.ok)throw Error(result.error||'사진을 등록하지 못했습니다.');
-    saved++;version=result.version;updateVersions(version);locationAfterSave=result.location;
+    saved++;if(!result.reused)added++;version=result.version;updateVersions(version);locationAfterSave=result.location;
    }
    if(form.dataset.generateUrl){message.textContent='사진을 분석하고 본문을 작성하고 있습니다. 응답을 기다려 주세요…';operation.step(2,message.textContent);button.textContent='사진 분석·본문 작성 중…';await generate(form,version);operation.step(3,'작성 완료! 완성된 페이지를 열고 있습니다.');}
    else{operation.success('사진 등록을 완료했습니다.',locationAfterSave);location.assign(locationAfterSave);}
   }catch(error){
-   message.textContent=(saved?saved+'장은 저장됐습니다. ':'')+(error.message||'사진 등록에 실패했습니다.');operation.error(message.textContent,locationAfterSave||editor?.getAttribute('action')||location.pathname);if(saved>0&&saved<files.length)button.disabled=true;
-   if(locationAfterSave){const link=document.createElement('a');link.href=locationAfterSave;link.textContent=' 저장한 사진 확인하기 →';message.append(link);if(saved===files.length){form.dataset.existingPhotos=Number(form.dataset.existingPhotos||0)+saved;form.querySelector('input[type=file]').value='';button.disabled=false;}}else button.disabled=false;
+   message.textContent=(saved?saved+'장은 처리됐습니다. ':'')+(error.message||'사진 등록에 실패했습니다.');operation.error(message.textContent,locationAfterSave||editor?.getAttribute('action')||location.pathname);if(saved>0&&saved<files.length)button.disabled=true;
+   if(locationAfterSave){const link=document.createElement('a');link.href=locationAfterSave;link.textContent=' 저장한 사진 확인하기 →';message.append(link);if(saved===files.length){form.dataset.existingPhotos=Number(form.dataset.existingPhotos||0)+added;form.querySelector('input[type=file]').value='';button.disabled=false;}}else button.disabled=false;
   }
  });
 }
