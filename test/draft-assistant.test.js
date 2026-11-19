@@ -83,3 +83,14 @@ test('repeated headings and closing copy from an earlier page cannot overwrite t
   f.env.AI.run=async()=>({response:JSON.stringify({...output,photos:[{...output.photos[0],id:9001}]})});const before=await f.row(),response=await f.generate();assert.equal(response.status,409);assert.match(await response.text(),/반복/);const after=await f.row();assert.equal(after.content,before.content);assert.equal(after.title,before.title);assert.equal(after.page_copy,before.page_copy);
  }finally{f.DB.close();}
 });
+
+test('substantially recycled generated body is rejected before saving even without a prior page-copy record',async()=>{
+ const f=await fixture();try{
+  const before=await f.row(),company=await f.DB.prepare('SELECT * FROM companies WHERE id=?').bind(before.company_id).first(),region=await f.DB.prepare('SELECT * FROM regions WHERE id=?').bind(before.region_id).first(),photos=[{...output.photos[0],id:9001}];
+  const candidate=assembleDraft({...output,photos},before,company,region,[{id:9001}]);
+  await f.DB.prepare("UPDATE posts SET content=?,search_region=?,search_keyword=?,page_copy='{}' WHERE id=101").bind(JSON.stringify(candidate.content),before.search_region,before.search_keyword).run();
+  f.env.AI.run=async()=>({response:JSON.stringify({...output,photos})});
+  const result=await f.generate();assert.equal(result.status,409);assert.match(await result.text(),/매우 비슷/);
+  const after=await f.row();assert.equal(after.content,before.content);assert.equal(after.version,before.version);assert.equal(after.title,before.title);assert.equal((await f.DB.prepare('SELECT state FROM draft_generations WHERE post_id=?').bind(f.id).first()).state,'FAILED');
+ }finally{f.DB.close();}
+});

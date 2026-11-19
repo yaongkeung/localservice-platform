@@ -33,7 +33,7 @@ test('real optional reviews require confirmation and render safely without inven
  assert.throws(()=>reviewValues(form),/확인/);form.set('reviews_confirmed','1');const reviews=reviewValues(form);assert.equal(JSON.parse(reviews.customer_reviews).length,2);
  form.set('review_source_url','javascript:alert(1)');assert.throws(()=>reviewValues(form),/HTTPS/);
  const post={id:7,title:'창문 상담 안내',search_region:'사우동',search_keyword:'유리',content:['## 사진 안내','사진 앞 문장','[사진:1]','사진 뒤 문장','[사진:1]','[사진:2]']},images=[{id:1,post_id:7,storage_key:'/uploads/a.jpg',alt_text:'창문',sort_order:0},{id:2,post_id:7,storage_key:'/uploads/b.jpg',excluded:1,sort_order:1},{id:3,post_id:8,storage_key:'/uploads/secret.jpg'}];
- const html=postArticle(post,images,{id:1,name:'시험 업체',...reviews});assert.equal((html.match(/src="\/uploads\/a.jpg"/g)||[]).length,1);assert.doesNotMatch(html,/src="\/uploads\/(b|secret)/);assert.ok(html.indexOf('사진 앞 문장')<html.indexOf('<figure'));assert.ok(html.indexOf('<figure')<html.indexOf('사진 뒤 문장'));assert.match(html,/<h2>고객 후기<\/h2>/);assert.doesNotMatch(html,/5\.0|★★★★★/);
+ const html=postArticle(post,images,{id:1,name:'시험 업체',...reviews});assert.equal((html.match(/src="\/uploads\/a.jpg"/g)||[]).length,1);assert.doesNotMatch(html,/src="\/uploads\/(b|secret)/);assert.ok(html.indexOf('사진 앞 문장')<html.indexOf('<figure class="post-photo"'));assert.ok(html.indexOf('<figure class="post-photo"')<html.indexOf('사진 뒤 문장'));assert.match(html,/<h2>고객 후기<\/h2>/);assert.doesNotMatch(html,/5\.0|★★★★★/);
  assert.doesNotMatch(postArticle(post,images,{id:1,...reviews,reviews_confirmed:0}),/<h2>고객 후기<\/h2>/);
 });
 test('near-identical pages cannot enter review merely by changing region labels, including a catalogue of 300 pages',async()=>{

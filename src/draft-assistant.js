@@ -13,6 +13,7 @@ import {townshipName} from './township-groups.js';
 import {regionData} from './regions-data.js';
 import {titleRegionForCode} from './title-region.js';
 import {repeatedPageCopy,repeatedParagraphs,relatedCandidates} from './page-copy.js';
+import {similarContent} from './content-similarity.js';
 export const draftModel='@cf/meta/llama-4-scout-17b-16e-instruct';
 export function searchFields(form){
  const region=String(form.get('search_region')||'').trim(),keyword=String(form.get('search_keyword')||'').trim();
@@ -96,13 +97,14 @@ export async function generateDraft(request,env,user,id,form){
   // Validate all image IDs before the second inference, then author page-specific guidance.
   assembleDraft(observed,post,company,region,images);
   diagnostics={...diagnostics,stage:'page-writing'};
-  const previous=await all(db,"SELECT id,title,search_region,search_keyword,related_keyword,page_copy,content FROM posts WHERE deleted_at IS NULL AND company_id=? AND id!=? AND (status='PUBLISHED' OR writer_id=? OR ?=1) ORDER BY CASE WHEN search_keyword=? THEN 0 ELSE 1 END,updated_at DESC LIMIT 500",post.company_id,id,user.id,isAdmin(user)?1:0,post.search_keyword);
+  const previous=await all(db,"SELECT id,company_id,title,search_region,search_keyword,related_keyword,page_copy,content FROM posts WHERE deleted_at IS NULL AND company_id=? AND id!=? AND (status='PUBLISHED' OR writer_id=? OR ?=1) ORDER BY CASE WHEN search_keyword=? THEN 0 ELSE 1 END,updated_at DESC LIMIT 500",post.company_id,id,user.id,isAdmin(user)?1:0,post.search_keyword);
   const written=await env.AI.run(writingModel,pageWritingInput(post,company,region,observed,previous));
   const writing=writingResponse(written);diagnostics={...diagnostics,writing:pageWritingShape(writing)};
   const authored=validatePageWriting(writing,{requireCopy:true});
   const related=relatedCandidates(post.search_keyword,company);if(related.length&&!related.includes(authored.copy.related_keyword))throw Error('자동 작성의 연관 키워드가 등록된 업무와 다릅니다. 업체 정보와 사진을 확인해 주세요.');
   diagnostics={...diagnostics,stage:'final-assembly'};
   const values=assembleDraft({...observed,page:authored},post,company,region,images,previous),titleHash=await digest(normal(values.title)),contentHash=await digest(normal(values.content.join('\n\n')));
+  if(similarContent({...post,...values},previous).length)throw Error('자동 작성 내용이 기존 글과 매우 비슷합니다. 다른 사진이나 확인된 작업 정보를 보강해 주세요. 기존 내용은 보존했습니다.');
   if(repeatedPageCopy(JSON.parse(values.page_copy),previous,post.search_region,post.search_keyword).length)throw Error('자동 작성 문구가 기존 글과 반복됩니다. 사진과 업무에 맞는 구체적인 내용을 보강해 다시 작성해 주세요.');
   const keywordKey=value=>normal(value).replace(/[^\p{L}\p{N}]/gu,'');
   if(keywordKey(authored.copy.related_keyword)===keywordKey(post.search_keyword)||repeatedParagraphs({...post,...values},previous,localContext(post.search_region,region.admin_code||region.group_key)))throw Error('자동 작성의 주요 문단이나 키워드가 반복됩니다. 사진에 맞는 고유 내용을 확인해 다시 작성해 주세요.');
