@@ -26,10 +26,10 @@ export function filterUrl(params,changes){const next=new URLSearchParams(params)
 export function portalHeader(params=new URLSearchParams()){
   const nav=[['','전체 글'],...Object.entries(postKinds)];
   const navIcons={'':'🗂️',case:'🔧',guide:'📌',local:'📍',tip:'💡'};
-  return `<header class="masthead"><div class="wrap header">${brandMark()}
+  return `<header class="masthead"><div class="wrap header" data-nosnippet>${brandMark()}
     <form class="header-search" action="/" method="get" role="search"><label class="sr-only" for="portal-q">게시글 검색</label><input id="portal-q" name="q" maxlength="100" value="${e(params.get('q')||'')}" placeholder="지역, 업종, 작업사례 검색">${[...params].filter(([key])=>['province','district','dong','region','service','kind'].includes(key)).map(([key,value])=>`<input type="hidden" name="${key}" value="${e(value)}">`).join('')}<button type="submit" aria-label="게시글 검색">검색</button></form>
     <span class="header-note"><span aria-hidden="true">✨</span> 작업 경험으로 연결되는 우리 동네</span></div>
-    <div class="nav-band"><nav class="wrap main-nav" aria-label="주 메뉴">${nav.map(([kind,name])=>`<a href="${e(filterUrl(params,{kind}))}" ${params.get('kind')===kind||(!kind&&!params.get('kind'))?'aria-current="page"':''}><span class="nav-emoji" aria-hidden="true">${navIcons[kind]}</span>${e(name)}</a>`).join('')}</nav></div></header>`;
+    <div class="nav-band" data-nosnippet><nav class="wrap main-nav" aria-label="주 메뉴">${nav.map(([kind,name])=>`<a href="${e(filterUrl(params,{kind}))}" ${params.get('kind')===kind||(!kind&&!params.get('kind'))?'aria-current="page"':''}><span class="nav-emoji" aria-hidden="true">${navIcons[kind]}</span>${e(name)}</a>`).join('')}</nav></div></header>`;
 }
 function photoStrip(data){
   const {published,services,postImages:images}=data;

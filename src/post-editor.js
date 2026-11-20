@@ -8,7 +8,9 @@ import {photoPanel} from './uploads.js';
 import {initialDraftText,waitingForPhotos} from './draft-state.js';
 import {postArticle} from './post-article.js';
 import {titleRegionForCode} from './title-region.js';
+import {withRegionTitle} from './post-title.js';
 export function editPage(user,data,post={},message='',status=200){
+ post=withRegionTitle(post,data.regions.find(region=>region.id===Number(post.region_id)));
  const editable=!post.id||post.status==='DRAFT',content=Array.isArray(post.content)?post.content.join('\n\n'):post.content;
  const selectedRegion=data.regions.find(item=>item.id===Number(post.region_id)),qualifiedRegion=titleRegionForCode(selectedRegion?.group_key||selectedRegion?.admin_code);
  const inputRegion=post.search_region&&!post.search_region.includes(' ')&&qualifiedRegion?.split(' ').at(-1)===post.search_region?qualifiedRegion:post.search_region;

@@ -1,6 +1,8 @@
 import {readFile} from 'node:fs/promises';
 export const localMedia={async fetch(request){
-  const name=new URL(request.url).pathname.slice('/media/'.length);
+  const path=new URL(request.url).pathname;
+  if(path==='/favicon.ico'){const bytes=await readFile(new URL('../public/favicon.ico',import.meta.url));return new Response(request.method==='HEAD'?null:bytes,{headers:{'content-type':'image/vnd.microsoft.icon','cache-control':'public, max-age=86400','x-content-type-options':'nosniff'}});}
+  const name=path.slice('/media/'.length);
   if(!/^[a-z0-9-]+\.(?:jpg|png|woff2)$/.test(name)&&name!=='pretendard-ofl.txt')return new Response('Not found',{status:404});
   try{
     const bytes=await readFile(new URL('../public/media/'+name,import.meta.url));

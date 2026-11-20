@@ -22,6 +22,14 @@ test('brand, favicon, publisher and about page have crawlable canonical represen
  const about=await(await worker.fetch(new Request('https://gongsa8282.xyz/about/'))).text();assert.match(about,/자동 작성 기능/);assert.match(about,/운영자가 사진·지역·업무 사실을 확인/);assert.ok(graph(about).some(n=>n['@type']==='WebPage'));assert.doesNotMatch(about,/FAQPage|HowTo/);
  const sitemap=await(await worker.fetch(new Request('https://gongsa8282.xyz/sitemap.xml'))).text();assert.match(sitemap,/<loc>https:\/\/gongsa8282.xyz\/about\/<\/loc>/);
 });
+
+test('the stable PNG and default ICO both identify the brand; only navigation is excluded from snippets',async()=>{
+ const get=(path,method='GET')=>worker.fetch(new Request('https://gongsa8282.xyz'+path,{method}),{ASSETS:localMedia});
+ const response=await get('/favicon.ico'),bytes=Buffer.from(await response.arrayBuffer());assert.equal(response.status,200);assert.match(response.headers.get('content-type'),/image\/.*icon/);assert.equal(bytes.readUInt16LE(0),0);assert.equal(bytes.readUInt16LE(2),1);assert.equal(bytes.readUInt16LE(4),4);
+ for(let i=0;i<4;i++){const at=6+i*16,size=bytes[at],offset=bytes.readUInt32LE(at+12),length=bytes.readUInt32LE(at+8);assert.equal(size,bytes[at+1]);assert.ok([32,48,64,192].includes(size));assert.ok(offset+length<=bytes.length);assert.equal(bytes.subarray(offset,offset+8).toString('hex'),'89504e470d0a1a0a');}
+ assert.equal(await(await get('/favicon.ico','HEAD')).text(),'');assert.equal((await get('/favicon.ico','POST')).status,405);
+ const html=await(await get('/')).text();assert.match(html,/rel="icon" type="image\/png" sizes="192x192" href="https:\/\/gongsa8282.xyz\/media\/dongnepin-symbol.png"/);assert.match(html,/rel="shortcut icon"[^>]*https:\/\/gongsa8282.xyz\/favicon.ico/);assert.match(html,/rel="apple-touch-icon"/);assert.match(html,/<div class="wrap header" data-nosnippet>/);assert.doesNotMatch(html,/<main[^>]*data-nosnippet/);assert.match(html,/<main id="main">/);
+});
 test('provider and supplied content links do not pass paid or untrusted ranking credit',()=>{
  assert.match(inlineText('[제공 자료](https://example.com)'),/rel="noopener noreferrer ugc nofollow"/);assert.match(placeCard({name:'업체',naver_place_url:'https://naver.me/abcd1234'}),/rel="noopener noreferrer nofollow"/);
 });
