@@ -14,6 +14,7 @@ import {regionData} from './regions-data.js';
 import {titleRegionForCode} from './title-region.js';
 import {repeatedPageCopy,repeatedParagraphs,relatedCandidates} from './page-copy.js';
 import {similarContent} from './content-similarity.js';
+import {diversifyTitleSuffix} from './title-variety.js';
 export const draftModel='@cf/meta/llama-4-scout-17b-16e-instruct';
 export function searchFields(form){
  const region=String(form.get('search_region')||'').trim(),keyword=String(form.get('search_keyword')||'').trim();
@@ -35,11 +36,12 @@ export function composePage(user,data,message='',status=200){
 }
 const normal=text=>text.normalize('NFKC').replace(/\s+/g,'').toLowerCase();
 const clean=(value,max)=>{if(typeof value!=='string'||!value.trim()||value.length>max)throw Error('자동 작성 결과가 올바르지 않습니다. 다시 시도해 주세요.');return value.replace(/\[사진:\d+\]/g,'').replace(/\[([^\]]+)\]\([^)]+\)/g,'$1').trim();};
-export function assembleDraft(raw,post,company,region,images,previous=[]){
+export function assembleDraft(raw,post,company,region,images,previous=[],titleHistory=previous){
  const data=typeof raw==='string'?JSON.parse(raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,'')):raw;
  const authored=data.page?validatePageWriting(data.page):null;
  const copy=authored?.copy;
  if(copy){let suffix=copy.title_suffix;for(const label of [post.search_region,...post.search_region.split(/\s+/),post.search_keyword,copy.related_keyword].filter(label=>label?.length>=2).sort((a,b)=>b.length-a.length))suffix=suffix.split(label).join(' ');suffix=suffix.replace(/\s+/g,' ').replace(/^[\s·,\-]+|[\s·,\-]+$/g,'');copy.title_suffix=suffix.length>=6?suffix:authored.details.slice(0,2).map(item=>item.title).join(' · ').slice(0,55);
+  copy.title_suffix=diversifyTitleSuffix(copy.title_suffix,authored.details.map(item=>item.title),titleHistory,[post.search_region,...post.search_region.split(/\s+/),post.search_keyword,copy.related_keyword]);
   // Location facts come only from localContext. Use the photo-specific preparation
   // here instead of publishing invented neighbourhood ages or demographics.
   copy.local_intro=authored.preparation;copy.local_heading=(post.search_region+' · '+copy.title_suffix).slice(0,85);
@@ -98,12 +100,14 @@ export async function generateDraft(request,env,user,id,form){
   assembleDraft(observed,post,company,region,images);
   diagnostics={...diagnostics,stage:'page-writing'};
   const previous=await all(db,"SELECT id,company_id,title,search_region,search_keyword,related_keyword,page_copy,content FROM posts WHERE deleted_at IS NULL AND company_id=? AND id!=? AND (status='PUBLISHED' OR writer_id=? OR ?=1) ORDER BY CASE WHEN search_keyword=? THEN 0 ELSE 1 END,updated_at DESC LIMIT 500",post.company_id,id,user.id,isAdmin(user)?1:0,post.search_keyword);
-  const written=await env.AI.run(writingModel,pageWritingInput(post,company,region,observed,previous));
+  const publicTitles=await all(db,"SELECT p.id,p.title,p.page_copy FROM posts p JOIN companies c ON c.id=p.company_id WHERE p.id!=? AND p.status='PUBLISHED' AND p.deleted_at IS NULL AND p.sample=0 AND c.status='ACTIVE' AND c.deleted_at IS NULL AND c.sample=0 ORDER BY p.id DESC LIMIT 200",id);
+  const titleHistory=[...new Map([...publicTitles,...previous].map(item=>[item.id,item])).values()];
+  const written=await env.AI.run(writingModel,pageWritingInput(post,company,region,observed,previous,titleHistory));
   const writing=writingResponse(written);diagnostics={...diagnostics,writing:pageWritingShape(writing)};
   const authored=validatePageWriting(writing,{requireCopy:true});
   const related=relatedCandidates(post.search_keyword,company);if(related.length&&!related.includes(authored.copy.related_keyword))throw Error('자동 작성의 연관 키워드가 등록된 업무와 다릅니다. 업체 정보와 사진을 확인해 주세요.');
   diagnostics={...diagnostics,stage:'final-assembly'};
-  const values=assembleDraft({...observed,page:authored},post,company,region,images,previous),titleHash=await digest(normal(values.title)),contentHash=await digest(normal(values.content.join('\n\n')));
+  const values=assembleDraft({...observed,page:authored},post,company,region,images,previous,titleHistory),titleHash=await digest(normal(values.title)),contentHash=await digest(normal(values.content.join('\n\n')));
   if(similarContent({...post,...values},previous).length)throw Error('자동 작성 내용이 기존 글과 매우 비슷합니다. 다른 사진이나 확인된 작업 정보를 보강해 주세요. 기존 내용은 보존했습니다.');
   if(repeatedPageCopy(JSON.parse(values.page_copy),previous,post.search_region,post.search_keyword).length)throw Error('자동 작성 문구가 기존 글과 반복됩니다. 사진과 업무에 맞는 구체적인 내용을 보강해 다시 작성해 주세요.');
   const keywordKey=value=>normal(value).replace(/[^\p{L}\p{N}]/gu,'');

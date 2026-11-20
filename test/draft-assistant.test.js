@@ -77,6 +77,18 @@ test('a second-stage writing failure preserves the previous draft and photos',as
  }finally{f.DB.close();}
 });
 
+test('a public title from another company informs ending diversity without extra inference or changing prior posts',async()=>{
+ const f=await fixture();try{
+  await f.DB.prepare('UPDATE companies SET sample=0 WHERE id=3').run();
+  await f.DB.prepare("UPDATE posts SET sample=0,title='수원시 · 흰 틀 상담 전 살펴보기' WHERE id=103").run();
+  const before=await f.DB.prepare('SELECT * FROM posts WHERE id=103').first();let calls=0,input;
+  f.env.AI.run=async(model,payload)=>{calls++;if(model===writingModel)input=JSON.parse(payload.messages[1].content);return {response:JSON.stringify({...output,photos:[{...output.photos[0],id:9001}]})};};
+  const result=await f.generate();assert.equal(result.status,200,await result.clone().text());assert.equal(calls,2);
+  assert.ok(input.title_variety.recent_endings.includes('흰 틀 상담 전 살펴보기'));const after=await f.row();assert.match(after.title,/사우동 방충망 교체/);assert.doesNotMatch(after.title,/살펴보기$/);assert.match(after.title,/틀과 망의 상태/);assert.equal(JSON.parse(after.page_copy).title_suffix,after.title.split(' · ').at(-1));
+  assert.deepEqual(await f.DB.prepare('SELECT * FROM posts WHERE id=103').first(),before);
+ }finally{f.DB.close();}
+});
+
 test('repeated headings and closing copy from an earlier page cannot overwrite the saved draft',async()=>{
  const f=await fixture();try{
   await f.DB.prepare('UPDATE posts SET page_copy=?,related_keyword=? WHERE id=101').bind(JSON.stringify(windowCopy),windowCopy.related_keyword).run();
