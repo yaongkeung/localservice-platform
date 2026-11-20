@@ -11,6 +11,7 @@ async function freshDirectory(path){inside(root,path);if(resolve(path)===root)th
 async function checksum(path){const hash=createHash('sha256');for await(const chunk of createReadStream(path))hash.update(chunk);return hash.digest('hex');}
 function references(db){
  const files=new Set(['portal.sqlite']),rows=db.prepare('SELECT storage_key,thumbnail_key FROM post_images').all();
+ if(db.prepare('PRAGMA table_info(post_images)').all().some(column=>column.name==='source_storage_key'))rows.push(...db.prepare('SELECT source_storage_key AS storage_key,source_thumbnail_key AS thumbnail_key FROM post_images').all());
  if(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='company_images'").get())rows.push(...db.prepare('SELECT storage_key,thumbnail_key FROM company_images').all());
  for(const row of rows)for(const key of [row.storage_key,row.thumbnail_key]){
   if(!key||key.startsWith('/media/'))continue;

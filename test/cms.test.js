@@ -98,7 +98,7 @@ test('migrations are repeatable and saved drafts persist after database restart'
   db=sqliteDatabase(path);await migrate(db);await seed(db);
   assert.equal((await db.prepare('SELECT title FROM posts WHERE id=?').bind(id).first()).title,values().title);
   assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM posts').first()).n,4);
-  assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM d1_migrations').first()).n,18);
+  assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM d1_migrations').first()).n,19);
  }finally{db?.close();assert.ok(resolve(dir).startsWith(resolve(tmpdir())+sep)&&basename(dir).startsWith('localservice-cms-'));await rm(dir,{recursive:true,force:true});}
 });
 test('missing DB does not expose a login bypass; production admin requires HTTPS',async()=>{

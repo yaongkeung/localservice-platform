@@ -142,3 +142,7 @@ post_search_checks는 post_id/user_id/post_version/query/public_path/result(FOUN
 ## migration 0018 (게시글 간 사진 재사용)
 
 활성 사진의 전역 content_hash 고유 인덱스를 같은 글 안의 `(post_id,content_hash)` 고유 인덱스로 교체합니다. 모든 기존 행·사진 경로·해시·소속·제외 상태는 그대로 보존합니다. 다른 글의 같은 사진은 각각의 별도 객체 경로와 공개 권한을 유지하며, 같은 글에 같은 사진을 다시 선택하면 새 행 없이 성공 처리합니다. 사진 수량·사진 변경 가능 상태·공개 권한 trigger는 유지합니다.
+
+## migration 0019 (재사용 사진의 자동 홍보 편집)
+
+post_images에 source_hash/source_storage_key/source_thumbnail_key/branding을 nullable로 추가합니다. 기존 행은 NULL 그대로 유지합니다. content_hash는 표시할 편집본, source_hash는 서버가 메타데이터 제거 후 직접 계산한 원본 해시입니다. 편집된 사진은 메타데이터를 제거한 원본 커버/썸네일을 별도 비공개 객체로 보관하고 branding에 실제 업체명·확인된 번호·지역/업무·스타일을 기록합니다. 사진 고유 인덱스는 `(post_id,COALESCE(source_hash,content_hash))`로 바꿔 재선택 시 두 번째 배너를 붙이지 않습니다. 원본 키는 공개 사진 경로에서 인증 없이 제공하지 않고 자동 작성과 백업에서만 활용합니다. 편집본도 기존 글 공개 조건을 그대로 적용합니다.

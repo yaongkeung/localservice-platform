@@ -19,12 +19,13 @@ export function uploadClient(){
   if(!response.headers.get('content-type')?.includes('application/json'))throw Error('로그인 상태를 확인하고 페이지를 다시 열어 주세요.');
   const result=await response.json();if(!response.ok)throw Error(result.error||'작성 내용을 작성하지 못했습니다.');if(new URL(result.location,location.href).href===location.href)location.reload();else location.assign(result.location);
  };
- const prepare=async file=>{
+ const prepare=async(file,brand)=>{
   const bitmap=await createImageBitmap(file);
   try{
    const scale=Math.min(1,1280/Math.max(bitmap.width,bitmap.height)),canvas=document.createElement('canvas');
    canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
-   const context=canvas.getContext('2d');context.fillStyle='#fff';context.fillRect(0,0,canvas.width,canvas.height);context.drawImage(bitmap,0,0,canvas.width,canvas.height);
+   if(brand){try{if(document.fonts)await Promise.all([document.fonts.load('800 48px Pretendard'),document.fonts.load('900 78px Pretendard')]);}catch{/* The system Korean font remains available if the webfont fails. */}paintBrandedPhoto(canvas,bitmap,brand);}
+   else{const context=canvas.getContext('2d');context.fillStyle='#fff';context.fillRect(0,0,canvas.width,canvas.height);context.drawImage(bitmap,0,0,canvas.width,canvas.height);}
    const thumbScale=Math.min(1,240/canvas.width,160/canvas.height),thumb=document.createElement('canvas');thumb.width=Math.max(1,Math.round(canvas.width*thumbScale));thumb.height=Math.max(1,Math.round(canvas.height*thumbScale));thumb.getContext('2d').drawImage(canvas,0,0,thumb.width,thumb.height);
    const [blob,preview]=await Promise.all([new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.88)),new Promise(resolve=>thumb.toBlob(resolve,'image/jpeg',.75))]);
    if(!blob||!preview)throw Error('사진 변환에 실패했습니다.');
@@ -42,10 +43,10 @@ export function uploadClient(){
    let version=form.querySelector('[name=version]').value;
    for(const file of files){
     message.textContent='사진 '+(saved+1)+' / '+files.length+'장을 준비·등록하고 있습니다…';operation.step(1,message.textContent);button.textContent='사진 '+(saved+1)+' / '+files.length+'장 처리 중…';
-    const {blob,preview}=await prepare(file),body=new FormData(form);body.set('photo',blob,'photo.jpg');body.set('thumbnail',preview,'thumbnail.jpg');body.set('version',version);
-    const response=await fetch(form.getAttribute('action')||location.pathname,{method:'POST',body,credentials:'same-origin',headers:{'x-photo-upload':'1'}});
-    if(!response.headers.get('content-type')?.includes('application/json'))throw Error('로그인 상태를 확인한 뒤 페이지를 새로 열어 주세요.');
-    const result=await response.json();if(!response.ok)throw Error(result.error||'사진을 등록하지 못했습니다.');
+    const original=await prepare(file);
+    const send=async(pair,brand)=>{const body=new FormData(form);body.set('photo',pair.blob,'photo.jpg');body.set('thumbnail',pair.preview,'thumbnail.jpg');body.set('version',version);body.set('auto_brand','1');if(brand){body.set('source_photo',original.blob,'original.jpg');body.set('source_thumbnail',original.preview,'original-thumb.jpg');body.set('branding',JSON.stringify(brand));}const response=await fetch(form.getAttribute('action')||location.pathname,{method:'POST',body,credentials:'same-origin',headers:{'x-photo-upload':'1'}});if(!response.headers.get('content-type')?.includes('application/json'))throw Error('로그인 상태를 확인한 뒤 페이지를 새로 열어 주세요.');const result=await response.json();if(!response.ok)throw Error(result.error||'사진을 등록하지 못했습니다.');return result;};
+    let result=await send(original);
+    if(result.needs_branding){message.textContent='중복 사진에 업체명·전화번호를 넣어 편집하고 있습니다…';operation.step(1,message.textContent);button.textContent='홍보 사진 편집 중…';result=await send(await prepare(file,result.brand),result.brand);if(result.needs_branding)throw Error('업체 정보가 변경됐습니다. 다시 눌러 편집을 완료해 주세요.');}
     saved++;if(!result.reused)added++;version=result.version;updateVersions(version);locationAfterSave=result.location;
    }
    if(form.dataset.generateUrl){message.textContent='사진을 분석하고 본문을 작성하고 있습니다. 응답을 기다려 주세요…';operation.step(2,message.textContent);button.textContent='사진 분석·본문 작성 중…';await generate(form,version);operation.step(3,'작성 완료! 완성된 페이지를 열고 있습니다.');}

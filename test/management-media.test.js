@@ -24,7 +24,7 @@ async function fixture(){
  const create=async(overrides={},as=2)=>{const response=await call('/admin/posts/new/',{as,form:{title:'시험용 작업 내용 '+randomToken().slice(0,8),summary:'공개 흐름과 사진을 검증하는 테스트용 작업 내용입니다.',content:'관리 화면에서 저장한 고유한 작업 과정입니다. 수전 주변을 살펴보고 물기를 정리한 후 점검할 부분을 확인했습니다. 실제 작업 실적을 나타내는 글이 아니며 자동 검증을 위해 작성했습니다. '+randomToken(),company_id:1,region_id:2,service_id:1,post_type:'작업사례',...overrides}});assert.equal(response.status,303,await response.clone().text());return Number(response.headers.get('location').split('/')[3]);};
  const row=id=>DB.prepare('SELECT * FROM posts WHERE id=?').bind(id).first();
  const transition=async(id,action,as=1)=>call(`/admin/posts/${id}/status/`,{as,form:{action,version:(await row(id)).version}});
- const upload=async(id,bytes,as=2,extra={})=>{let thumb;try{thumb=preparePhoto(bytes).thumb;}catch{thumb=bytes;}const body=new FormData();body.set('thumbnail',new Blob([thumb],{type:'image/jpeg'}),'preview.jpg');body.set('photo',new Blob([bytes],{type:'image/jpeg'}),'untrusted-name.jpg');body.set('alt_text','샘플 연결부 점검 사진');body.set('csrf',auth[as].csrf);body.set('version',String((await row(id)).version));for(const [k,v]of Object.entries(extra))body.set(k,v);return call(`/admin/posts/${id}/photos/`,{as,body});};
+ const upload=async(id,bytes,as=2,extra={},headers={})=>{let thumb;try{thumb=preparePhoto(bytes).thumb;}catch{thumb=bytes;}const body=new FormData();body.set('thumbnail',new Blob([thumb],{type:'image/jpeg'}),'preview.jpg');body.set('photo',new Blob([bytes],{type:'image/jpeg'}),'untrusted-name.jpg');body.set('alt_text','샘플 연결부 점검 사진');body.set('csrf',auth[as].csrf);body.set('version',String((await row(id)).version));for(const [k,v]of Object.entries(extra))body.set(k,v);return call(`/admin/posts/${id}/photos/`,{as,body,headers});};
  const changePhoto=async(id,image,action,as=2,version)=>call(`/admin/posts/${id}/photos/`,{as,form:{image_id:image,action,version:version??(await row(id)).version}});
  return {DB,objects,PHOTOS,auth,call,create,row,transition,upload,changePhoto};
 }
@@ -259,6 +259,27 @@ test('same-post photo retries and restores continue without duplicate rows, obje
   const body=new FormData();body.set('photo',new Blob([bytes],{type:'image/jpeg'}),'same.jpg');body.set('thumbnail',new Blob([preparePhoto(bytes).thumb],{type:'image/jpeg'}),'thumb.jpg');body.set('csrf',f.auth[2].csrf);body.set('version',String(before.version));
   const json=await f.call('/admin/posts/'+id+'/photos/',{as:2,body,headers:{'x-photo-upload':'1'}});assert.equal(json.status,200);assert.deepEqual(await json.json(),{location:'/admin/posts/'+id+'/',version:before.version,reused:true});
   assert.equal((await f.changePhoto(id,original.id,'exclude')).status,303);assert.equal((await f.upload(id,bytes)).status,303);const after=await f.row(id);assert.equal((await f.changePhoto(id,original.id,'restore')).status,303);assert.deepEqual(await f.row(id),after);assert.equal((await f.DB.prepare('SELECT COUNT(*) n FROM post_images WHERE post_id=? AND excluded=0').bind(id).first()).n,1);
+ }finally{f.DB.close();}
+});
+
+test('duplicate-photo editing uses the target company and page phone, preserves the private original and never stacks a second banner',async()=>{
+ const f=await fixture();try{
+  const headers={'x-photo-upload':'1'},original=await photo(),first=await f.create();assert.equal((await f.upload(first,original,2,{auto_brand:'1'},headers)).status,200);
+  await f.DB.prepare("UPDATE companies SET name='대상 업체',phone='01011112222',phone_verified=1 WHERE id=2").run();
+  const id=await f.create({company_id:2,contact_phone:'010-9999-8888',title:'별도 창고 장비 보관과 운반 동선 기록',content:'창고 입구의 장비 보관 장소와 운반 통로를 구분해 기록했습니다. 바닥 자재는 크기별로 분류하고 보관 선반의 높이와 통로 너비를 확인할 사항으로 정리합니다. 사진은 업체가 제공한 참고 자료이며 이번 작업이 완료되었다고 주장하지 않습니다.'},1),before=await f.row(id),initialObjects=[...f.objects.keys()];
+  const checked=await f.upload(id,original,1,{auto_brand:'1'},headers);assert.equal(checked.status,200);const {brand,needs_branding}=await checked.json();assert.equal(needs_branding,true);assert.equal(brand.company,'대상 업체');assert.equal(brand.phone,'010-9999-8888');assert.deepEqual(await f.row(id),before);assert.deepEqual([...f.objects.keys()],initialObjects);
+  const edited=await readFile(new URL('../public/media/cleaning-cover.jpg',import.meta.url)),extra={auto_brand:'1',source_photo:new Blob([original],{type:'image/jpeg'}),source_thumbnail:new Blob([preparePhoto(original).thumb],{type:'image/jpeg'}),branding:JSON.stringify(brand)};
+  assert.equal((await f.upload(id,edited,1,{...extra,csrf:'wrong'},headers)).status,403);assert.equal((await f.upload(id,edited,2,extra,headers)).status,404);
+  assert.equal((await(await f.upload(id,edited,1,{...extra,branding:JSON.stringify({...brand,phone:'010-0000-0000'})},headers)).json()).needs_branding,true);
+  assert.equal((await f.upload(id,original,1,extra,headers)).status,409);
+  const saved=await f.upload(id,edited,1,extra,headers);assert.equal(saved.status,200,await saved.clone().text());assert.equal((await saved.json()).reused,false);
+  const image=await f.DB.prepare('SELECT * FROM post_images WHERE post_id=?').bind(id).first(),source=await f.DB.prepare('SELECT * FROM post_images WHERE post_id=?').bind(first).first();assert.equal(image.source_hash,source.content_hash);assert.notEqual(image.content_hash,image.source_hash);assert.deepEqual(JSON.parse(image.branding),brand);assert.equal(f.objects.size,6);
+  assert.equal((await f.call(image.source_storage_key)).status,404);assert.equal((await f.call(image.source_storage_key,{as:1})).status,200);assert.equal((await f.call(image.source_storage_key,{as:2})).status,404);
+  const current=await f.row(id),retry=await(await f.upload(id,original,1,{auto_brand:'1'},headers)).json();assert.equal(retry.reused,true);assert.deepEqual(await f.row(id),current);assert.equal(f.objects.size,6);
+  for(const action of ['submit','approve','publish']){const response=await f.transition(id,action);assert.equal(response.status,303,await response.clone().text());}
+  assert.equal((await f.call(image.storage_key)).status,200);assert.equal((await f.call(image.source_storage_key)).status,404);assert.equal((await f.call(image.source_thumbnail_key)).status,404);
+  for(const path of ['/post/'+id+'/','/rss.xml']){const html=await(await f.call(path)).text();assert.ok(html.includes(image.storage_key));assert.ok(!html.includes(image.source_storage_key));}
+  const third=await f.create({company_id:2,title:'추가 사진 등록 확인을 위한 별도 보관 내용'},1);assert.equal((await(await f.upload(third,original,1,{auto_brand:'1'},headers)).json()).needs_branding,true);
  }finally{f.DB.close();}
 });
 

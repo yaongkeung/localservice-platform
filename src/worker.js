@@ -19,6 +19,7 @@ import {sampleDataset,publicDataset} from './store.js';
 import {cms} from './cms.js';
 import {uploadedPhoto} from './uploads.js';
 import {uploadClient} from './upload-client.js';
+import {paintBrandedPhoto} from './photo-branding.js';
 import {pageShell} from './public-shell.js';
 import {siteOrigin,absolute,isoDate,sitemap,sitemapText,rss,robots} from './seo.js';
 import {cmsRegionClient} from './cms-regions.js';
@@ -101,7 +102,7 @@ async function handle(request,env={},ctx){
   let body,type;
   if(url.pathname==='/assets/cms-regions.js'){body=browserScript(cmsRegionClient,{formatTitleRegion});type='text/javascript';}
   else if(url.pathname==='/assets/editor.js'){body=browserScript(editorClient,{titleFor});type='text/javascript';}
-  else if(url.pathname==='/assets/upload.js'){body=browserScript(uploadClient,{operationUi});type='text/javascript';}
+  else if(url.pathname==='/assets/upload.js'){body=browserScript(uploadClient,{operationUi,paintBrandedPhoto});type='text/javascript';}
   else if(url.pathname==='/assets/cms-actions.js'){body=browserScript(editorActions,{operationUi});type='text/javascript';}
   else if(url.pathname==='/assets/post-list.js'){body=browserScript(postListClient);type='text/javascript';}
   else if(url.pathname==='/assets/portal.js'){body=browserScript(portalClient);type='text/javascript';}
