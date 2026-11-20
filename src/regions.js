@@ -11,11 +11,11 @@ export function regionFilter(params){
   const districts=regionData.districts.filter(d=>d.province===province?.code);
   const dongs=townshipOptions(selectedDistrict);
   const option=(item,selected)=>`<option value="${item.code}" ${item.code===selected?'selected':''}>${e(item.name)}</option>`;
-  return `<form class="region-filter" id="region-filter" action="/" method="get" aria-label="지역 필터">
+  return `<form class="region-filter" id="region-filter" action="/#cases" method="get" aria-label="지역 필터">
     ${['q','kind','service'].filter(key=>params.get(key)).map(key=>`<input type="hidden" name="${key}" value="${e(params.get(key))}">`).join('')}
     <label>시·도<select name="province" id="province-select"><option value="">전국 전체</option>${regionData.provinces.map(p=>option(p,province?.code)).join('')}</select></label>
     <label>시·군·구<select name="district" id="district-select" ${province?'':'disabled'}><option value="">전체 시·군·구</option>${districts.map(d=>option(d,selectedDistrict)).join('')}</select></label>
     <label>읍·면·동<select name="dong" id="dong-select" ${selectedDistrict?'':'disabled'}><option value="">전체 읍·면·동</option>${dongs.map(d=>option(d,groupForCode(params.get('dong'))?.code||params.get('dong'))).join('')}</select></label>
-    <button type="submit">지역 적용</button><p class="filter-status" id="filter-status" role="status"></p>
+    <button type="submit">지역 글 보기</button><p class="filter-status" id="filter-status" role="status"></p>
   </form>`;
 }
