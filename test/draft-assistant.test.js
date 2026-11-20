@@ -52,12 +52,23 @@ test('photo generation uses private image bytes and saves a reviewable draft wit
   assert.equal((await f.call(`/admin/posts/${f.id}/status/`,{version:(await f.row()).version,action:'submit'})).status,303);
  }finally{f.DB.close();}
 });
-test('AI failures, revoked access and stale versions cannot overwrite saved content; daily retry caps apply',async()=>{
+test('AI failures, revoked access and stale versions cannot overwrite saved content; restored access permits retry',async()=>{
  const f=await fixture();try{
   const before=await f.row();f.env.AI.run=async()=>{throw Error('provider details must stay private');};const failure=await f.generate();assert.equal(failure.status,409);assert.ok(!(await failure.text()).includes('provider details'));assert.equal((await f.row()).content,before.content);
   f.env.AI.run=async()=>{await f.DB.prepare('UPDATE posts SET version=version+1 WHERE id=?').bind(f.id).run();return {response:JSON.stringify({...output,photos:[{...output.photos[0],id:9001}]})};};assert.equal((await f.generate()).status,409);assert.equal((await f.row()).content,before.content);
   f.env.AI.run=async()=>{await f.DB.prepare('DELETE FROM company_assignments WHERE user_id=1').run();return {response:JSON.stringify({...output,photos:[{...output.photos[0],id:9001}]})};};assert.equal((await f.generate()).status,409);assert.equal((await f.row()).content,before.content);
-  await f.DB.prepare('INSERT INTO company_assignments(user_id,company_id) VALUES(1,1)').run();const cap=await f.generate();assert.equal(cap.status,409);assert.match(await cap.text(),/한도/);
+  await f.DB.prepare('INSERT INTO company_assignments(user_id,company_id) VALUES(1,1)').run();
+  f.env.AI.run=async()=>({response:JSON.stringify({...output,photos:[{...output.photos[0],id:9001}]})});const retry=await f.generate();assert.equal(retry.status,200,await retry.clone().text());assert.equal((await f.DB.prepare('SELECT COUNT(*) n FROM draft_generations WHERE post_id=?').bind(f.id).first()).n,4);
+ }finally{f.DB.close();}
+});
+
+test('generation proceeds beyond the former global and per-post daily quotas while retaining all previous attempts',async()=>{
+ const f=await fixture();try{
+  for(let i=0;i<12;i++)await f.DB.prepare("INSERT INTO draft_generations(post_id,user_id,model,state,previous_content,photo_ids) VALUES(?,?,?,'FAILED','{}','[]')").bind(f.id,1,draftModel).run();
+  const prior=(await f.DB.prepare('SELECT * FROM draft_generations ORDER BY id').all()).results;let calls=0;
+  f.env.AI.run=async()=>{calls++;return {response:JSON.stringify({...output,photos:[{...output.photos[0],id:9001}]})};};
+  const before=await f.row(),response=await f.generate();assert.equal(response.status,200,await response.clone().text());assert.equal(calls,2);assert.equal((await f.row()).version,before.version+1);
+  const after=(await f.DB.prepare('SELECT * FROM draft_generations ORDER BY id').all()).results;assert.equal(after.length,13);assert.deepEqual(after.slice(0,12),prior);assert.equal(after.at(-1).state,'SAVED');
  }finally{f.DB.close();}
 });
 test('generation rejects CSRF, published posts and missing AI without exposing photos or changing the draft',async()=>{

@@ -90,9 +90,9 @@ export async function generateDraft(request,env,user,id,form){
   const [company,region,images]=await Promise.all([first(db,"SELECT * FROM companies WHERE id=? AND status='ACTIVE'",post.company_id),first(db,'SELECT * FROM regions WHERE id=?',post.region_id),all(db,'SELECT * FROM post_images WHERE post_id=? AND excluded=0 ORDER BY sort_order,id',id)]);
   if(!company||!region||!images.length)throw Error('사진과 업체·지역 정보를 먼저 등록해 주세요.');
   if(!targetRegionMatches(post.search_region,region,company))throw Error('지역명은 선택한 작업 지역 안에서 입력해 주세요.');
-  // Reserve before inference, atomically limiting all users to 10 attempts/day and 3/post/day.
-  generation=await first(db,"INSERT INTO draft_generations(post_id,user_id,model,state,previous_content,photo_ids) SELECT ?,?,?,'RUNNING',?,? WHERE (SELECT COUNT(*) FROM draft_generations WHERE model LIKE '@cf/%' AND created_at>=date('now'))<10 AND (SELECT COUNT(*) FROM draft_generations WHERE post_id=? AND model LIKE '@cf/%' AND created_at>=date('now'))<3 RETURNING id",id,user.id,draftModel,JSON.stringify({title:post.title,summary:post.summary,content:JSON.parse(post.content),related_keyword:post.related_keyword,page_copy:JSON.parse(post.page_copy||'{}')}),JSON.stringify(images.map(i=>i.id)),id);
-  if(!generation)throw Error('오늘의 자동 작성 한도에 도달했습니다. 글당 3회, 전체 10회까지 작성할 수 있습니다.');
+  // Keep a recoverable history for every attempt without a daily or per-post quota.
+  generation=await first(db,"INSERT INTO draft_generations(post_id,user_id,model,state,previous_content,photo_ids) VALUES(?,?,?,'RUNNING',?,?) RETURNING id",id,user.id,draftModel,JSON.stringify({title:post.title,summary:post.summary,content:JSON.parse(post.content),related_keyword:post.related_keyword,page_copy:JSON.parse(post.page_copy||'{}')}),JSON.stringify(images.map(i=>i.id)));
+  if(!generation)throw Error('자동 작성 기록을 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.');
   const result=await env.AI.run(draftModel,await visionInput(env,post,company,images));
   const observed=typeof result.response==='string'?JSON.parse(result.response.replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,'')):result.response;
   diagnostics={stage:'photo-validation',photos:Array.isArray(observed?.photos)?observed.photos.map(item=>({id:item.id,descriptionType:typeof item.description,descriptionLength:item.description?.length,adviceType:typeof item.advice,adviceLength:item.advice?.length})):[]};
