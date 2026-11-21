@@ -1,7 +1,12 @@
+import {primaryWorkKeyword} from './work-keyword.js';
 export function titleFor(region,keyword,related='',suffix=''){
- const prefix=[region,keyword,related&&related!==keyword?related:''].map(value=>String(value||'').trim()).filter(Boolean).join(' ');
+ const main=primaryWorkKeyword(keyword),extra=primaryWorkKeyword(related),key=value=>value.replace(/[^\p{L}\p{N}]/gu,'');
+ const prefix=[region,main,extra&&!key(main).includes(key(extra))&&!/^(유리집|유리가게|전문업체|업체)$/.test(extra)?extra:''].map(value=>String(value||'').trim()).filter(Boolean).join(' ');
  if(!region?.trim()||!keyword?.trim())return '';
- return (prefix+(suffix?' · '+suffix:'')).slice(0,120);
+ // An editorial readability target, not a search-engine character threshold.
+ const budget=Math.max(0,56-prefix.length-3),words=String(suffix||'').trim().split(/\s+/),kept=[];
+ for(const word of words){if([...kept,word].join(' ').length>budget)break;kept.push(word);}
+ const ending=kept.join(' ');return (prefix+(ending.length>=6?' · '+ending:'')).slice(0,120);
 }
 export function editorClient(){
  for(const form of document.querySelectorAll('[data-simple-editor]')){

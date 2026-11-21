@@ -15,6 +15,8 @@ import {titleRegionForCode} from './title-region.js';
 import {repeatedPageCopy,repeatedParagraphs,relatedCandidates} from './page-copy.js';
 import {similarContent} from './content-similarity.js';
 import {diversifyTitleSuffix} from './title-variety.js';
+import {cleanEditorialText,workNotesField} from './editorial-text.js';
+import {primaryWorkKeyword} from './work-keyword.js';
 export const draftModel='@cf/meta/llama-4-scout-17b-16e-instruct';
 export function searchFields(form){
  const region=String(form.get('search_region')||'').trim(),keyword=String(form.get('search_keyword')||'').trim();
@@ -32,11 +34,12 @@ export function targetRegionMatches(name,region,company){
  return !!company.area&&company.area.includes(region.name)&&company.area.includes(name);
 }
 export function composePage(user,data,message='',status=200){
- return page('사진으로 포스팅 작성',`<h1>📸 지역·키워드로 시작하기</h1><p>고객과 지역·업무를 선택하고 사진을 등록하면 제목과 본문을 자동으로 만듭니다.</p>${message?`<p class="cms-error" role="alert">${e(message)}</p>`:''}<form method="post" action="/admin/posts/new/" data-simple-editor><input type="hidden" name="simple_editor" value="1">${csrf(user)}<input type="hidden" name="action" value="prepare"><input type="hidden" name="post_type" value="서비스안내"><section class="panel cms-grid">${customerSelect(data.companies)}${phoneField()}${cmsRegionPicker({},data.regions)}<label>제목에 쓸 지역명<input name="search_region" placeholder="예: 사우동" minlength="2" maxlength="40" required></label><label>대표 업무 키워드<input name="search_keyword" placeholder="예: 방충망 교체" minlength="2" maxlength="40" required></label><label class="full">자동 연관 키워드<input data-related-keyword placeholder="사진 분석 후 업무에 맞춰 자동으로 채워집니다" readonly></label><label class="full">제목<input name="title" placeholder="지역명과 키워드를 입력하면 완성됩니다" readonly><span class="cms-help">사진 분석 후 연관 키워드와 사진에 맞는 뒷문장을 자동 작성합니다.</span></label></section><button>사진 등록으로 이어가기 →</button></form><p class="cms-help">실제 서비스 지역과 관련 있는 업무를 입력하세요. 작성된 내용을 확인하고 발행하면 바로 메인에 표시됩니다.</p>`,user,status);
+ return page('사진으로 포스팅 작성',`<h1>📸 지역·키워드로 시작하기</h1><p>고객과 지역·업무를 선택하고 사진을 등록하면 제목과 본문을 자동으로 만듭니다.</p>${message?`<p class="cms-error" role="alert">${e(message)}</p>`:''}<form method="post" action="/admin/posts/new/" data-simple-editor><input type="hidden" name="simple_editor" value="1">${csrf(user)}<input type="hidden" name="action" value="prepare"><input type="hidden" name="post_type" value="서비스안내"><section class="panel cms-grid">${customerSelect(data.companies)}${phoneField()}${cmsRegionPicker({},data.regions)}<label>제목에 쓸 지역명<input name="search_region" placeholder="예: 사우동" minlength="2" maxlength="40" required></label><label>대표 업무 키워드<input name="search_keyword" placeholder="예: 방충망 교체" minlength="2" maxlength="40" required></label><label class="full">자동 연관 키워드<input data-related-keyword placeholder="사진 분석 후 업무에 맞춰 자동으로 채워집니다" readonly></label><label class="full">제목<input name="title" placeholder="지역명과 키워드를 입력하면 완성됩니다" readonly><span class="cms-help">사진 분석 후 대표 작업과 연관 작업을 간결한 제목으로 만듭니다.</span></label>${workNotesField()}</section><button>사진 등록으로 이어가기 →</button></form><p class="cms-help">실제 서비스 지역과 관련 있는 업무를 입력하세요. 작성된 내용을 확인하고 발행하면 바로 메인에 표시됩니다.</p>`,user,status);
 }
 const normal=text=>text.normalize('NFKC').replace(/\s+/g,'').toLowerCase();
-const clean=(value,max)=>{if(typeof value!=='string'||!value.trim()||value.length>max)throw Error('자동 작성 결과가 올바르지 않습니다. 다시 시도해 주세요.');return value.replace(/\[사진:\d+\]/g,'').replace(/\[([^\]]+)\]\([^)]+\)/g,'$1').trim();};
+const clean=(value,max)=>{if(typeof value==='string')value=cleanEditorialText(value);if(typeof value!=='string'||!value.trim()||value.length>max)throw Error('자동 작성 결과가 올바르지 않습니다. 다시 시도해 주세요.');return value.replace(/\[사진:\d+\]/g,'').replace(/\[([^\]]+)\]\([^)]+\)/g,'$1').trim();};
 export function assembleDraft(raw,post,company,region,images,previous=[],titleHistory=previous){
+ post={...post,search_keyword:primaryWorkKeyword(post.search_keyword)};
  const data=typeof raw==='string'?JSON.parse(raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,'')):raw;
  const authored=data.page?validatePageWriting(data.page):null;
  const copy=authored?.copy;

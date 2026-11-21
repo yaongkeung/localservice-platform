@@ -1,3 +1,4 @@
+import {primaryWorkKeyword} from './work-keyword.js';
 import {first,all} from './store.js';
 import {page,csrf,e,redirect} from './admin-ui.js';
 import {isAdmin} from './auth.js';
@@ -8,7 +9,7 @@ import {townshipName} from './township-groups.js';
 export function firstPageQuery(post){
  const parts=String(post.search_region||'').trim().split(/\s+/),last=parts.at(-1)||'',region=/(?:동(?:\d+가)?|읍|면)$/.test(last)?last:post.region_name||'';
  if(!/(?:동(?:\d+가)?|읍|면)$/.test(region)||!String(post.search_keyword||'').trim())return '';
- return townshipName(region)+' '+String(post.search_keyword).trim();
+ return townshipName(region)+' '+primaryWorkKeyword(post.search_keyword);
 }
 export const naverSearchUrl=query=>'https://search.naver.com/search.naver?'+new URLSearchParams({query});
 export function firstPageState(post,check,now=Date.now()){

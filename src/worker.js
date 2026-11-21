@@ -29,6 +29,8 @@ import {homePage, postKinds, serviceFilter} from './home.js';
 import {regionData} from './regions-data.js';
 import {portalClient} from './client.js';
 import {postImage} from './photos.js';
+import {primaryWorkKeyword} from './work-keyword.js';
+import {publicStyleResponse} from './public-style.js';
 const origin=siteOrigin;
 export const escapeHtml = value => String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const e=escapeHtml;
@@ -88,6 +90,7 @@ async function handle(request,env={},ctx){
     const response=await cms(request,env,ctx);return request.method==='HEAD'?new Response(null,{status:response.status,headers:response.headers}):response;
   }
   if(!['GET','HEAD'].includes(request.method))return new Response('Method not allowed',{status:405,headers:{Allow:'GET, HEAD'}});
+  if(url.pathname==='/assets/public.css')return publicStyleResponse(request);
   const proof=indexNowProof(request,env);if(proof)return proof;
   if(['/sitemap.xml','/sitemap.txt','/rss.xml','/robots.txt'].includes(url.pathname)){
     const body=url.pathname==='/robots.txt'?robots(launchState(request,env).blocked):(url.pathname==='/sitemap.xml'?sitemap:url.pathname==='/sitemap.txt'?sitemapText:rss)(env.DB?await publicDataset(env.DB,{includeSamples:env.APP_ENV!=='production'}):sampleDataset());
@@ -102,7 +105,7 @@ async function handle(request,env={},ctx){
   }
   let body,type;
   if(url.pathname==='/assets/cms-regions.js'){body=browserScript(cmsRegionClient,{formatTitleRegion});type='text/javascript';}
-  else if(url.pathname==='/assets/editor.js'){body=browserScript(editorClient,{titleFor});type='text/javascript';}
+  else if(url.pathname==='/assets/editor.js'){body=browserScript(editorClient,{titleFor,primaryWorkKeyword});type='text/javascript';}
   else if(url.pathname==='/assets/upload.js'){body=browserScript(uploadClient,{operationUi,paintBrandedPhoto});type='text/javascript';}
   else if(url.pathname==='/assets/cms-actions.js'){body=browserScript(editorActions,{operationUi});type='text/javascript';}
   else if(url.pathname==='/assets/post-list.js'){body=browserScript(postListClient);type='text/javascript';}

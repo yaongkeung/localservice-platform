@@ -23,6 +23,7 @@ import {seoulDate} from './photos.js';
 import {page,csrf,redirect,e} from './admin-ui.js';
 import {management} from './management.js';
 import {photoActions} from './uploads.js';
+import {cleanEditorialText,cleanEditorialFields,hasEditorialArtifacts} from './editorial-text.js';
 const labels={DRAFT:'작성 중',REVIEW:'작성 중',APPROVED:'작성 중',PUBLISHED:'발행 완료'};
 const kinds=['작업사례','서비스안내','지역정보','작업팁'];
 const loginPage=(message='',status=200)=>page('관리자 로그인',`<section class="cms-login panel"><h1>🔐 관리자 로그인</h1><p class="cms-help">발급받은 계정으로 로그인하세요.</p>${message?`<p class="cms-error" role="alert">${e(message)}</p>`:''}<form method="post" action="/admin/login/"><label>아이디<input name="login_id" autocomplete="username" maxlength="80" required></label><label>비밀번호<input name="password" type="password" autocomplete="current-password" maxlength="128" required></label><button>로그인</button></form><p class="cms-help">고객을 선택하고 글·사진을 작성한 뒤, 확인하고 바로 발행하세요.</p></section>`,null,status);
@@ -35,12 +36,13 @@ async function body(request){
 }
 const normalize=text=>text.normalize('NFKC').replace(/\s+/g,'').toLowerCase();
 export async function postValues(form){
- const title=(form.get('title')||'').trim(),summary=(form.get('summary')||'').trim(),text=(form.get('content')||'').trim();
+ const title=cleanEditorialText(form.get('title')),summary=cleanEditorialText(form.get('summary')),text=cleanEditorialText(form.get('content')),work_notes=(form.get('work_notes')||'').trim();
+ if(work_notes.length>2000)throw Error('본문 작업 메모는 2,000자 이내로 입력해 주세요.');
  if(title.length<5||title.length>120)throw Error('제목은 5~120자로 입력해 주세요.');
  if(summary.length<10||summary.length>240)throw Error('요약은 10~240자로 입력해 주세요.');
  if(text.length<50||text.length>20000)throw Error('본문은 50~20,000자로 입력해 주세요.');
  const post_type=form.get('post_type');if(!kinds.includes(post_type))throw Error('글 종류를 선택해 주세요.');
- return {...searchFields(form),contact_phone:normalizeContactPhone(form.get('contact_phone')),title,summary,content:text.split(/\n\s*\n/).map(t=>t.trim()).filter(Boolean),company_id:Number(form.get('company_id')),region_id:Number(form.get('region_id')),service_id:Number(form.get('service_id')),post_type,contract_id:Number(form.get('contract_id'))||null,title_hash:await digest(normalize(title)),content_hash:await digest(normalize(text))};
+ return {...searchFields(form),work_notes,contact_phone:normalizeContactPhone(form.get('contact_phone')),title,summary,content:text.split(/\n\s*\n/).map(t=>t.trim()).filter(Boolean),company_id:Number(form.get('company_id')),region_id:Number(form.get('region_id')),service_id:Number(form.get('service_id')),post_type,contract_id:Number(form.get('contract_id'))||null,title_hash:await digest(normalize(title)),content_hash:await digest(normalize(text))};
 }
 async function choices(db,user){
  return {companies:await all(db,isAdmin(user)?"SELECT * FROM companies WHERE status='ACTIVE'":"SELECT c.* FROM companies c JOIN company_assignments a ON a.company_id=c.id WHERE a.user_id=? AND c.status='ACTIVE'",...(isAdmin(user)?[]:[user.id])),regions:await all(db,'SELECT * FROM regions ORDER BY slug'),services:sortServices(await all(db,'SELECT * FROM services WHERE deleted_at IS NULL'))};
@@ -52,6 +54,7 @@ async function validateRelations(db,user,values,post={}){
  for(const [key,list] of [['company_id','companies'],['region_id','regions'],['service_id','services']])if(!data[list].some(x=>x.id===values[key]))throw Error('접근 가능한 업체·지역·업종을 선택해 주세요.');
 }
 async function duplicate(db,post){
+ if(hasEditorialArtifacts({title:post.title,summary:post.summary,content:post.content,page_copy:post.page_copy}))throw Error('본문에 작성용 문구가 남아 있습니다. 내용을 저장한 뒤 다시 발행해 주세요.');
  const other=await first(db,'SELECT id FROM posts WHERE deleted_at IS NULL AND id!=? AND (title_hash=? OR content_hash=?) LIMIT 1',post.id,post.title_hash,post.content_hash);
  if(other)throw Error(`제목 또는 본문이 기존 글 #${other.id}와 같습니다. 고유한 작업 내용으로 수정해 주세요.`);
  const previous=await all(db,'SELECT id,company_id,search_region,search_keyword,related_keyword,page_copy,content FROM posts WHERE deleted_at IS NULL AND company_id=? AND id!=?',post.company_id,post.id),similar=similarContent(post,previous);
@@ -138,14 +141,15 @@ export async function cms(request,env,ctx){
    if(form.get('simple_editor')==='1')simplePostForm(form,data,post);
    const preparing=!id&&form.get('action')==='prepare';
    if(preparing){const target=searchFields(form);if(!target.search_region||!target.search_keyword)throw Error('지역명과 업무 키워드를 입력해 주세요.');form.set('title',titleFor(target.search_region,target.search_keyword));form.set('summary','등록할 사진을 바탕으로 지역 서비스 안내를 작성하는 중입니다.');form.set('content',initialDraftText);}
+   if(id&&!form.has('work_notes'))form.set('work_notes',post.work_notes||'');
    if(id&&!form.has('contact_phone'))form.set('contact_phone',post.contact_phone||'');
    form.set('contract_id',String(id&&Number(form.get('company_id'))===post.company_id?post.contract_id||'':''));
    const values=await postValues(form);if(form.get('region_mode')==='catalog')values.region_id=await registerRegion(db,form);
    if(post.published_once&&(values.company_id!==post.company_id||values.contract_id!==post.contract_id))throw Error('기존 공개 글의 업체는 변경할 수 없습니다.');
    await validateRelations(db,user,values,post);
    const targetChanged=values.company_id!==post.company_id||values.search_region!==post.search_region||values.search_keyword!==post.search_keyword;
-   const related=targetChanged?'':post.related_keyword||'',copy=targetChanged?'{}':post.page_copy||'{}';
-   const args=[values.company_id,values.region_id,values.service_id,values.post_type,values.title,values.summary,JSON.stringify(values.content),values.title_hash,values.content_hash,values.contract_id,values.search_region,values.search_keyword,values.contact_phone];
+   const related=targetChanged?'':post.related_keyword||'',copy=targetChanged?'{}':JSON.stringify(cleanEditorialFields(JSON.parse(post.page_copy||'{}')));
+   const args=[values.company_id,values.region_id,values.service_id,values.post_type,values.title,values.summary,JSON.stringify(values.content),values.title_hash,values.content_hash,values.contract_id,values.search_region,values.search_keyword,values.contact_phone,values.work_notes];
    if(id){
     const confirmed=form.get('confirm_publish')==='1',publish=confirmed||form.get('publish_now')==='1',reviewed=confirmed?1:post.generation_reviewed===0&&form.get('generation_reviewed')!=='1'?0:1,company=data.companies.find(c=>c.id===values.company_id),token=randomToken();
     if(publish){
@@ -155,7 +159,7 @@ export async function cms(request,env,ctx){
      if(!reviewed)throw Error('본문과 사진을 확인한 뒤 확인란에 체크해 주세요.');
      await duplicate(db,candidate);
     }
-    const statement=db.prepare("UPDATE posts SET company_id=?,region_id=?,service_id=?,post_type=?,title=?,summary=?,content=?,title_hash=?,content_hash=?,contract_id=?,search_region=?,search_keyword=?,contact_phone=?,related_keyword=?,page_copy=?,generation_reviewed=?,sample=?,mutation_token=?,version=version+1,updated_at=CURRENT_TIMESTAMP,last_actor_id=? WHERE id=? AND version=? AND status='DRAFT' AND EXISTS(SELECT 1 FROM users WHERE id=? AND status='ACTIVE' AND credential_version=? AND role=?) AND EXISTS(SELECT 1 FROM companies WHERE id=? AND status='ACTIVE' AND version=?)").bind(...args,related,copy,reviewed,company.sample?1:0,token,user.id,id,Number(form.get('version')),user.id,user.credential_version,user.role,company.id,company.version);
+    const statement=db.prepare("UPDATE posts SET company_id=?,region_id=?,service_id=?,post_type=?,title=?,summary=?,content=?,title_hash=?,content_hash=?,contract_id=?,search_region=?,search_keyword=?,contact_phone=?,work_notes=?,related_keyword=?,page_copy=?,generation_reviewed=?,sample=?,mutation_token=?,version=version+1,updated_at=CURRENT_TIMESTAMP,last_actor_id=? WHERE id=? AND version=? AND status='DRAFT' AND EXISTS(SELECT 1 FROM users WHERE id=? AND status='ACTIVE' AND credential_version=? AND role=?) AND EXISTS(SELECT 1 FROM companies WHERE id=? AND status='ACTIVE' AND version=?)").bind(...args,related,copy,reviewed,company.sample?1:0,token,user.id,id,Number(form.get('version')),user.id,user.credential_version,user.role,company.id,company.version);
     let result;
     if(publish){
      const publishStatement=db.prepare("UPDATE posts SET status='PUBLISHED',published_at=?,version=version+1,updated_at=CURRENT_TIMESTAMP,last_actor_id=? WHERE id=? AND mutation_token=? AND status='DRAFT'").bind(post.published_once?post.published_at:seoulDate(),user.id,id,token);
@@ -168,7 +172,7 @@ export async function cms(request,env,ctx){
     return redirect('/admin/posts/'+id+'/?saved=1#generated-post');
    }else{
     const sample=data.companies.find(c=>c.id===values.company_id)?.sample?1:0;
-    const result=await run(db,'INSERT INTO posts(company_id,region_id,service_id,post_type,title,summary,content,title_hash,content_hash,contract_id,search_region,search_keyword,contact_phone,generation_reviewed,writer_id,sample) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',...args,preparing?0:1,user.id,sample);
+    const result=await run(db,'INSERT INTO posts(company_id,region_id,service_id,post_type,title,summary,content,title_hash,content_hash,contract_id,search_region,search_keyword,contact_phone,work_notes,generation_reviewed,writer_id,sample) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',...args,preparing?0:1,user.id,sample);
     return redirect('/admin/posts/'+result.meta.last_row_id+'/');
    }
   }

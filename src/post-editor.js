@@ -9,6 +9,7 @@ import {initialDraftText,waitingForPhotos} from './draft-state.js';
 import {postArticle} from './post-article.js';
 import {titleRegionForCode} from './title-region.js';
 import {withRegionTitle} from './post-title.js';
+import {workNotesField} from './editorial-text.js';
 export function editPage(user,data,post={},message='',status=200){
  post=withRegionTitle(post,data.regions.find(region=>region.id===Number(post.region_id)));
  const editable=!post.id||post.status==='DRAFT',content=Array.isArray(post.content)?post.content.join('\n\n'):post.content;
@@ -25,7 +26,8 @@ export function editPage(user,data,post={},message='',status=200){
  <label>제목에 쓸 지역명<input name="search_region" value="${e(inputRegion)}" placeholder="예: 서울시 은평구 응암동" minlength="2" maxlength="40" required></label>
  <label>대표 업무 키워드<input name="search_keyword" value="${e(post.search_keyword)}" placeholder="예: 유리시공" minlength="2" maxlength="40" required></label>
  <label class="full">자동 연관 키워드<input data-related-keyword value="${e(post.related_keyword)}" placeholder="사진 분석 후 자동 추천" readonly></label>
- <label class="full">제목<input name="title" value="${e(post.title)}" minlength="5" maxlength="120" required><span class="cms-help">지역명·대표 업무에 사진으로 추천한 연관 키워드와 고유한 뒷문장을 붙입니다.</span></label>
+ <label class="full">제목<input name="title" value="${e(post.title)}" minlength="5" maxlength="120" required><span class="cms-help">지역명과 대표 작업 하나에 연관 작업·사진 주제를 간결하게 붙입니다.</span></label>
+ ${workNotesField(post.work_notes||'',e)}
  ${!ready?`<input type="hidden" name="content" value="${e(content||initialDraftText)}">`:''}</section>
  ${!post.id?'<div class="cms-actions"><button>사진 첨부로 이동 →</button></div>':''}</form>`:`<article class="panel prose"><h2>${e(post.title)}</h2>${postArticle(view,data.images||[],company,isAdmin(user))}</article>`;
  return page(post.id?'글 확인·수정':'새 글 쓰기',`<a href="/admin/">← 글 목록</a><h1>${post.id?'글 확인·수정':'새 글 쓰기'}</h1>${post.status?`<span class="cms-status ${post.status}">${post.status==='PUBLISHED'?'발행 완료':'작성 중'}</span>`:''}${message?`<p class="${status>=400?'cms-error':'cms-success'}" role="${status>=400?'alert':'status'}">${e(message)}</p>`:''}${post.id?visibility:''}

@@ -1,4 +1,6 @@
-const text=(value,min,max)=>{if(typeof value!=='string'||value.trim().length<min||value.length>max||/https?:|\[사진:|<\/?[a-z]|[\r\n]/i.test(value))throw Error('자동 작성의 제목·구성 문구를 확인하지 못했습니다. 사진과 업무를 확인하고 다시 시도해 주세요.');return value.trim();};
+import {cleanEditorialText} from './editorial-text.js';
+import {primaryWorkKeyword} from './work-keyword.js';
+const text=(value,min,max)=>{if(typeof value==='string')value=cleanEditorialText(value);if(typeof value!=='string'||value.trim().length<min||value.length>max||/https?:|\[사진:|<\/?[a-z]|[\r\n]/i.test(value))throw Error('자동 작성의 제목·구성 문구를 확인하지 못했습니다. 사진과 업무를 확인하고 다시 시도해 주세요.');return value.trim();};
 export function validatePageCopy(raw){
  if(!raw||typeof raw!=='object')throw Error('자동 작성의 제목·구성 문구가 없습니다. 다시 시도해 주세요.');
  const copy={version:1,related_keyword:text(raw.related_keyword,2,40),title_suffix:text(raw.title_suffix,6,55)};
@@ -14,6 +16,7 @@ export function validatePageCopy(raw){
 export function pageCopy(post){try{const copy=typeof post.page_copy==='string'?JSON.parse(post.page_copy):post.page_copy;return copy?.version===1?validatePageCopy(copy):null;}catch{return null;}}
 export const pageCopyKeys=['related_keyword','title_suffix','hero_heading','services_heading','services_intro','opening_heading','local_heading','local_intro','photos_heading','faq_heading','closing_heading','closing','steps_heading'];
 export function relatedCandidates(keyword,company){
+ keyword=primaryWorkKeyword(keyword);
  const families=[/유리|창호|샷시|샤시|방충망|방범창|도어|힌지|방화문/,/누수|배관|보일러|난방|온수|하수구|막힘|방수|수전/,/에어컨|냉방|세척|청소/,/컴퓨터|데이터|복구|기기/,/자동차|차량|썬팅|중고차|렌트카|폐차/],family=families.find(pattern=>pattern.test(keyword));
  const normal=value=>String(value).replace(/[^\p{L}\p{N}]/gu,'').toLowerCase(),main=normal(keyword);
  const tokens=String(company.description||'').split(/[\s,·/|()]+/).filter(token=>/^[가-힣a-zA-Z0-9]{3,16}$/.test(token)&&/(유리|창호|샷시|방충망|도어|교체|탐지|누수|막힘|수리|설치|방수|점검|세척|청소|복구|썬팅|폐차|가구|배달|철거|이사|용달|인쇄|간판)$/.test(token));

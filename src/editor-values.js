@@ -1,5 +1,6 @@
 import {titleFor} from './editor-title.js';
 import {titleRegionForCode} from './title-region.js';
+import {primaryWorkKeyword} from './work-keyword.js';
 const normal=value=>String(value||'').normalize('NFKC').replace(/[^\p{L}\p{N}]/gu,'').replace(/샤시/g,'샷시').replace(/쇼파/g,'소파').replace(/밧데리/g,'배터리').replace(/렌터카/g,'렌트카').replace(/닥트/g,'덕트').toLowerCase();
 export function serviceForKeyword(keyword,services,current,company={}){
  const score=(service,text)=>{
@@ -7,7 +8,7 @@ export function serviceForKeyword(keyword,services,current,company={}){
   for(const token of service.name.split(/[·\s/]+/)){const part=normal(token);if(part.length>=2&&text.includes(part))result=Math.max(result,part.length);}
   return result;
  };
- const text=normal(keyword),ranked=services.map(service=>({service,score:score(service,text)})).sort((a,b)=>b.score-a.score);
+ const text=normal(primaryWorkKeyword(keyword)),ranked=services.map(service=>({service,score:score(service,text)})).sort((a,b)=>b.score-a.score);
  if(ranked[0]?.score)return ranked[0].service.id;
  if(services.some(service=>service.id===current))return current;
  const hint=normal(company.name+' '+company.description),hinted=services.map(service=>({service,score:score(service,hint)})).sort((a,b)=>b.score-a.score);

@@ -16,6 +16,6 @@ export async function publicDataset(db,{includeSamples=true}={}){
   all(db,"SELECT i.* FROM post_images i JOIN posts p ON p.id=i.post_id WHERE p.status='PUBLISHED' AND p.published_at<=? AND i.excluded=0",seoulDate())
  ]);
  const visible=new Set();for(const post of posts){let region=regions.find(r=>r.id===post.region_id);while(region&&!visible.has(region.id)){visible.add(region.id);region=regions.find(r=>r.id===region.parent_id);}}
- const published=posts.map(row=>withRegionTitle(decodePost(row),regions.find(region=>region.id===row.region_id))),byId=new Map(published.map(p=>[p.id,p]));
+ const published=posts.map(({work_notes,...row})=>withRegionTitle(decodePost(row),regions.find(region=>region.id===row.region_id))),byId=new Map(published.map(p=>[p.id,p]));
  return {regions:regions.filter(r=>visible.has(r.id)).map(r=>({...r,name:townshipName(r.name)})),services:sortServices(services),companies:companies.map(({customer_name,...c})=>({...c,phone:c.phone_verified?c.phone:null})),published,postImages:images.filter(i=>byId.has(i.post_id)&&(includeSamples||!i.sample)).map(i=>({...i,alt_text:photoAlt(byId.get(i.post_id),i),thumbnail_key:i.thumbnail_key||i.storage_key,sample:!!i.sample}))};
 }

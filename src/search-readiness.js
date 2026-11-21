@@ -1,3 +1,4 @@
+import {primaryWorkKeyword} from './work-keyword.js';
 import {repeatedContentWarnings} from './content-quality.js';
 import {searchDescription} from './search-metadata.js';
 import {postUrl} from './post-urls.js';
@@ -14,7 +15,7 @@ const labels={DRAFT:'작성 중',REVIEW:'작성 중',APPROVED:'작성 중',PUBLI
 const compact=value=>String(value||'').normalize('NFKC').replace(/\s+/g,'').toLowerCase();
 export function inspectSearchPost(post,previous=[]){
  const content=Array.isArray(post.content)?post.content:JSON.parse(post.content),text=content.join('\n\n');
- const query=[post.search_region,post.search_keyword].filter(Boolean).join(' '),issues=[];
+ const query=[post.search_region,primaryWorkKeyword(post.search_keyword)].filter(Boolean).join(' '),issues=[];
  if(!post.search_region||!post.search_keyword)issues.push('검색할 지역명·업무 키워드를 설정해 주세요.');
  else if(!compact(post.title).startsWith(compact(query))||!compact(post.seo_title||post.title).startsWith(compact(query)))issues.push('본문 제목과 검색용 제목이 지역명+업무 키워드로 시작하는지 확인해 주세요.');
  if(!(post.seo_description||post.summary||'').trim())issues.push('검색 설명에 사용할 요약이 없습니다.');
