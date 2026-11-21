@@ -16,14 +16,15 @@ if(textResponse.status!==200||!textResponse.headers.get('content-type')?.startsW
 const checked=sitemapChecks(map,textMap,origin);if(checked.errors.length)throw Error('Sitemap standards check failed: '+JSON.stringify(checked.errors));
 const urls=checked.urls;
 for(const url of urls){
- const {response:r,body:html,ms}=await read(url),title=html.match(/<title>([^<]+)<\/title>/)?.[1],description=html.match(/name="description" content="([^"]*)"/)?.[1],canonical=html.match(/rel="canonical" href="([^"]+)"/)?.[1],robots=html.match(/name="robots" content="([^"]+)"/)?.[1],h1=(html.match(/<h1\b/g)||[]).length;
+ const {response:r,body:html,ms}=await read(url),title=html.match(/<title>([^<]+)<\/title>/)?.[1],description=html.match(/name="description" content="([^"]*)"/)?.[1],canonical=html.match(/rel="canonical" href="([^"]+)"/)?.[1],robots=html.match(/name="robots" content="([^"]+)"/)?.[1],h1=(html.match(/<h1\b/g)||[]).length,titleCount=(html.match(/<title\b[^>]*>/gi)||[]).length;
+ if(titleCount!==1)errors.push({url,issue:'Expected one title element',titleCount});
  if(r.status!==200||canonical!==url||!title||!description||h1!==1||/noindex/.test(robots+' '+r.headers.get('x-robots-tag')))errors.push({url,issue:'HTML/status/canonical/metadata'});
  for(const [,href]of html.matchAll(/href="([^"#]+)"/g)){
   const target=new URL(decode(href),url);if(target.origin===origin&&!target.search&&!target.pathname.startsWith('/admin/')){target.hash='';links.add(target.href);}
  }
  for(const [,src]of html.matchAll(/(?:src|href)="((?:\/media\/|\/uploads\/|\/company-photos\/|\/assets\/)[^"<>]+)"/g))resources.add(new URL(decode(src),origin).href);
  for(const [,src]of html.matchAll(/url\(["']?(\/media\/[^)"']+)/g))resources.add(new URL(decode(src),origin).href);
- pages.push({url,status:r.status,title:decode(title||''),description:decode(description||''),h1,canonical,robots,ms,bytes:Buffer.byteLength(html)});
+ pages.push({url,status:r.status,title:decode(title||''),description:decode(description||''),h1,titleCount,canonical,robots,ms,bytes:Buffer.byteLength(html)});
 }
 for(const key of ['title','description']){const byValue=new Map();for(const page of pages){const value=page[key];if(byValue.has(value))errors.push({url:page.url,issue:'Duplicate '+key,other:byValue.get(value)});byValue.set(value,page.url);}}
 const extraLinks=[];for(const url of links){if(urls.includes(url)||resources.has(url))continue;const {response,body}=await read(url);extraLinks.push({url,status:response.status});if(response.status>=400)errors.push({url,issue:'Linked non-public/empty page',status:response.status});}

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {searchDescription} from '../src/search-metadata.js';
 import {pageShell} from '../src/public-shell.js';
+import {postArticle} from '../src/post-article.js';
 import {inlineText} from '../src/post-content.js';
 import {placeCard} from '../src/place.js';
 import worker from '../src/worker.js';
@@ -15,6 +16,13 @@ test('snippets are plain, bounded and do not repeat whole sentences or truncate 
 test('visible metadata and article schema agree; hostile input cannot break JSON or HTML',async()=>{
  const html=await pageShell({title:'지역 <업무>',description:'<b>사진 설명</b> '+('확인할 내용 '.repeat(80)),path:'/a/b/c/d.html',body:'<h1>지역 업무</h1>',schema:{'@type':'Article',headline:'</script><script>bad()</script>',description:'old',author:{'@type':'Organization',name:'등록 업체'}}}).text();
  const nodes=graph(html),article=nodes.find(n=>n['@type']==='Article');assert.equal(article.description,searchDescription('<b>사진 설명</b> '+('확인할 내용 '.repeat(80))));assert.equal(article.publisher['@id'],'https://gongsa8282.xyz/#organization');assert.equal(article.inLanguage,'ko-KR');assert.ok(!nodes.some(n=>n['@type']==='WebSite'));assert.doesNotMatch(html,/<script>bad/);assert.match(html,/max-image-preview:large/);assert.match(html,/<meta name="description" content="사진 설명/);
+});
+
+test('a complete article with a phone promotion has exactly one title element and retains the image accessible name',async()=>{
+ const post={id:7,title:'송도동 보일러누수 상담',search_region:'인천 연수구 송도동',search_keyword:'보일러누수',summary:'사진에 보이는 연결부의 구조를 살펴봅니다.',content:['사진과 함께 상담할 내용을 정리합니다.']},company={id:5,name:'등록 업체',phone:'07081632908',phone_verified:1,hours:'24시간'};
+ const body=postArticle(post,[],company),html=await pageShell({title:post.title,description:post.summary,path:'/article.html',body,schema:{'@type':'Article',headline:post.title}}).text();
+ assert.equal((html.match(/<title\b[^>]*>/gi)||[]).length,1);assert.match(html,/<title>송도동 보일러누수 상담 \| 동네핀<\/title>/);
+ assert.match(body,/<svg[^>]+role="img"[^>]+aria-label="인천 연수구 송도동 · 보일러누수 · 070-8163-2908 · 24시 상담 · AI 제작 홍보 이미지"/);assert.match(body,/service-workers-a.jpg/);assert.match(body,/href="tel:07081632908"/);
 });
 test('brand, favicon, publisher and about page have crawlable canonical representations',async()=>{
  const home=await(await worker.fetch(new Request('https://gongsa8282.xyz/'),{ASSETS:localMedia})).text(),nodes=graph(home);assert.match(home,/<title>동네핀 \|/);assert.equal((home.match(/rel="icon"/g)||[]).length,1);assert.ok(nodes.some(n=>n['@type']==='WebSite'&&n.name==='동네핀'));const logo=nodes.find(n=>n['@type']==='Organization').logo;assert.equal(logo.width,192);
