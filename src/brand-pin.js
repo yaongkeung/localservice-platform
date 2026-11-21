@@ -1,0 +1,3 @@
+// A slim, original location marker. The lowercase p is a vector outline.
+export const pinArtwork='<path d="M24 2C13.5 2 7 9.6 7 19.4C7 32 24 51 24 51S41 32 41 19.4C41 9.6 34.5 2 24 2Z" fill="#df443f"/><circle cx="24" cy="18.8" r="12.1" fill="#fff"/><path fill="#df443f" fill-rule="evenodd" d="M18.3 12.3h3.3v1.4c1-1.2 2.1-1.8 3.8-1.8c3.5 0 5.6 2.7 5.6 6.5c0 3.8-2.1 6.6-5.6 6.6c-1.5 0-2.7-.5-3.7-1.6v6.1h-3.4Zm3.4 6.1c0 2.4 1.1 3.8 2.9 3.8s2.9-1.4 2.9-3.8s-1.1-3.7-2.9-3.7s-2.9 1.3-2.9 3.7Z"/>';
+export const pinSvg=`<svg class="brand-pin" viewBox="0 0 48 54" width="32" height="40" aria-hidden="true" focusable="false">${pinArtwork}</svg>`;
