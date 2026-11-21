@@ -24,7 +24,7 @@ test('one service and a related task replace keyword lists, without breaking nat
  for(const keyword of ['방충망 교체','녹취 속기사무소','중고 사무용 가구','화장실 누수 탐지'])assert.equal(primaryWorkKeyword(keyword),keyword);
  assert.equal(primaryWorkKeyword('배관누수 화장실누수 확실하게 잡는업체'),'배관누수');
  const title=titleFor('서울시 은평구 불광동','강화유리 유리가게 유리집','강화도어','유리문 프레임 및 개폐 방식 점검 문의 전 알아둘 내용');
- assert.ok(title.startsWith('서울시 은평구 불광동 강화유리 강화도어'));assert.ok(title.length<=56);assert.doesNotMatch(title,/유리가게|유리집/);
+ assert.ok(title.startsWith('서울시 은평구 불광동 강화유리 | 강화도어'));assert.ok(title.length<=56);assert.doesNotMatch(title,/유리가게|유리집/);
  assert.equal(titleFor('서울시 종로구 사직동','방충망 교체','방충망'),'서울시 종로구 사직동 방충망 교체');
 });
 test('public styling is cached separately and the serialized editor still executes the title helper',async()=>{
@@ -32,6 +32,7 @@ test('public styling is cached separately and the serialized editor still execut
  const response=await worker.fetch(new Request(origin+publicStylePath));assert.equal(response.status,200);assert.match(response.headers.get('content-type'),/^text\/css/);assert.match(response.headers.get('cache-control'),/immutable/);assert.match(await response.text(),/consultation-hero/);
  const code=await(await worker.fetch(new Request(origin+'/assets/editor.js'))).text();const title={value:''},region={value:'서울시 은평구 불광동',addEventListener(){}},keyword={value:'강화유리 유리집',addEventListener(){}},form={querySelector:selector=>selector==='[name=search_region]'?region:selector==='[name=search_keyword]'?keyword:selector==='[name=title]'?title:null};
  runInNewContext(code,{document:{querySelectorAll:()=>[form]}},{timeout:1000});assert.equal(title.value,'서울시 은평구 불광동 강화유리');
+ const generated='서울시 은평구 불광동 강화유리 | 강화도어 · 프레임과 여닫힘 상담';title.value=generated;runInNewContext(code,{document:{querySelectorAll:()=>[form]}},{timeout:1000});assert.equal(title.value,generated);
 });
 test('provided photos appear before service cards once, retaining text/photo order and phone promotion',()=>{
  const html=postArticle({id:1,search_region:'서울시 종로구 사직동',search_keyword:'강화유리 유리집',summary:paragraph,content:['## 사진에서 살펴볼 부분',paragraph,'[사진:2]','사진 다음에 남겨 둔 설명입니다.']},[{id:2,post_id:1,storage_key:'/uploads/1/photo.jpg',alt_text:'확인된 제공 사진'}],{id:1,name:'시험 업체',phone:'01012345678',phone_verified:1});

@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../src/worker.js';
 import {withRegionTitle} from '../src/post-title.js';
+import {pageTitles} from '../src/page-titles.js';
 import {publicDataset} from '../src/store.js';
 import {sqliteDatabase,migrate} from '../scripts/sqlite.mjs';
 import {seed} from '../scripts/seed.mjs';
@@ -16,8 +17,9 @@ test('page title, headline, lists and RSS consistently include a legacy locality
  const DB=sqliteDatabase();try{
   await migrate(DB);await seed(DB);await DB.prepare('UPDATE companies SET sample=0 WHERE id=1').run();await DB.prepare('UPDATE posts SET sample=0 WHERE id=101').run();
   const original=await DB.prepare('SELECT * FROM posts WHERE id=101').first(),data=await publicDataset(DB),post=data.published.find(item=>item.id===101);assert.equal(post.title,'서울시 마포구 '+original.title);
-  for(const path of ['/','/post/101/','/rss.xml','/company/1/']){const response=await worker.fetch(new Request('https://gongsa8282.xyz'+path),{DB});assert.equal(response.status,200);assert.ok((await response.text()).includes(post.title),path);}
-  const html=await(await worker.fetch(new Request('https://gongsa8282.xyz/post/101/'),{DB})).text();assert.ok(html.includes('<title>'+post.title+' | 동네핀</title>'));assert.ok(html.includes('<h1 class="page-title">'+post.title+'</h1>'));assert.ok(html.includes('"headline":"'+post.title+'"'));assert.ok(html.includes('rel="canonical" href="https://gongsa8282.xyz/post/101/"'));
+  for(const path of ['/','/rss.xml','/company/1/']){const response=await worker.fetch(new Request('https://gongsa8282.xyz'+path),{DB});assert.equal(response.status,200);assert.ok((await response.text()).includes(post.title),path);}
+  const titles=pageTitles(post,data.regions.find(r=>r.id===post.region_id),data.services.find(s=>s.id===post.service_id));
+  const html=await(await worker.fetch(new Request('https://gongsa8282.xyz/post/101/'),{DB})).text();assert.ok(html.includes('<title>'+titles.search+' | 동네핀</title>'));assert.ok(html.includes('<h1 class="page-title">'+titles.heading+'</h1>'));assert.ok(html.includes('"headline":"'+titles.heading+'"'));assert.ok(html.includes('rel="canonical" href="https://gongsa8282.xyz/post/101/"'));
   assert.deepEqual(await DB.prepare('SELECT * FROM posts WHERE id=101').first(),original);
  }finally{DB.close();}
 });

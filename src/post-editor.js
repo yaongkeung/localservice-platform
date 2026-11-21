@@ -10,8 +10,10 @@ import {postArticle} from './post-article.js';
 import {titleRegionForCode} from './title-region.js';
 import {withRegionTitle} from './post-title.js';
 import {workNotesField} from './editorial-text.js';
+import {pageTitles} from './page-titles.js';
 export function editPage(user,data,post={},message='',status=200){
  post=withRegionTitle(post,data.regions.find(region=>region.id===Number(post.region_id)));
+ const titles=pageTitles(post,data.regions.find(region=>region.id===Number(post.region_id)),data.services.find(service=>service.id===Number(post.service_id)));
  const editable=!post.id||post.status==='DRAFT',content=Array.isArray(post.content)?post.content.join('\n\n'):post.content;
  const selectedRegion=data.regions.find(item=>item.id===Number(post.region_id)),qualifiedRegion=titleRegionForCode(selectedRegion?.group_key||selectedRegion?.admin_code);
  const inputRegion=post.search_region&&!post.search_region.includes(' ')&&qualifiedRegion?.split(' ').at(-1)===post.search_region?qualifiedRegion:post.search_region;
@@ -26,10 +28,11 @@ export function editPage(user,data,post={},message='',status=200){
  <label>제목에 쓸 지역명<input name="search_region" value="${e(inputRegion)}" placeholder="예: 서울시 은평구 응암동" minlength="2" maxlength="40" required></label>
  <label>대표 업무 키워드<input name="search_keyword" value="${e(post.search_keyword)}" placeholder="예: 유리시공" minlength="2" maxlength="40" required></label>
  <label class="full">자동 연관 키워드<input data-related-keyword value="${e(post.related_keyword)}" placeholder="사진 분석 후 자동 추천" readonly></label>
- <label class="full">제목<input name="title" value="${e(post.title)}" minlength="5" maxlength="120" required><span class="cms-help">지역명과 대표 작업 하나에 연관 작업·사진 주제를 간결하게 붙입니다.</span></label>
+ <label class="full">화면 제목 (자동)<input data-page-heading value="${e(titles.heading)}" readonly><span class="cms-help">페이지의 큰 제목은 읍·면·동과 대표 업무로 간단하게 표시합니다.</span></label>
+ <label class="full">검색용 제목<input name="title" value="${e(titles.search)}" minlength="5" maxlength="120" required><span class="cms-help">전체 지역명과 대표 업무 뒤에 | 구분자로 이 글의 설명을 붙입니다. 검색결과의 최종 표시는 검색엔진이 결정합니다.</span></label>
  ${workNotesField(post.work_notes||'',e)}
  ${!ready?`<input type="hidden" name="content" value="${e(content||initialDraftText)}">`:''}</section>
- ${!post.id?'<div class="cms-actions"><button>사진 첨부로 이동 →</button></div>':''}</form>`:`<article class="panel prose"><h2>${e(post.title)}</h2>${postArticle(view,data.images||[],company,isAdmin(user))}</article>`;
+ ${!post.id?'<div class="cms-actions"><button>사진 첨부로 이동 →</button></div>':''}</form>`:`<article class="panel prose"><h2>${e(titles.heading)}</h2><p class="cms-help">검색용 제목: ${e(titles.search)}</p>${postArticle(view,data.images||[],company,isAdmin(user))}</article>`;
  return page(post.id?'글 확인·수정':'새 글 쓰기',`<a href="/admin/">← 글 목록</a><h1>${post.id?'글 확인·수정':'새 글 쓰기'}</h1>${post.status?`<span class="cms-status ${post.status}">${post.status==='PUBLISHED'?'발행 완료':'작성 중'}</span>`:''}${message?`<p class="${status>=400?'cms-error':'cms-success'}" role="${status>=400?'alert':'status'}">${e(message)}</p>`:''}${post.id?visibility:''}
  ${fields}${editable?photoPanel(user,post,data.images||[],data.aiAvailable):''}
  ${editable&&ready?`<section class="panel" id="generated-post" style="margin:24px 0"><h2>완성된 페이지 확인</h2><article class="prose">${postArticle(view,data.images||[],company,isAdmin(user))}</article><details><summary>내용 수정이 필요한 경우</summary><label>본문 수정<textarea name="content" form="post-editor" minlength="50" maxlength="20000" required>${e(content)}</textarea></label></details><div class="cms-actions">${isAdmin(user)?`<button form="post-editor" name="confirm_publish" value="1">${sample?'확인하고 시험용 발행':'확인하고 발행'}</button>`:'<button form="post-editor">내용 저장</button>'}<a href="/admin/posts/${post.id}/preview/">미리보기</a></div><p class="cms-help">${sample?'시험용 글은 발행해도 메인에서 제외됩니다.':'사진과 업무 내용이 맞는지 확인한 뒤 발행하세요. 발행하면 메인·지역·업종 게시판에 바로 표시됩니다.'}</p></section>`:''}
