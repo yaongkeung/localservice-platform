@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {runInNewContext} from 'node:vm';
 import worker from '../src/worker.js';
-import {cleanEditorialText,cleanEditorialFields,hasEditorialArtifacts} from '../src/editorial-text.js';
+import {cleanEditorialText,cleanEditorialFields,hasEditorialArtifacts,cleanPhotoAdvice} from '../src/editorial-text.js';
 import {validatePageWriting,pageWritingInput} from '../src/page-writer.js';
 import {titleFor} from '../src/editor-title.js';
 import {primaryWorkKeyword} from '../src/work-keyword.js';
@@ -14,6 +14,10 @@ import {digest,randomToken} from '../src/auth.js';
 import {publicDataset} from '../src/store.js';
 import {windowCopy} from './page-copy-fixture.js';
 const origin='https://gongsa8282.xyz',paragraph='흰색 프레임과 손잡이의 연결 부분을 보여주는 사진입니다. 실제 치수와 재질은 사진만으로 확정하지 않고 창이 있는 위치와 열리는 방향을 업체와 구분해 상담합니다.';
+test('copied photo-advice instructions are omitted without altering genuine preparation or measurements',()=>{
+ assert.equal(cleanPhotoAdvice('유리문의 설치 위치와 관련된 구체적인 정보나 확인 항목을 안내하는 문장 1~2개'),'');
+ assert.equal(cleanPhotoAdvice('손잡이와 경첩 사진을 1~2개 함께 준비해 주세요.'),'손잡이와 경첩 사진을 1~2개 함께 준비해 주세요.');
+});
 test('generation scaffolding is removed throughout copy while work measurements and contact details survive',()=>{
  const raw={overview:paragraph+' (70~120자)\u200b',preparation:paragraph,details:['망 가장자리','손잡이 방향','모서리 연결부'].map(title=>({title,text:paragraph+' (70-120자)'})),faq:['창문 바깥쪽도 필요한가요?','모서리 사진은 어떻게 찍나요?','손잡이가 가려져 있어도 되나요?'].map(question=>({question,answer:paragraph+' (55~100자)'})),copy:{...windowCopy,closing:windowCopy.closing+' (60~100자)',steps:windowCopy.steps.map(step=>({...step,text:step.text+' (35~65자)'}))}};
  const value=validatePageWriting(raw,{requireCopy:true});assert.equal(hasEditorialArtifacts(value),false);assert.equal(value.overview,paragraph);

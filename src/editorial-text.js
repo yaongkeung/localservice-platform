@@ -8,6 +8,11 @@ export function cleanEditorialFields(value){
  if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).map(([key,item])=>[key,cleanEditorialFields(item)]));
  return value;
 }
+// Optional photo advice must be actual advice, never copied output instructions.
+export function cleanPhotoAdvice(value){
+ const text=cleanEditorialText(value);
+ return /문장\s*\d+\s*(?:[~～–—-]\s*\d+\s*)?개|(?:description|advice)\s*[:=]|(?:작성|출력)해\s*주세요.*(?:문장|글자)/i.test(text)?'':text;
+}
 export function hasEditorialArtifacts(value){
  if(typeof value==='string')return cleanEditorialText(value)!==value.trim().replace(/[ \t]{2,}/g,' ').replace(/[ \t]+$/gm,'').replace(/[ \t]+([.,!?。！？])/g,'$1');
  if(Array.isArray(value))return value.some(hasEditorialArtifacts);
