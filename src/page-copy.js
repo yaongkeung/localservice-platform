@@ -1,5 +1,6 @@
 import {cleanEditorialText} from './editorial-text.js';
 import {primaryWorkKeyword} from './work-keyword.js';
+import {editorialBlocks} from './content-comparison.js';
 const text=(value,min,max)=>{if(typeof value==='string')value=cleanEditorialText(value);if(typeof value!=='string'||value.trim().length<min||value.length>max||/https?:|\[사진:|<\/?[a-z]|[\r\n]/i.test(value))throw Error('자동 작성의 제목·구성 문구를 확인하지 못했습니다. 사진과 업무를 확인하고 다시 시도해 주세요.');return value.trim();};
 export function validatePageCopy(raw){
  if(!raw||typeof raw!=='object')throw Error('자동 작성의 제목·구성 문구가 없습니다. 다시 시도해 주세요.');
@@ -29,7 +30,12 @@ export function repeatedPageCopy(copy,previous,region='',keyword=''){
  for(const item of previous){const other=pageCopy(item);if(!other)continue;for(const key of pageCopyKeys.filter(k=>k!=='related_keyword')){const a=normalize(copy[key],region,keyword,copy.related_keyword),b=normalize(other[key],item.search_region,item.search_keyword,other.related_keyword);if(a.length>=(key.endsWith('_heading')?2:8)&&a===b)repeated.push(key);}}
  return [...new Set(repeated)];
 }
+// These two legacy fields are stored for compatibility but never displayed.
+// Keep the complete comparison for diagnostics; gate only visible material.
+export function repeatedPublishedCopy(copy,previous,region='',keyword=''){
+ return repeatedPageCopy(copy,previous,region,keyword).filter(key=>!['hero_heading','services_intro'].includes(key));
+}
 export function repeatedParagraphs(candidate,previous,verified=[]){
- const blocks=value=>{const labels=[value.search_region,value.search_keyword,value.related_keyword].filter(Boolean).flatMap(label=>[label,...label.split(/\s+/)]).sort((a,b)=>b.length-a.length);return (Array.isArray(value.content)?value.content:JSON.parse(value.content||'[]')).filter(part=>!verified.includes(part)&&!/^출처:|^지역 자료:|\[사진:\d+\]/.test(part)).map(part=>{let text=String(part).normalize('NFKC');for(const label of labels)text=text.split(label).join('');return text.replace(/https?:\/\/\S+/g,'').replace(/[^\p{L}\p{N}]/gu,'');}).filter(text=>text.length>=40);};
+ const blocks=value=>{const labels=[value.search_region,value.search_keyword,value.related_keyword].filter(Boolean).flatMap(label=>[label,...label.split(/\s+/)]).sort((a,b)=>b.length-a.length);return editorialBlocks(value).filter(part=>!verified.includes(part)&&!/^출처:|^지역 자료:|\[사진:\d+\]/.test(part)).map(part=>{let text=String(part).normalize('NFKC');for(const label of labels)text=text.split(label).join('');return text.replace(/https?:\/\/\S+/g,'').replace(/[^\p{L}\p{N}]/gu,'');}).filter(text=>text.length>=40);};
  const prior=new Set(previous.flatMap(blocks));return blocks(candidate).filter(text=>prior.has(text)).length;
 }

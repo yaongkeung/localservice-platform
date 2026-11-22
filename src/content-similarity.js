@@ -1,6 +1,6 @@
-const contentOf=post=>Array.isArray(post.content)?post.content:JSON.parse(post.content||'[]');
+import {editorialBlocks} from './content-comparison.js';
 function shingles(post){
- let text=contentOf(post).join(' ').normalize('NFKC').toLowerCase();
+ let text=editorialBlocks(post).join(' ').normalize('NFKC').toLowerCase();
  // Compare substance after removing the target labels, not only exact hashes.
  for(const label of [post.search_region,post.search_keyword])if(label)text=text.split(label.normalize('NFKC').toLowerCase()).join(' ');
  text=text.replace(/\[사진:\d+\]/g,'').replace(/https?:\/\/\S+/g,'').replace(/[^\p{L}\p{N}]/gu,'');

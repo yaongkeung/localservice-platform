@@ -49,7 +49,13 @@ export function uploadClient(){
     if(result.needs_branding){message.textContent='중복 사진에 업체명·전화번호를 넣어 편집하고 있습니다…';operation.step(1,message.textContent);button.textContent='홍보 사진 편집 중…';result=await send(await prepare(file,result.brand),result.brand);if(result.needs_branding)throw Error('업체 정보가 변경됐습니다. 다시 눌러 편집을 완료해 주세요.');}
     saved++;if(!result.reused)added++;version=result.version;updateVersions(version);locationAfterSave=result.location;
    }
-   if(form.dataset.generateUrl){message.textContent='사진을 분석하고 본문을 작성하고 있습니다. 응답을 기다려 주세요…';operation.step(2,message.textContent);button.textContent='사진 분석·본문 작성 중…';await generate(form,version);operation.step(3,'작성 완료! 완성된 페이지를 열고 있습니다.');}
+   if(form.dataset.generateUrl){
+    message.textContent='사진을 분석하고 본문을 작성하고 있습니다. 응답을 기다려 주세요…';operation.step(2,message.textContent);button.textContent='사진 분석·본문 작성 중…';
+    let polling=false,finished=false;
+    const poll=async()=>{if(polling||finished)return;polling=true;try{const url=new URL(form.dataset.generateUrl,location.origin);url.searchParams.set('progress','1');url.searchParams.set('version',version);const response=await fetch(url,{credentials:'same-origin',headers:{accept:'application/json'}});if(response.ok){const progress=await response.json();if(!finished&&progress.state==='RUNNING'&&progress.stage==='repairing-copy'){message.textContent='겹친 문구를 자동으로 보완하고 있습니다. 사진은 다시 분석하지 않습니다…';operation.step(2,message.textContent);button.textContent='겹친 문구 자동 보완 중…';}}}catch{/* Progress lookup must never stop the actual writing request. */}finally{polling=false;}};
+    const timer=setInterval(poll,2500);try{await generate(form,version);}finally{finished=true;clearInterval(timer);}
+    operation.step(3,'작성 완료! 완성된 페이지를 열고 있습니다.');
+   }
    else{operation.success('사진 등록을 완료했습니다.',locationAfterSave);location.assign(locationAfterSave);}
   }catch(error){
    message.textContent=(saved?saved+'장은 처리됐습니다. ':'')+(error.message||'사진 등록에 실패했습니다.');operation.error(message.textContent,locationAfterSave||editor?.getAttribute('action')||location.pathname);if(saved>0&&saved<files.length)button.disabled=true;

@@ -10,6 +10,7 @@ import {localContext} from '../src/local-context.js';
 import {postContent} from '../src/post-content.js';
 import {windowCopy} from './page-copy-fixture.js';
 const origin='https://gongsa8282.xyz';
+function priorCopyExceptClosing(){const prior=structuredClone(windowCopy);for(const key of Object.keys(prior))if(typeof prior[key]==='string')prior[key]=('이전 자료의 '+prior[key]).slice(0,key.endsWith('_heading')?85:key==='title_suffix'?55:750);prior.related_keyword='이전 창문';prior.closing=windowCopy.closing;return prior;}
 const page={copy:windowCopy,overview:'흰색 창틀 안에 보이는 망과 테두리를 중심으로 상담할 항목을 안내합니다. 창문을 여는 방향과 틀 주변의 공간을 함께 설명하면 망 교체와 개폐 부품 점검을 구분하는 데 도움이 됩니다. 사진에서 확인되지 않는 재질이나 치수는 업체와 별도로 확인해야 합니다.',preparation:'창 전체를 담은 사진과 테두리, 손잡이 부분을 가까이 찍은 사진을 함께 준비하세요. 망에 틈이 생기는 위치와 창문을 움직일 때 걸리는 방향을 알려주면 상담 내용을 정리하기 쉽습니다. 높거나 위험한 위치는 직접 분리하지 말고 업체에 확인을 요청하세요.',details:['틀과 망의 상태','개폐 방향과 주변 공간','측정과 방문 조건'].map(title=>({title,text:'사진에 보이는 흰색 프레임과 망의 연결 부분을 기준으로 상담 내용을 정리합니다. 틈이 보이는 위치와 사용 중 불편한 점을 설명하고, 망만 교체할지 틀이나 부품도 점검할지는 전체 모습과 현장 상태를 확인한 뒤 상담하세요.'})),faq:['틀은 어떤 사진으로 보여주면 좋나요?','망만 교체할 수 있는지 어떻게 확인하나요?','높은 곳의 창문은 어떻게 상담하나요?'].map(question=>({question,answer:'창문의 전체 모습과 테두리, 불편한 부위를 가까이 찍은 사진을 함께 보여주세요. 크기와 여는 방향, 사용 중 관찰한 점을 전달하고 현장에서 추가로 확인할 범위를 업체에 상담해 주세요.'}))};
 const output={page,title_suffix:'창틀과 망 상태를 사진으로 살펴보기',summary:'사진에 보이는 창틀과 망의 상태를 살펴보고 상담 준비에 필요한 사항을 안내합니다.',intro:'사진 속 창문과 망을 살펴보며 **방충망 교체** 상담에 필요한 확인 사항을 정리합니다.',photos:[{id:1,description:'흰색 틀 안에 망이 보입니다. 사진만으로 재질과 손상 여부를 단정하기는 어렵습니다.',advice:'**창틀의 가로·세로 크기**와 열리는 방향을 확인해 상담할 때 알려주세요.'}],closing:'문의할 창문 전체 모습과 불편한 부분을 가까이 찍어 함께 전달해 주세요.'};
 async function fixture(){
@@ -103,7 +104,7 @@ test('a public title from another company informs ending diversity without extra
 test('repeated headings and closing copy from an earlier page cannot overwrite the saved draft',async()=>{
  const f=await fixture();try{
   await f.DB.prepare('UPDATE posts SET page_copy=?,related_keyword=? WHERE id=101').bind(JSON.stringify(windowCopy),windowCopy.related_keyword).run();
-  f.env.AI.run=async()=>({response:JSON.stringify({...output,photos:[{...output.photos[0],id:9001}]})});const before=await f.row(),response=await f.generate();assert.equal(response.status,409);assert.match(await response.text(),/반복/);const after=await f.row();assert.equal(after.content,before.content);assert.equal(after.title,before.title);assert.equal(after.page_copy,before.page_copy);
+  f.env.AI.run=async(model,payload)=>{const last=payload.messages.at(-1).content,data=typeof last==='string'?JSON.parse(last):{};return {response:JSON.stringify(data.original_fields||{...output,photos:[{...output.photos[0],id:9001}]})};};const before=await f.row(),response=await f.generate();assert.equal(response.status,409);assert.match(await response.text(),/반복/);const after=await f.row();assert.equal(after.content,before.content);assert.equal(after.title,before.title);assert.equal(after.page_copy,before.page_copy);
  }finally{f.DB.close();}
 });
 
@@ -112,8 +113,27 @@ test('substantially recycled generated body is rejected before saving even witho
   const before=await f.row(),company=await f.DB.prepare('SELECT * FROM companies WHERE id=?').bind(before.company_id).first(),region=await f.DB.prepare('SELECT * FROM regions WHERE id=?').bind(before.region_id).first(),photos=[{...output.photos[0],id:9001}];
   const candidate=assembleDraft({...output,photos},before,company,region,[{id:9001}]);
   await f.DB.prepare("UPDATE posts SET content=?,search_region=?,search_keyword=?,page_copy='{}' WHERE id=101").bind(JSON.stringify(candidate.content),before.search_region,before.search_keyword).run();
-  f.env.AI.run=async()=>({response:JSON.stringify({...output,photos})});
+  f.env.AI.run=async(model,payload)=>{const last=payload.messages.at(-1).content,data=typeof last==='string'?JSON.parse(last):{};return {response:JSON.stringify(data.original_fields||{...output,photos})};};
   const result=await f.generate();assert.equal(result.status,409);assert.match(await result.text(),/매우 비슷/);
   const after=await f.row();assert.equal(after.content,before.content);assert.equal(after.version,before.version);assert.equal(after.title,before.title);assert.equal((await f.DB.prepare('SELECT state FROM draft_generations WHERE post_id=?').bind(f.id).first()).state,'FAILED');
+ }finally{f.DB.close();}
+});
+
+test('a repeated closing is repaired automatically without repeating photo inference or changing other material',async()=>{
+ const f=await fixture();try{
+  const prior=priorCopyExceptClosing();await f.DB.prepare('UPDATE posts SET page_copy=?,related_keyword=? WHERE id=101').bind(JSON.stringify(prior),prior.related_keyword).run();const unchanged=await f.DB.prepare('SELECT * FROM posts WHERE id=101').first(),before=await f.row();let vision=0,writes=0,repairInput;
+  f.env.AI.run=async(model,payload)=>{if(model!==writingModel){vision++;return {response:JSON.stringify({photos:[{...output.photos[0],id:9001}]})};}writes++;if(writes===1)return {response:JSON.stringify(page)};repairInput=payload;
+   const progress=await f.call(`/admin/posts/${f.id}/generate/?progress=1&version=${before.version}`);assert.equal(progress.headers.get('cache-control'),'no-store');assert.deepEqual(await progress.json(),{state:'RUNNING',stage:'repairing-copy',attempt:1});
+   assert.deepEqual(Object.keys(payload.response_format.json_schema.properties),['copy.closing']);assert.ok(payload.max_tokens<1500);
+   return {response:JSON.stringify({'copy.closing':'이번 사진에서는 흰 테두리 안에 망이 보이는 구간과 손잡이 쪽을 구분할 수 있습니다. 창을 열 때 간섭하는 부분이 있는지 기록하고, 바깥쪽 접근이 가능한지는 방문 전에 따로 전달해 주세요.'})};
+  };
+  const response=await f.generate();assert.equal(response.status,200,await response.clone().text());assert.equal(vision,1);assert.equal(writes,2);assert.ok(repairInput);const after=await f.row();assert.equal(after.version,before.version+1);assert.equal(after.status,'DRAFT');assert.equal(JSON.parse(after.page_copy).related_keyword,windowCopy.related_keyword);assert.ok(after.content.includes('[사진:9001]'));assert.deepEqual(await f.DB.prepare('SELECT * FROM posts WHERE id=101').first(),unchanged);
+  const history=await f.DB.prepare('SELECT * FROM draft_generations WHERE post_id=?').bind(f.id).first();assert.equal(history.state,'SAVED');assert.equal(JSON.parse(history.previous_content).validation.repair_attempt,1);assert.equal(JSON.parse(history.previous_content).content.join('\n'),JSON.parse(before.content).join('\n'));
+  assert.deepEqual(await(await f.call(`/admin/posts/${f.id}/generate/?progress=1&version=9999`)).json(),{state:'IDLE'});assert.equal((await f.call('/admin/posts/999999/generate/?progress=1&version=1')).status,404);
+ }finally{f.DB.close();}
+});
+
+test('unused legacy copy fields alone cannot block a valid draft',async()=>{
+ const f=await fixture();try{const prior=priorCopyExceptClosing();prior.closing='이전 현장에서는 큰 사진과 작은 사진을 함께 전달하고 이동할 공간을 확인했습니다. 이번에 새로 문의할 범위는 업체에서 제공한 자료와 다를 수 있으므로 요청 사항을 구분합니다.';prior.hero_heading=windowCopy.hero_heading;prior.services_intro=windowCopy.services_intro;await f.DB.prepare('UPDATE posts SET page_copy=? WHERE id=101').bind(JSON.stringify(prior)).run();let calls=0;f.env.AI.run=async()=>{calls++;return {response:JSON.stringify({...output,photos:[{...output.photos[0],id:9001}]})};};const response=await f.generate();assert.equal(response.status,200,await response.clone().text());assert.equal(calls,2);
  }finally{f.DB.close();}
 });

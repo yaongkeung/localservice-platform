@@ -2,7 +2,7 @@ import {postDashboard,postArchiveOperation} from './post-admin.js';
 import {searchCheckPage} from './search-checks.js';
 import {postUrl,publicationUrlStatement} from './post-urls.js';
 import {scheduleIndexNow} from './indexnow.js';
-import {pageCopy,repeatedPageCopy,repeatedParagraphs} from './page-copy.js';
+import {pageCopy,repeatedPublishedCopy,repeatedParagraphs} from './page-copy.js';
 import {localContext} from './local-context.js';
 import {normalizeContactPhone} from './page-contact.js';
 import {similarContent} from './content-similarity.js';
@@ -60,7 +60,7 @@ async function duplicate(db,post){
  if(other)throw Error(`제목 또는 본문이 기존 글 #${other.id}와 같습니다. 고유한 작업 내용으로 수정해 주세요.`);
  const previous=await all(db,'SELECT id,company_id,search_region,search_keyword,related_keyword,page_copy,content FROM posts WHERE deleted_at IS NULL AND company_id=? AND id!=?',post.company_id,post.id),similar=similarContent(post,previous);
  if(similar.length)throw Error(`본문이 같은 업체의 글 #${similar[0].id}와 매우 비슷합니다. 사진별 설명과 업무에 맞는 고유 내용을 보강해 주세요.`);
- const copy=pageCopy(post);if(copy){const region=await first(db,'SELECT admin_code,group_key FROM regions WHERE id=?',post.region_id);if(repeatedPageCopy(copy,previous,post.search_region,post.search_keyword).length||repeatedParagraphs(post,previous,localContext(post.search_region,region?.admin_code||region?.group_key)))throw Error('본문의 제목·구성 문구 또는 주요 문단이 기존 글과 반복됩니다. 사진과 업무에 맞는 고유 내용을 보강해 주세요.');}
+ const copy=pageCopy(post);if(copy){const region=await first(db,'SELECT admin_code,group_key FROM regions WHERE id=?',post.region_id);if(repeatedPublishedCopy(copy,previous,post.search_region,post.search_keyword).length||repeatedParagraphs(post,previous,localContext(post.search_region,region?.admin_code||region?.group_key)))throw Error('본문의 제목·구성 문구 또는 주요 문단이 기존 글과 반복됩니다. 사진과 업무에 맞는 고유 내용을 보강해 주세요.');}
 }
 export async function cms(request,env,ctx){
  const url=new URL(request.url),path=url.pathname,db=env.DB;
