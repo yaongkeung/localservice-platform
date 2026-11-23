@@ -17,6 +17,7 @@ import {writingConflicts,writingRepairInput,applyWritingRepair,repetitionMessage
 import {diversifyTitleSuffix} from './title-variety.js';
 import {cleanEditorialText,cleanPhotoAdvice,workNotesField} from './editorial-text.js';
 import {primaryWorkKeyword} from './work-keyword.js';
+import {generationFailure,visionResponseInfo,generationFailureMessage} from './generation-diagnostics.js';
 export const draftModel='@cf/meta/llama-4-scout-17b-16e-instruct';
 export function searchFields(form){
  const region=String(form.get('search_region')||'').trim(),keyword=String(form.get('search_keyword')||'').trim();
@@ -103,7 +104,7 @@ export async function generateDraft(request,env,user,id,form){
  }
  if(post.status!=='DRAFT'||post.version!==Number(form.get('version')))return failure('작성 내용 상태와 저장 버전을 확인해 주세요. 먼저 저장한 뒤 다시 시도하세요.');
  if(!env.AI?.run)return failure('자동 작성 연결을 준비 중입니다. 직접 작성하거나 연결 후 다시 시도해 주세요.',503);
- let generation,diagnostics;
+ let generation,diagnostics;const started=Date.now();
  try{
   searchFields(new URLSearchParams(post));if(!post.search_region||!post.search_keyword)throw Error('지역명과 업무 키워드를 먼저 저장해 주세요.');
   const [company,region,images]=await Promise.all([first(db,"SELECT * FROM companies WHERE id=? AND status='ACTIVE'",post.company_id),first(db,'SELECT * FROM regions WHERE id=?',post.region_id),all(db,'SELECT * FROM post_images WHERE post_id=? AND excluded=0 ORDER BY sort_order,id',id)]);
@@ -114,8 +115,17 @@ export async function generateDraft(request,env,user,id,form){
   generation=await first(db,"INSERT INTO draft_generations(post_id,user_id,model,state,previous_content,photo_ids) VALUES(?,?,?,'RUNNING',?,?) RETURNING id",id,user.id,draftModel,JSON.stringify({title:post.title,summary:post.summary,content:JSON.parse(post.content),related_keyword:post.related_keyword,page_copy:JSON.parse(post.page_copy||'{}'),validation:diagnostics}),JSON.stringify(images.map(i=>i.id)));
   if(!generation)throw Error('자동 작성 기록을 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.');
   const progress=async(stage,details={})=>{diagnostics={...diagnostics,...details,stage};await run(db,"UPDATE draft_generations SET previous_content=json_set(previous_content,'$.validation',json(?)) WHERE id=? AND state='RUNNING'",JSON.stringify(diagnostics),generation.id);};
-  const result=await env.AI.run(draftModel,await visionInput(env,post,company,images));
-  const observed=typeof result.response==='string'?JSON.parse(result.response.replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,'')):result.response;
+  await progress('photo-input');const inputPhotos=await visionInput(env,post,company,images);
+  let observed;
+  for(let photoAttempt=1;photoAttempt<=2;photoAttempt++){
+   await progress(photoAttempt===1?'photo-analysis':'photo-analysis-retry',{input_photo_count:images.length,photo_attempt:photoAttempt});const photoStarted=Date.now();
+   try{
+    const result=await env.AI.run(draftModel,inputPhotos);
+    await progress('photo-parsing',{photo_analysis_ms:Date.now()-photoStarted,vision_response:visionResponseInfo(result)});
+    observed=typeof result.response==='string'?JSON.parse(result.response.replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,'')):result.response;
+    break;
+   }catch(error){const detail=generationFailure(error);if(photoAttempt===2||!['ai-timeout','ai-capacity','invalid-json'].includes(detail.category))throw error;await progress('photo-analysis-retry',{photo_previous_failure:detail,photo_attempt:2});await new Promise(resolve=>setTimeout(resolve,1500));}
+  }
   if(Array.isArray(observed?.photos))observed.photos=observed.photos.map(item=>({...item,advice:typeof item.advice==='string'?cleanPhotoAdvice(item.advice):item.advice}));
   diagnostics={...diagnostics,stage:'photo-validation',photos:Array.isArray(observed?.photos)?observed.photos.map(item=>({id:item.id,descriptionType:typeof item.description,descriptionLength:item.description?.length,adviceType:typeof item.advice,adviceLength:item.advice?.length})):[]};
   const normalized=normalizePhotoObservations(observed,images);observed.photos=normalized.photos;diagnostics.photo_description_fallbacks=normalized.fallbackIds;
@@ -125,8 +135,8 @@ export async function generateDraft(request,env,user,id,form){
   const previous=await all(db,"SELECT id,company_id,title,search_region,search_keyword,related_keyword,page_copy,content FROM posts WHERE deleted_at IS NULL AND company_id=? AND id!=? AND (status='PUBLISHED' OR writer_id=? OR ?=1) ORDER BY CASE WHEN search_keyword=? THEN 0 ELSE 1 END,updated_at DESC LIMIT 500",post.company_id,id,user.id,isAdmin(user)?1:0,post.search_keyword);
   const publicTitles=await all(db,"SELECT p.id,p.title,p.page_copy FROM posts p JOIN companies c ON c.id=p.company_id WHERE p.id!=? AND p.status='PUBLISHED' AND p.deleted_at IS NULL AND p.sample=0 AND c.status='ACTIVE' AND c.deleted_at IS NULL AND c.sample=0 ORDER BY p.id DESC LIMIT 200",id);
   const titleHistory=[...new Map([...publicTitles,...previous].map(item=>[item.id,item])).values()];
-  const input=pageWritingInput(post,company,region,observed,previous,titleHistory),written=await env.AI.run(writingModel,input);
-  const writing=writingResponse(written);diagnostics={...diagnostics,writing:pageWritingShape(writing)};
+  const input=pageWritingInput(post,company,region,observed,previous,titleHistory),writingStarted=Date.now(),written=await env.AI.run(writingModel,input);
+  const writing=writingResponse(written);diagnostics={...diagnostics,writing_ms:Date.now()-writingStarted,writing:pageWritingShape(writing)};
   let authored=validatePageWriting(writing,{requireCopy:true}),values;
   for(let attempt=0;attempt<=2;attempt++){
    values=assembleDraft({...observed,page:authored},post,company,region,images,previous,titleHistory);
@@ -136,7 +146,7 @@ export async function generateDraft(request,env,user,id,form){
    await progress('repairing-copy',{repair_attempt:attempt+1,repeated_fields:conflicts.fields,repair_paths:conflicts.paths,similar_post_ids:conflicts.similarIds});
    try{const repair=await env.AI.run(writingModel,writingRepairInput(input,authored,conflicts,company,post.search_keyword,attempt+1));authored=applyWritingRepair(authored,writingResponse(repair),conflicts.paths);}catch(error){diagnostics={...diagnostics,repair_response_invalid:true};if(attempt===1)throw Error('자동 작성 보완에 연결하지 못했습니다. 기존 글과 사진은 보존했습니다. 잠시 후 다시 시도해 주세요.');}
   }
-  await progress('saving');
+  await progress('saving',{elapsed_ms:Date.now()-started});
   const titleHash=await digest(normal(values.title)),contentHash=await digest(normal(values.content.join('\n\n')));
   const token=randomToken(),statements=[db.prepare("UPDATE posts SET title=?,summary=?,content=?,title_hash=?,content_hash=?,related_keyword=?,page_copy=?,generation_reviewed=0,mutation_token=?,version=version+1,updated_at=CURRENT_TIMESTAMP,last_actor_id=? WHERE id=? AND version=? AND status='DRAFT' AND EXISTS(SELECT 1 FROM users WHERE id=? AND status='ACTIVE' AND credential_version=? AND role=?) AND EXISTS(SELECT 1 FROM companies WHERE id=posts.company_id AND status='ACTIVE' AND version=?) AND (?=1 OR (writer_id=? AND EXISTS(SELECT 1 FROM company_assignments WHERE user_id=? AND company_id=posts.company_id)))").bind(values.title,values.summary,JSON.stringify(values.content),titleHash,contentHash,values.related_keyword,values.page_copy,token,user.id,id,post.version,user.id,user.credential_version,user.role,company.version,isAdmin(user)?1:0,user.id,user.id)];
   for(const caption of values.captions)statements.push(db.prepare("UPDATE post_images SET alt_text=? WHERE id=? AND post_id=? AND alt_text='업체 제공 사진' AND EXISTS(SELECT 1 FROM posts WHERE id=? AND mutation_token=?)").bind(caption.text,caption.id,id,id,token));
@@ -144,5 +154,5 @@ export async function generateDraft(request,env,user,id,form){
   await run(db,'UPDATE draft_generations SET state=? WHERE id=?',saved.meta.changes?'SAVED':'CONFLICT',generation.id);
   if(!saved.meta.changes)return failure('작성 중 다른 변경이 있었습니다. 기존 글은 덮어쓰지 않았습니다. 새로 열어 다시 시도해 주세요.');
   const location='/admin/posts/'+id+'/?generated=1#generated-post';return json?Response.json({location},{headers:{'cache-control':'no-store'}}):redirect(location);
- }catch(error){if(generation)await run(db,"UPDATE draft_generations SET state='FAILED',previous_content=json_set(previous_content,'$.validation',json(?)) WHERE id=? AND state='RUNNING'",JSON.stringify(diagnostics||{stage:'provider'}),generation.id);const expected=/^(지역|사진|자동 작성|오늘의)/.test(error.message);return failure(expected?error.message:'자동 작성에 연결하지 못했습니다. 기존 본문과 사진은 유지됩니다. 잠시 후 다시 시도해 주세요.');}
+ }catch(error){const detail=generationFailure(error);diagnostics={...diagnostics,failure:detail,elapsed_ms:Date.now()-started};if(generation)await run(db,"UPDATE draft_generations SET state='FAILED',previous_content=json_set(previous_content,'$.validation',json(?)) WHERE id=? AND state='RUNNING'",JSON.stringify(diagnostics),generation.id);const expected=/^(지역|사진|자동 작성|오늘의)/.test(error.message);return failure(generationFailureMessage(detail)||(expected?error.message:'자동 작성에 연결하지 못했습니다. 기존 본문과 사진은 유지됩니다. 잠시 후 다시 시도해 주세요.'));}
 }

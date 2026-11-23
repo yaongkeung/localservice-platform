@@ -153,3 +153,17 @@ test('one empty description among six photos cannot block a draft or become inve
 test('a wholly empty vision result still preserves the draft without fabricating a page',async()=>{
  const f=await fixture();try{const before=await f.row();let calls=0;f.env.AI.run=async()=>{calls++;return {response:JSON.stringify({photos:[{id:9001,description:'',advice:''}]})};};const response=await f.generate();assert.equal(response.status,409);assert.match(await response.text(),/사진의 작업 대상/);assert.equal(calls,1);assert.equal((await f.row()).content,before.content);assert.equal((await f.row()).version,before.version);}finally{f.DB.close();}
 });
+
+
+test('malformed photo JSON records only response shape and a category while preserving saved material',async()=>{
+ const f=await fixture();try{const before=await f.row();f.env.AI.run=async()=>({response:'{"photos": [',usage:{completion_tokens:3200,prompt_tokens:100}});const response=await f.generate();assert.equal(response.status,409);assert.match(await response.text(),/형식/);const record=await f.DB.prepare('SELECT previous_content FROM draft_generations WHERE post_id=?').bind(f.id).first(),diag=JSON.parse(record.previous_content).validation;assert.equal(diag.stage,'photo-parsing');assert.equal(diag.failure.category,'invalid-json');assert.equal(diag.vision_response.completion_tokens,3200);assert.equal((await f.row()).content,before.content);assert.equal(JSON.stringify(diag).includes('{"photos": ['),false);}finally{f.DB.close();}
+});
+
+
+test('one transient AI timeout retries the saved photos once without leaking provider text',async()=>{
+ const f=await fixture();try{let vision=0,writes=0;f.env.AI.run=async(model)=>{if(model===draftModel){vision++;if(vision===1)throw Error('3007 Request timeout private-provider-detail');return {response:JSON.stringify({photos:[{...output.photos[0],id:9001}]})};}writes++;return {response:JSON.stringify(page)};};const response=await f.generate();assert.equal(response.status,200,await response.clone().text());assert.equal(vision,2);assert.equal(writes,1);const diag=JSON.parse((await f.DB.prepare('SELECT previous_content FROM draft_generations WHERE post_id=?').bind(f.id).first()).previous_content).validation;assert.equal(diag.photo_attempt,2);assert.equal(diag.photo_previous_failure.provider_code,3007);assert.equal(JSON.stringify(diag).includes('private-provider-detail'),false);assert.equal((await f.row()).status,'DRAFT');}finally{f.DB.close();}
+});
+
+test('AI account quota is identified without repeatedly consuming calls or changing saved content',async()=>{
+ const f=await fixture();try{const before=await f.row();let calls=0;f.env.AI.run=async()=>{calls++;throw Error('3036 daily free allocation private-provider-detail');};const response=await f.generate();assert.equal(response.status,409);const text=await response.text();assert.match(text,/사용 한도/);assert.ok(!text.includes('private-provider-detail'));assert.equal(calls,1);assert.equal((await f.row()).content,before.content);const diag=JSON.parse((await f.DB.prepare('SELECT previous_content FROM draft_generations WHERE post_id=?').bind(f.id).first()).previous_content).validation;assert.equal(diag.failure.category,'ai-quota');assert.equal(diag.failure.provider_code,3036);}finally{f.DB.close();}
+});
