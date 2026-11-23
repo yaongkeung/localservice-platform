@@ -54,7 +54,7 @@ export async function photoActions(request,env,user,id){
    }
    // Reusing a photo across posts is allowed. Re-selecting it in this post is a no-op.
    if(await first(db,'SELECT id FROM post_images WHERE post_id=? AND COALESCE(source_hash,content_hash)=? AND excluded=0',id,sourceHash))return complete(version,true);
-   if((await first(db,'SELECT COUNT(*) AS n FROM post_images WHERE post_id=? AND excluded=0',id)).n>=8)throw Error('사진은 최대 8장까지 등록할 수 있습니다.');
+   if((await first(db,'SELECT COUNT(*) AS n FROM post_images WHERE post_id=? AND excluded=0',id)).n>=8)throw Error('사진은 글당 최대 8장까지 등록할 수 있습니다. 새 사진을 추가하려면 기존 사진을 먼저 제외해 주세요. 저장된 사진으로 다시 작성하려면 아래 ‘등록된 사진으로 글 작성’을 선택해 주세요.');
    if(form.get('auto_brand')==='1'){
     const duplicate=await first(db,'SELECT i.id FROM post_images i JOIN posts p ON p.id=i.post_id WHERE COALESCE(i.source_hash,i.content_hash)=? AND i.excluded=0 AND p.deleted_at IS NULL LIMIT 1',sourceHash);
     if(duplicate||sourceFile){

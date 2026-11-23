@@ -137,3 +137,19 @@ test('unused legacy copy fields alone cannot block a valid draft',async()=>{
  const f=await fixture();try{const prior=priorCopyExceptClosing();prior.closing='이전 현장에서는 큰 사진과 작은 사진을 함께 전달하고 이동할 공간을 확인했습니다. 이번에 새로 문의할 범위는 업체에서 제공한 자료와 다를 수 있으므로 요청 사항을 구분합니다.';prior.hero_heading=windowCopy.hero_heading;prior.services_intro=windowCopy.services_intro;await f.DB.prepare('UPDATE posts SET page_copy=? WHERE id=101').bind(JSON.stringify(prior)).run();let calls=0;f.env.AI.run=async()=>{calls++;return {response:JSON.stringify({...output,photos:[{...output.photos[0],id:9001}]})};};const response=await f.generate();assert.equal(response.status,200,await response.clone().text());assert.equal(calls,2);
  }finally{f.DB.close();}
 });
+
+
+test('one empty description among six photos cannot block a draft or become invented writing evidence',async()=>{
+ const f=await fixture();try{
+  for(let n=9002;n<=9006;n++)await f.DB.prepare('INSERT INTO post_images(id,post_id,storage_key,thumbnail_key,alt_text,sort_order) VALUES(?,?,?,?,?,?)').bind(n,f.id,'/uploads/'+f.id+'/'+String(n).padStart(64,'b')+'-cover.jpg','/uploads/'+f.id+'/'+String(n).padStart(64,'b')+'-thumb.jpg','업체 제공 사진',n).run();
+  let calls=0;f.env.AI.run=async(model,input)=>{calls++;if(model===draftModel)return {response:JSON.stringify({photos:Array.from({length:6},(_,i)=>({id:9001+i,description:i===5?'':output.photos[0].description,advice:i===5?'':output.photos[0].advice}))})};
+   const data=JSON.parse(input.messages[1].content);assert.equal(data.photo_observations.length,5);assert.deepEqual(data.unobserved_photo_ids,[9006]);assert.ok(!JSON.stringify(data.photo_observations).includes('자세한 작업 대상'));return {response:JSON.stringify(page)};
+  };
+  const response=await f.generate();assert.equal(response.status,200,await response.clone().text());assert.equal(calls,2);const after=await f.row();assert.equal(after.status,'DRAFT');assert.ok(after.content.includes('[사진:9006]'));assert.ok(after.content.includes('자세한 작업 대상과 상태는 업체에 확인'));assert.equal((await f.DB.prepare('SELECT COUNT(*) n FROM post_images WHERE post_id=? AND excluded=0').bind(f.id).first()).n,6);
+  const history=await f.DB.prepare('SELECT state,previous_content FROM draft_generations WHERE post_id=?').bind(f.id).first();assert.equal(history.state,'SAVED');assert.deepEqual(JSON.parse(history.previous_content).validation.photo_description_fallbacks,[9006]);const screen=await(await f.call('/admin/posts/'+f.id+'/')).text();assert.match(screen,/data-use-existing-photos="1"/);assert.match(screen,/등록된 사진 6장으로 글 작성/);
+ }finally{f.DB.close();}
+});
+
+test('a wholly empty vision result still preserves the draft without fabricating a page',async()=>{
+ const f=await fixture();try{const before=await f.row();let calls=0;f.env.AI.run=async()=>{calls++;return {response:JSON.stringify({photos:[{id:9001,description:'',advice:''}]})};};const response=await f.generate();assert.equal(response.status,409);assert.match(await response.text(),/사진의 작업 대상/);assert.equal(calls,1);assert.equal((await f.row()).content,before.content);assert.equal((await f.row()).version,before.version);}finally{f.DB.close();}
+});

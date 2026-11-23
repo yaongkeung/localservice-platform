@@ -38,6 +38,13 @@ export function composePage(user,data,message='',status=200){
 }
 const normal=text=>text.normalize('NFKC').replace(/\s+/g,'').toLowerCase();
 const clean=(value,max)=>{if(typeof value==='string')value=cleanEditorialText(value);if(typeof value!=='string'||!value.trim()||value.length>max)throw Error('자동 작성 결과가 올바르지 않습니다. 다시 시도해 주세요.');return value.replace(/\[사진:\d+\]/g,'').replace(/\[([^\]]+)\]\([^)]+\)/g,'$1').trim();};
+export function normalizePhotoObservations(observed,images){
+ const photos=observed?.photos;
+ if(!Array.isArray(photos)||photos.length!==images.length||new Set(photos.map(p=>Number(p?.id))).size!==images.length||images.some(image=>!photos.some(p=>Number(p?.id)===image.id)))throw Error('사진별 설명을 모두 만들지 못했습니다. 기존 사진은 보존했습니다. 다시 시도해 주세요.');
+ const fallbackIds=photos.filter(p=>typeof p.description!=='string'||!cleanEditorialText(p.description)).map(p=>Number(p.id));
+ if(fallbackIds.length===photos.length)throw Error('사진의 작업 대상을 확인하지 못했습니다. 작업 대상이 잘 보이는 사진이나 실제 작업 메모를 확인해 주세요. 기존 사진은 보존했습니다.');
+ return {fallbackIds,photos:photos.map(p=>fallbackIds.includes(Number(p.id))?{id:Number(p.id),description:'업체에서 제공한 사진입니다. 자세한 작업 대상과 상태는 업체에 확인해 주세요.',advice:'',observation_unavailable:true}:p)};
+}
 export function assembleDraft(raw,post,company,region,images,previous=[],titleHistory=previous){
  post={...post,search_keyword:primaryWorkKeyword(post.search_keyword)};
  const data=typeof raw==='string'?JSON.parse(raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,'')):raw;
@@ -111,6 +118,7 @@ export async function generateDraft(request,env,user,id,form){
   const observed=typeof result.response==='string'?JSON.parse(result.response.replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,'')):result.response;
   if(Array.isArray(observed?.photos))observed.photos=observed.photos.map(item=>({...item,advice:typeof item.advice==='string'?cleanPhotoAdvice(item.advice):item.advice}));
   diagnostics={...diagnostics,stage:'photo-validation',photos:Array.isArray(observed?.photos)?observed.photos.map(item=>({id:item.id,descriptionType:typeof item.description,descriptionLength:item.description?.length,adviceType:typeof item.advice,adviceLength:item.advice?.length})):[]};
+  const normalized=normalizePhotoObservations(observed,images);observed.photos=normalized.photos;diagnostics.photo_description_fallbacks=normalized.fallbackIds;
   // Validate all image IDs before the second inference, then author page-specific guidance.
   assembleDraft(observed,post,company,region,images);
   await progress('page-writing');

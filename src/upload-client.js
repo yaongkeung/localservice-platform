@@ -34,9 +34,10 @@ export function uploadClient(){
   }finally{bitmap.close();}
  };
  for(const form of document.querySelectorAll('form[data-photo-upload]'))form.addEventListener('submit',async event=>{
-  event.preventDefault();const files=Array.from(form.querySelector('input[type=file]').files),message=form.querySelector('[role=status]'),button=form.querySelector('button');
+  event.preventDefault();const fileInput=form.querySelector('input[type=file]'),useExisting=event.submitter?.dataset?.useExistingPhotos==='1',files=useExisting?[]:Array.from(fileInput.files),message=form.querySelector('[role=status]'),button=event.submitter||form.querySelector('button');
   if((!files.length&&!(form.dataset.generateUrl&&Number(form.dataset.existingPhotos)>0))||files.length>8){message.textContent='사진을 1~8장 선택해 주세요.';return;}
   if(files.some(file=>!['image/jpeg','image/png'].includes(file.type)||file.size>20*1024*1024)){message.textContent='각 20MB 이하의 JPG 또는 PNG 사진을 선택해 주세요.';return;}
+  if(useExisting)fileInput.value='';
   const operation=operationUi(button,form.dataset.generateUrl?'사진으로 자동 작성 중':'사진을 등록하는 중',['기본 정보 저장','사진 준비·등록','사진 분석·본문 작성','완성된 페이지 열기']);if(!operation)return;let saved=0,added=0,locationAfterSave;
   try{
    message.textContent='기본 정보를 저장하고 사진을 준비하고 있습니다…';operation.step(0,message.textContent);await saveEditor();
@@ -58,8 +59,9 @@ export function uploadClient(){
    }
    else{operation.success('사진 등록을 완료했습니다.',locationAfterSave);location.assign(locationAfterSave);}
   }catch(error){
+   if(added){form.dataset.existingPhotos=Number(form.dataset.existingPhotos||0)+added;const existing=form.querySelector('[data-use-existing-photos]');if(existing){existing.hidden=false;existing.textContent='등록된 사진 '+form.dataset.existingPhotos+'장으로 글 작성';}}
    message.textContent=(saved?saved+'장은 처리됐습니다. ':'')+(error.message||'사진 등록에 실패했습니다.');operation.error(message.textContent,locationAfterSave||editor?.getAttribute('action')||location.pathname);if(saved>0&&saved<files.length)button.disabled=true;
-   if(locationAfterSave){const link=document.createElement('a');link.href=locationAfterSave;link.textContent=' 저장한 사진 확인하기 →';message.append(link);if(saved===files.length){form.dataset.existingPhotos=Number(form.dataset.existingPhotos||0)+added;form.querySelector('input[type=file]').value='';button.disabled=false;}}else button.disabled=false;
+   if(locationAfterSave){const link=document.createElement('a');link.href=locationAfterSave;link.textContent=' 저장한 사진 확인하기 →';message.append(link);if(saved===files.length){fileInput.value='';button.disabled=false;}}else button.disabled=false;
   }
  });
 }
