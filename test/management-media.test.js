@@ -29,7 +29,7 @@ async function fixture(){
  return {DB,objects,PHOTOS,auth,call,create,row,transition,upload,changePhoto};
 }
 const photo=()=>readFile(new URL('../public/media/plumbing-cover.jpg',import.meta.url));
-const company={customer_name:'시험 고객명',name:'시험 설비 업체',description:'자동 검증을 위해 등록한 출장 설비 업체입니다.',area:'서울 마포구',hours:'평일 09:00~18:00',phone:'',status:'ACTIVE',sample:'1'};
+const company={customer_name:'시험 고객명',primary_service_id:'1',name:'시험 설비 업체',description:'자동 검증을 위해 등록한 출장 설비 업체입니다.',area:'서울 마포구',hours:'평일 09:00~18:00',phone:'',status:'ACTIVE',sample:'1'};
 
 test('compact company lists lead with customer names, sort naturally and preserve search over 50-row pages',async()=>{
  const f=await fixture();try{
@@ -53,7 +53,7 @@ test('company deletion is confirmed, authenticated and reversible without changi
   const event=await f.DB.prepare('SELECT * FROM catalog_events').first();assert.equal(event.user_id,1);assert.equal(event.action,'DELETE');assert.equal(JSON.parse(event.snapshot).name,c.name);
   assert.equal((await f.call('/admin/companies/1/restore/',{as:1,form:{version:c.version,confirmed:'1'}})).status,409);assert.equal((await f.call('/admin/companies/1/restore/',{as:1,form:{version:deleted.version,confirmed:'1'}})).status,303);
   const restored=await f.DB.prepare('SELECT * FROM companies WHERE id=1').first();assert.equal(restored.deleted_at,null);assert.equal(restored.status,'DISABLED');assert.equal((await f.call('/post/'+id+'/')).status,404);
-  assert.equal((await f.call('/admin/companies/1/',{as:1,form:{name:c.name,description:c.description,area:c.area,hours:c.hours,phone:'',customer_name:c.customer_name,status:'ACTIVE',sample:'1',version:restored.version}})).status,303);assert.equal((await f.call('/post/'+id+'/')).status,200);assert.deepEqual(await f.row(id),before);
+  assert.equal((await f.call('/admin/companies/1/',{as:1,form:{name:c.name,primary_service_id:1,description:c.description,area:c.area,hours:c.hours,phone:'',customer_name:c.customer_name,status:'ACTIVE',sample:'1',version:restored.version}})).status,303);assert.equal((await f.call('/post/'+id+'/')).status,200);assert.deepEqual(await f.row(id),before);
  }finally{f.DB.close();}
 });
 
@@ -112,6 +112,25 @@ test('company management validates confirmed phones, reflects edits and hides in
   assert.equal((await f.call('/admin/companies/'+c.id+'/',{as:1,form:{...company,status:'DISABLED',version:c.version}})).status,303);
   assert.equal((await f.call('/company/'+c.id+'/')).status,404);
   assert.equal((await f.call('/admin/companies/'+c.id+'/',{as:1,form:{...company,version:c.version}})).status,409);
+ }finally{f.DB.close();}
+});
+
+test('company industry is required, persists on edit, is displayed in compose and prevents deleting an assigned industry',async()=>{
+ const f=await fixture();try{
+  await f.DB.prepare("INSERT INTO services(id,name,slug) VALUES(52,'조립식칸막이','partition-test')").run();
+  assert.match(await(await f.call('/admin/companies/new/',{as:1})).text(),/name="primary_service_id" required/);
+  for(const primary_service_id of ['',9999]){const res=await f.call('/admin/companies/new/',{as:1,form:{...company,primary_service_id}});assert.equal(res.status,409);assert.match(await res.text(),/업종을 선택/);}
+  assert.equal((await f.call('/admin/companies/new/',{as:1,form:{...company,primary_service_id:52}})).status,303);
+  let c=await f.DB.prepare('SELECT * FROM companies ORDER BY id DESC LIMIT 1').first();assert.equal(c.primary_service_id,52);
+  const compose=await(await f.call('/admin/compose/',{as:1})).text();assert.match(compose,/data-company-service="조립식칸막이"/);assert.match(compose,/data-selected-service/);
+  assert.equal((await f.call('/admin/companies/'+c.id+'/',{as:1,form:{...company,primary_service_id:2,version:c.version}})).status,303);
+  c=await f.DB.prepare('SELECT * FROM companies WHERE id=?').bind(c.id).first();assert.equal(c.primary_service_id,2);
+  const blocked=await(await f.call('/admin/services/52/delete/',{as:1})).text();assert.doesNotMatch(blocked,/업체 1개/);
+  const used=await(await f.call('/admin/services/2/delete/',{as:1})).text();assert.match(used,/업체 1개/);
+  await assert.rejects(f.DB.prepare("UPDATE services SET deleted_at=CURRENT_TIMESTAMP WHERE id=2").run(),/assigned to a company|Service is in use/);
+  await f.DB.prepare("UPDATE services SET deleted_at=CURRENT_TIMESTAMP WHERE id=52").run();
+  const invalid=await f.call('/admin/companies/'+c.id+'/',{as:1,form:{...company,primary_service_id:52,version:c.version}});assert.equal(invalid.status,409);assert.equal((await f.DB.prepare('SELECT primary_service_id FROM companies WHERE id=?').bind(c.id).first()).primary_service_id,2);
+  await assert.rejects(f.DB.prepare('UPDATE companies SET primary_service_id=52 WHERE id=?').bind(c.id).run(),/unavailable/);
  }finally{f.DB.close();}
 });
 test('a real company without posts is discoverable with a verified phone, keyword search and no invented work',async()=>{

@@ -9,7 +9,16 @@ import {townshipGroups,townshipName} from '../src/township-groups.js';
 import {registerRegion} from '../src/cms-regions.js';
 import {titleFor} from '../src/editor-title.js';
 import {initialDraftText} from '../src/draft-state.js';
+import {serviceForKeyword} from '../src/editor-values.js';
 const origin='https://gongsa8282.xyz';
+test('company industry wins over matching keywords and alphabetical fallback never assigns an unrelated industry',()=>{
+ const services=[{id:15,name:'간병인'},{id:52,name:'칸막이공사'},{id:1,name:'배관·누수'}];
+ assert.equal(serviceForKeyword('누수 점검',services,15,{primary_service_id:52}),52);
+ assert.equal(serviceForKeyword('지붕공사',services,null,{name:'종합건축'}),undefined);
+ assert.equal(serviceForKeyword('지붕공사',services,null,{primary_service_id:999}),undefined);
+ assert.equal(serviceForKeyword('칸막이공사',services,null),52);
+ assert.equal(serviceForKeyword('미분류 업무',services,1),1);
+});
 async function fixture(){
  const DB=sqliteDatabase();await migrate(DB);await seed(DB);const token=randomToken(),csrf=randomToken();
  await DB.prepare("INSERT INTO users(id,name,login_id,password_hash,role) VALUES(1,'간단 작성 시험','simple-test','not-a-password','ADMIN')").run();
@@ -37,6 +46,17 @@ test('group storage has no fabricated official code and grouped search includes 
   assert.equal((await f.DB.prepare('SELECT admin_code FROM regions WHERE id=?').bind(id1).first()).admin_code,'11380580');
  }finally{f.DB.close();}
 });
+test('a selected company industry is bound server-side and unknown unassigned companies receive an actionable message',async()=>{
+ const f=await fixture();try{
+  const fields={simple_editor:1,action:'prepare',company_id:1,region_id:2,search_region:'성산동',search_keyword:'칸막이 떡가베'};
+  await f.DB.prepare("UPDATE companies SET name='칸막이 회사',description='텍스 칸막이 떡가베' WHERE id=1").run();
+  const missing=await f.call('/admin/posts/new/',fields);assert.equal(missing.status,409);assert.match(await missing.text(),/업체 수정에서 업종을 선택/);
+  await f.DB.prepare('UPDATE companies SET primary_service_id=2,version=version+1 WHERE id=1').run();
+  const saved=await f.call('/admin/posts/new/',{...fields,service_id:1});assert.equal(saved.status,303,await saved.clone().text());
+  const id=Number(saved.headers.get('location').split('/')[3]);assert.equal((await f.row(id)).service_id,2);
+ }finally{f.DB.close();}
+});
+
 test('simple editor derives service/title/summary without visible management fields and preserves publication contracts',async()=>{
  const f=await fixture();try{
   const html=await(await f.call('/admin/posts/new/')).text();assert.doesNotMatch(html,/<(?:select|input)[^>]+name="(?:contract_id|service_id|post_type|summary)"/);assert.match(html,/name="search_region"/);assert.match(html,/name="search_keyword"/);

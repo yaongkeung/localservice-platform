@@ -46,7 +46,7 @@ export async function postValues(form){
  return {...searchFields(form),work_notes,contact_phone:normalizeContactPhone(form.get('contact_phone')),title,summary,content:text.split(/\n\s*\n/).map(t=>t.trim()).filter(Boolean),company_id:Number(form.get('company_id')),region_id:Number(form.get('region_id')),service_id:Number(form.get('service_id')),post_type,contract_id:Number(form.get('contract_id'))||null,title_hash:await digest(normalize(title)),content_hash:await digest(normalize(text))};
 }
 async function choices(db,user){
- return {companies:await all(db,isAdmin(user)?"SELECT * FROM companies WHERE status='ACTIVE'":"SELECT c.* FROM companies c JOIN company_assignments a ON a.company_id=c.id WHERE a.user_id=? AND c.status='ACTIVE'",...(isAdmin(user)?[]:[user.id])),regions:await all(db,'SELECT * FROM regions ORDER BY slug'),services:sortServices(await all(db,'SELECT * FROM services WHERE deleted_at IS NULL'))};
+ return {companies:await all(db,isAdmin(user)?"SELECT c.*,s.name AS primary_service_name FROM companies c LEFT JOIN services s ON s.id=c.primary_service_id AND s.deleted_at IS NULL WHERE c.status='ACTIVE' AND c.deleted_at IS NULL":"SELECT c.*,s.name AS primary_service_name FROM companies c JOIN company_assignments a ON a.company_id=c.id LEFT JOIN services s ON s.id=c.primary_service_id AND s.deleted_at IS NULL WHERE a.user_id=? AND c.status='ACTIVE' AND c.deleted_at IS NULL",...(isAdmin(user)?[]:[user.id])),regions:await all(db,'SELECT * FROM regions ORDER BY slug'),services:sortServices(await all(db,'SELECT * FROM services WHERE deleted_at IS NULL'))};
 }
 async function canAccess(db,user,post){return isAdmin(user)||post.writer_id===user.id&&!!await first(db,'SELECT id FROM company_assignments WHERE user_id=? AND company_id=?',user.id,post.company_id);}
 async function validateRelations(db,user,values,post={}){
@@ -172,14 +172,15 @@ export async function cms(request,env,ctx){
     if(request.headers.get('x-editor-save')==='1')return Response.json({location:'/admin/posts/'+id+'/',version:Number(form.get('version'))+1},{headers:{'cache-control':'no-store'}});
     return redirect('/admin/posts/'+id+'/?saved=1#generated-post');
    }else{
-    const sample=data.companies.find(c=>c.id===values.company_id)?.sample?1:0;
-    const result=await run(db,'INSERT INTO posts(company_id,region_id,service_id,post_type,title,summary,content,title_hash,content_hash,contract_id,search_region,search_keyword,contact_phone,work_notes,generation_reviewed,writer_id,sample) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',...args,preparing?0:1,user.id,sample);
+    const company=data.companies.find(c=>c.id===values.company_id),sample=company?.sample?1:0;
+    const result=await run(db,"INSERT INTO posts(company_id,region_id,service_id,post_type,title,summary,content,title_hash,content_hash,contract_id,search_region,search_keyword,contact_phone,work_notes,generation_reviewed,writer_id,sample) SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM companies WHERE id=? AND status='ACTIVE' AND deleted_at IS NULL AND version=?)",...args,preparing?0:1,user.id,sample,company.id,company.version);
+    if(!result.meta.changes)throw Error('다른 화면에서 업체 정보가 변경되었습니다. 새로고침 후 다시 선택해 주세요.');
     return redirect('/admin/posts/'+result.meta.last_row_id+'/');
    }
   }
   return redirect('/admin/posts/'+id+'/');
  }catch(error){
-  const expected=/^(제목|요약|본문|글 종류|접근 가능한|다른 글|현재 상태|다른 화면|작성 중|지역|기존 공개|상담 전화)/.test(error.message);
+  const expected=/^(제목|요약|본문|글 종류|접근 가능한|다른 글|현재 상태|다른 화면|작성 중|지역|업체 수정에서 업종|기존 공개|상담 전화)/.test(error.message);
   const message=expected?error.message:'저장하지 못했습니다. 로그인 상태와 중복 내용, 다른 화면에서 변경했는지 확인해 주세요.';
   if(actionJson)return Response.json({error:message,status:post.status,version:post.version},{status:409,headers:{'cache-control':'no-store'}});
   if(!match[2]&&(!id||post.status==='DRAFT'))post={...post,...Object.fromEntries(form),id:post.id,status:post.status};

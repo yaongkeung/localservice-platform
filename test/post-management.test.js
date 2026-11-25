@@ -20,13 +20,25 @@ async function fixture(){
  return {DB,auth,call,row,manifest,create,archive,publish};
 }
 
-test('post table is customer-first, Korean sorted, numbered, searchable and paginated; editor scope is retained',async()=>{
+test('post table is customer-first, numbered, searchable and paginated; editor scope is retained',async()=>{
  const f=await fixture();try{
   for(let i=0;i<53;i++)await f.create(i,1);await f.create(90,2);
   let html=await(await f.call('/admin/')).text();assert.match(html,/<th scope="col">고객명 · 업체<\/th><th scope="col">순번/);assert.equal((html.match(/class="post-number"/g)||[]).length,50);assert.ok(html.indexOf('class="post-customer"><a href="/admin/?customer=%EA%B0%80')<html.indexOf('class="post-customer"><a href="/admin/?customer=%EC%96%91'));
   html=await(await f.call('/admin/?customer=양승철&page=2')).text();assert.match(html,/class="post-number">51</);assert.match(html,/이 고객 게시글 전체 삭제 \(54건\)/);assert.doesNotMatch(html,/고객별 게시글 목록 시험 90/);
   html=await(await f.call('/admin/?q=가고객')).text();assert.match(html,/고객별 게시글 목록 시험 90/);assert.doesNotMatch(html,/고객별 게시글 목록 시험 52/);
   html=await(await f.call('/admin/',{as:2})).text();assert.doesNotMatch(html,/고객별 게시글 목록 시험 90|선택한 글 삭제|customer-delete/);assert.equal((await f.call('/admin/?view=deleted',{as:2})).status,403);
+ }finally{f.DB.close();}
+});
+
+test('post list defaults to newest creation, ignores edits/customer order and removes the Naver column and filters',async()=>{
+ const f=await fixture();try{
+  const old=await f.create(501,2),recent=await f.create(502,1);
+  await f.DB.prepare("UPDATE posts SET created_at='2026-11-23 10:00:00',updated_at='2026-11-26 10:00:00' WHERE id=?").bind(old).run();
+  await f.DB.prepare("UPDATE posts SET created_at='2026-11-25 10:00:00',updated_at='2026-11-25 10:00:00' WHERE id=?").bind(recent).run();
+  const html=await(await f.call('/admin/?exposure=found')).text(),body=html.match(/<tbody>([\s\S]*?)<\/tbody>/)[1];
+  assert.ok(body.indexOf('목록 시험 502')<body.indexOf('목록 시험 501'));assert.match(html,/최신 작성순/);
+  assert.doesNotMatch(html,/네이버 1페이지|네이버 확인 상태|name="exposure"|확인 결과 기록|1페이지 확인/);
+  assert.match(html,/-webkit-line-clamp:2/);assert.match(body,/#\d+ · 2026-11-25/);
  }finally{f.DB.close();}
 });
 
@@ -91,7 +103,7 @@ test('manual result recording is authenticated, version-bound, separate from pub
   const id=await f.create(1),p=await f.publish(id),path='/admin/posts/'+id+'/search-check/';
   assert.equal((await f.call(path,{as:2})).status,403);assert.equal((await f.call(path,{csrf:false,form:{version:p.version,result:'FOUND',device:'PC',confirmed:'1'}})).status,403);
   const saved=await f.call(path,{form:{version:p.version,result:'FOUND',device:'PC',confirmed:'1',note:'<script>not executable</script>'}});assert.equal(saved.status,303,await saved.clone().text());assert.equal((await f.row(id)).version,p.version);
-  let html=await(await f.call('/admin/?customer=양승철')).text();assert.match(html,/1페이지 확인/);assert.match(html,/성산동 보일러누수/);html=await(await f.call(path)).text();assert.ok(html.includes('&lt;script&gt;not executable&lt;/script&gt;'));assert.doesNotMatch(html,/<script>not executable/);
+  let html=await(await f.call('/admin/?customer=양승철')).text();assert.doesNotMatch(html,/1페이지 확인|확인 결과 기록/);html=await(await f.call(path)).text();assert.ok(html.includes('&lt;script&gt;not executable&lt;/script&gt;'));assert.doesNotMatch(html,/<script>not executable/);
   assert.equal((await f.call(path,{form:{version:p.version-1,result:'FOUND',device:'PC',confirmed:'1'}})).status,409);assert.equal((await f.DB.prepare('SELECT COUNT(*) n FROM post_search_checks').first()).n,1);
   await f.archive([id]);assert.equal((await f.call(path)).status,404);assert.equal((await f.DB.prepare('SELECT COUNT(*) n FROM post_search_checks').first()).n,1);
  }finally{f.DB.close();}

@@ -3,6 +3,9 @@ import {titleRegionForCode} from './title-region.js';
 import {primaryWorkKeyword} from './work-keyword.js';
 const normal=value=>String(value||'').normalize('NFKC').replace(/[^\p{L}\p{N}]/gu,'').replace(/샤시/g,'샷시').replace(/쇼파/g,'소파').replace(/밧데리/g,'배터리').replace(/렌터카/g,'렌트카').replace(/닥트/g,'덕트').toLowerCase();
 export function serviceForKeyword(keyword,services,current,company={}){
+ // A deliberately selected company industry is authoritative, including when
+ // the work keyword resembles a different industry.
+ if(company.primary_service_id!=null)return services.find(service=>service.id===Number(company.primary_service_id))?.id;
  const score=(service,text)=>{
   const name=normal(service.name);let result=name&&text.includes(name)?100+name.length:0;
   for(const token of service.name.split(/[·\s/]+/)){const part=normal(token);if(part.length>=2&&text.includes(part))result=Math.max(result,part.length);}
@@ -12,7 +15,7 @@ export function serviceForKeyword(keyword,services,current,company={}){
  if(ranked[0]?.score)return ranked[0].service.id;
  if(services.some(service=>service.id===current))return current;
  const hint=normal(company.name+' '+company.description),hinted=services.map(service=>({service,score:score(service,hint)})).sort((a,b)=>b.score-a.score);
- return hinted[0]?.score?hinted[0].service.id:services.find(service=>!service.parent_id)?.id||services[0]?.id;
+ return hinted[0]?.score?hinted[0].service.id:undefined;
 }
 export function simplePostForm(form,data,post={}){
  const companyId=Number(form.get('company_id')),company=data.companies.find(item=>item.id===companyId)||{};
@@ -20,7 +23,9 @@ export function simplePostForm(form,data,post={}){
  if(form.get('region_mode')==='catalog'){const formatted=titleRegionForCode(form.get('dong')||form.get('district')||form.get('province'));if(formatted&&(!region||region===formatted.split(' ').at(-1))){region=formatted;form.set('search_region',region);}}
  if(!region||!keyword)throw Error('지역명과 대표 업무 키워드를 입력해 주세요.');
  const sameCompany=companyId===post.company_id;
- form.set('service_id',String(serviceForKeyword(keyword,data.services,sameCompany?post.service_id:null,company)||''));
+ const serviceId=serviceForKeyword(keyword,data.services,sameCompany?post.service_id:null,company);
+ if(!serviceId)throw Error('업체 수정에서 업종을 선택한 뒤 다시 작성해 주세요.');
+ form.set('service_id',String(serviceId));
  form.set('post_type',post.post_type||'서비스안내');
  // Historical references remain attached; new publications do not use contracts.
  form.set('contract_id',String(sameCompany?post.contract_id||'':''));
