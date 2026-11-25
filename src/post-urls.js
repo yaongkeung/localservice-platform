@@ -10,7 +10,7 @@ export function readablePostPaths(post,regions,services){
  let category=slug(root?.name.split(/[·/]/)[0],'서비스',35);
  if(['admin','assets','uploads','company-photos','media','healthz'].includes(category.toLowerCase()))category='서비스-'+category;
  const province=slug(provinces[provinceForPost(post,regions)]||'전국','전국',20);
- const place=slug(post.search_region?.trim().split(/\s+/).at(-1)||townshipName(region.name||''),'지역',40),keyword=slug(post.search_keyword||service?.name,'서비스',50);
+ const place=slug(townshipName(region.name||'')||post.search_region?.trim().split(/\s+/).at(-1),'지역',40),keyword=slug(post.search_keyword||service?.name,'서비스',50);
  const prefix=[category,province,place].map(encodeURIComponent).join('/'),file=encodeURIComponent(place+'-'+keyword);
  // A double hyphen is reserved for collisions: normalized input has only single
  // hyphens, so another post's natural filename can never occupy this suffix.

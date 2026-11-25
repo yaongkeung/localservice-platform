@@ -9,33 +9,19 @@ import {cmsRegionPicker} from './cms-regions.js';
 import {regionalSection,localContext} from './local-context.js';
 import {serviceSections,faqSections} from './service-content.js';
 import {titleFor} from './editor-title.js';
-import {townshipName} from './township-groups.js';
-import {regionData} from './regions-data.js';
-import {titleRegionForCode} from './title-region.js';
 import {repeatedPageCopy} from './page-copy.js';
 import {writingConflicts,writingRepairInput,applyWritingRepair,repetitionMessage} from './writing-repair.js';
 import {diversifyTitleSuffix} from './title-variety.js';
 import {cleanEditorialText,cleanPhotoAdvice,workNotesField} from './editorial-text.js';
-import {primaryWorkKeyword} from './work-keyword.js';
 import {generationFailure,visionResponseInfo,generationFailureMessage} from './generation-diagnostics.js';
 export const draftModel='@cf/meta/llama-4-scout-17b-16e-instruct';
 export function searchFields(form){
  const region=String(form.get('search_region')||'').trim(),keyword=String(form.get('search_keyword')||'').trim();
- if((region||keyword)&&(!/^[가-힣a-zA-Z0-9· .()-]{2,40}$/.test(region)||!/^[가-힣a-zA-Z0-9· .()-]{2,40}$/.test(keyword)))throw Error('지역명과 업무 키워드는 각각 2~40자로 입력해 주세요.');
+ if((region||keyword)&&(!/^[가-힣a-zA-Z0-9· .()-]{2,40}$/.test(region)||!/^[가-힣a-zA-Z0-9· ,/|&+.()-]{2,80}$/.test(keyword)))throw Error('제목 지역명은 2~40자, 업무 키워드는 2~80자로 입력해 주세요.');
  return {search_region:region,search_keyword:keyword};
 }
-export function targetRegionMatches(name,region,company){
- if(!name||name===region.name)return true;
- const code=String(region.admin_code||region.group_key||'');if(!code)return false;
- if(name===titleRegionForCode(code))return true;
- const matches=item=>(item.name===name||townshipName(item.name)===name||titleRegionForCode(item.code)===name)&&(String(item.code).startsWith(code)||code.startsWith(String(item.code)));
- if(regionData.provinces.some(matches)||regionData.districts.some(matches)||Object.entries(regionData.dongs).some(([district,items])=>(district.startsWith(code)||code.startsWith(district))&&items.some(matches)))return true;
- // Legal neighbourhoods may not be separate administrative townships. Require a declared
- // service area containing BOTH the selected locality and requested neighbourhood.
- return !!company.area&&company.area.includes(region.name)&&company.area.includes(name);
-}
 export function composePage(user,data,message='',status=200){
- return page('사진으로 포스팅 작성',`<h1>📸 지역·키워드로 시작하기</h1><p>고객과 지역·업무를 선택하고 사진을 등록하면 제목과 본문을 자동으로 만듭니다.</p>${message?`<p class="cms-error" role="alert">${e(message)}</p>`:''}<form method="post" action="/admin/posts/new/" data-simple-editor><input type="hidden" name="simple_editor" value="1">${csrf(user)}<input type="hidden" name="action" value="prepare"><input type="hidden" name="post_type" value="서비스안내"><section class="panel cms-grid">${customerSelect(data.companies)}${phoneField()}${cmsRegionPicker({},data.regions)}<label>제목에 쓸 지역명<input name="search_region" placeholder="예: 사우동" minlength="2" maxlength="40" required></label><label>대표 업무 키워드<input name="search_keyword" placeholder="예: 방충망 교체" minlength="2" maxlength="40" required></label><label class="full">자동 연관 키워드<input data-related-keyword placeholder="사진 분석 후 업무에 맞춰 자동으로 채워집니다" readonly></label><label class="full">화면 제목 (자동)<input data-page-heading placeholder="읍·면·동과 대표 업무" readonly></label><label class="full">검색용 제목<input name="title" placeholder="지역명과 키워드를 입력하면 완성됩니다" readonly><span class="cms-help">사진 분석 후 지역·업무 | 사진에 맞는 설명 형식으로 완성합니다.</span></label>${workNotesField()}</section><button>사진 등록으로 이어가기 →</button></form><p class="cms-help">실제 서비스 지역과 관련 있는 업무를 입력하세요. 작성된 내용을 확인하고 발행하면 바로 메인에 표시됩니다.</p>`,user,status);
+ return page('사진으로 포스팅 작성',`<h1>📸 지역·키워드로 시작하기</h1><p>고객과 지역·업무를 선택하고 사진을 등록하면 제목과 본문을 자동으로 만듭니다.</p>${message?`<p class="cms-error" role="alert">${e(message)}</p>`:''}<form method="post" action="/admin/posts/new/" data-simple-editor><input type="hidden" name="simple_editor" value="1">${csrf(user)}<input type="hidden" name="action" value="prepare"><input type="hidden" name="post_type" value="서비스안내"><section class="panel cms-grid">${customerSelect(data.companies)}${phoneField()}${cmsRegionPicker({},data.regions)}<label>제목에 쓸 지역명<input name="search_region" placeholder="예: 서울종로" minlength="2" maxlength="40" required><span class="cms-help">지역 선택 후 자동 입력되며, 서울종로처럼 직접 바꿀 수 있습니다.</span></label><label>대표 업무 키워드<input name="search_keyword" placeholder="예: 강화유리 상가유리문 설치 및 힌지 교체" minlength="2" maxlength="80" required></label><label class="full">자동 연관 키워드<input data-related-keyword placeholder="사진 분석 후 업무에 맞춰 자동으로 채워집니다" readonly></label><label class="full">화면 제목 (자동)<input data-page-heading placeholder="읍·면·동과 대표 업무" readonly></label><label class="full">검색용 제목<input name="title" placeholder="지역명과 키워드를 입력하면 완성됩니다" readonly><span class="cms-help">사진 분석 후 지역·업무 | 사진에 맞는 설명 형식으로 완성합니다.</span></label>${workNotesField()}</section><button>사진 등록으로 이어가기 →</button></form><p class="cms-help">실제 서비스 지역과 관련 있는 업무를 입력하세요. 작성된 내용을 확인하고 발행하면 바로 메인에 표시됩니다.</p>`,user,status);
 }
 const normal=text=>text.normalize('NFKC').replace(/\s+/g,'').toLowerCase();
 const clean=(value,max)=>{if(typeof value==='string')value=cleanEditorialText(value);if(typeof value!=='string'||!value.trim()||value.length>max)throw Error('자동 작성 결과가 올바르지 않습니다. 다시 시도해 주세요.');return value.replace(/\[사진:\d+\]/g,'').replace(/\[([^\]]+)\]\([^)]+\)/g,'$1').trim();};
@@ -47,7 +33,6 @@ export function normalizePhotoObservations(observed,images){
  return {fallbackIds,photos:photos.map(p=>fallbackIds.includes(Number(p.id))?{id:Number(p.id),description:'업체에서 제공한 사진입니다. 자세한 작업 대상과 상태는 업체에 확인해 주세요.',advice:'',observation_unavailable:true}:p)};
 }
 export function assembleDraft(raw,post,company,region,images,previous=[],titleHistory=previous){
- post={...post,search_keyword:primaryWorkKeyword(post.search_keyword)};
  const data=typeof raw==='string'?JSON.parse(raw.replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,'')):raw;
  const authored=data.page?validatePageWriting(data.page):null;
  const copy=authored?.copy;
@@ -63,7 +48,7 @@ export function assembleDraft(raw,post,company,region,images,previous=[],titleHi
   for(const key of duplicates)if(headings[key])copy[key]=headings[key].slice(0,85);
  }
  const title=titleFor(post.search_region,post.search_keyword,copy?.related_keyword,copy?.title_suffix);
- if([post.search_region,post.search_keyword,copy?.related_keyword,copy?.title_suffix].filter(Boolean).join(' ').length>120)throw Error('자동 작성 제목이 너무 깁니다.');
+ if(title.length>200)throw Error('자동 작성 제목은 200자 이내로 입력해 주세요.');
  if(authored&&/서비스\s*지역.{0,10}(?:아니|아닙|않|불가)/.test(authored.overview))authored.overview=`${post.search_region} ${post.search_keyword} 상담을 위해 업체 제공 사진과 확인할 항목을 정리했습니다. ${clean(data.photos?.[0]?.description,2400)} 방문 가능 지역과 일정은 업체에 직접 확인해 주세요.`;
  const summary=authored?authored.overview.replace(/[*#]/g,'').replace(/\s+/g,' ').slice(0,240):`${post.search_region} ${post.search_keyword} 상담을 위한 사진 안내입니다. 사진별 구조와 상담 전 확인할 항목을 살펴보세요.`;
  const intro=authored?.overview||`${post.search_region}에서 **${post.search_keyword}** 상담을 준비하시는 분을 위해 업체가 제공한 사진을 살펴봅니다. 아래에서는 사진에 보이는 대상과 상담 시 확인할 사항을 함께 안내합니다.`;
@@ -109,7 +94,6 @@ export async function generateDraft(request,env,user,id,form){
   searchFields(new URLSearchParams(post));if(!post.search_region||!post.search_keyword)throw Error('지역명과 업무 키워드를 먼저 저장해 주세요.');
   const [company,region,images]=await Promise.all([first(db,"SELECT * FROM companies WHERE id=? AND status='ACTIVE'",post.company_id),first(db,'SELECT * FROM regions WHERE id=?',post.region_id),all(db,'SELECT * FROM post_images WHERE post_id=? AND excluded=0 ORDER BY sort_order,id',id)]);
   if(!company||!region||!images.length)throw Error('사진과 업체·지역 정보를 먼저 등록해 주세요.');
-  if(!targetRegionMatches(post.search_region,region,company))throw Error('지역명은 선택한 작업 지역 안에서 입력해 주세요.');
   // Keep a recoverable history for every attempt without a daily or per-post quota.
   diagnostics={stage:'photo-analysis',source_version:post.version,repair_attempt:0};
   generation=await first(db,"INSERT INTO draft_generations(post_id,user_id,model,state,previous_content,photo_ids) VALUES(?,?,?,'RUNNING',?,?) RETURNING id",id,user.id,draftModel,JSON.stringify({title:post.title,summary:post.summary,content:JSON.parse(post.content),related_keyword:post.related_keyword,page_copy:JSON.parse(post.page_copy||'{}'),validation:diagnostics}),JSON.stringify(images.map(i=>i.id)));

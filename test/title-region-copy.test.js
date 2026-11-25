@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {formatTitleRegion,titleRegionForCode} from '../src/title-region.js';
 import {regionData} from '../src/regions-data.js';
-import {targetRegionMatches,assembleDraft} from '../src/draft-assistant.js';
+import {searchFields,assembleDraft} from '../src/draft-assistant.js';
 import {titleFor} from '../src/editor-title.js';
 import {pageWritingInput,validatePageWriting} from '../src/page-writer.js';
 import {repeatedPageCopy,repeatedParagraphs,relatedCandidates} from '../src/page-copy.js';
@@ -35,9 +35,9 @@ test('recycled labels are grounded in actual detail topics without hiding repeat
  assert.ok(repeatedPageCopy(copy,[prior],post.search_region,post.search_keyword).includes('closing'));
  assert.ok(repeatedParagraphs({...post,...draft},[{...post,...draft}])>0);
 });
-test('all national catalogue title labels validate against their own branch and wrong places do not',()=>{
- let checked=0;for(const district of regionData.districts)for(const dong of regionData.dongs[district.code]||[]){const label=titleRegionForCode(dong.code);assert.ok(targetRegionMatches(label,{name:dong.name,admin_code:dong.code},{}),label);checked++;}assert.equal(checked,3559);
- assert.equal(targetRegionMatches('서울시 종로구 사직동',{name:'응암동',admin_code:'11380510'},{}),false);
+test('all national catalogue title labels remain valid input and custom title labels are allowed',()=>{
+ let checked=0;for(const district of regionData.districts)for(const dong of regionData.dongs[district.code]||[]){const label=titleRegionForCode(dong.code);assert.equal(searchFields(new URLSearchParams({search_region:label,search_keyword:'유리'})).search_region,label);checked++;}assert.equal(checked,3559);
+ assert.equal(searchFields(new URLSearchParams({search_region:'서울종로',search_keyword:'유리'})).search_region,'서울종로');
  assert.equal(titleRegionForCode('11380:응암동'),'서울시 은평구 응암동');
 });
 test('title waits for photo-specific copy, adds its automatic related keyword and does not recycle the old ending',()=>{

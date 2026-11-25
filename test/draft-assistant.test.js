@@ -9,7 +9,32 @@ import {assembleDraft,searchFields,visionInput,draftModel} from '../src/draft-as
 import {localContext} from '../src/local-context.js';
 import {postContent} from '../src/post-content.js';
 import {windowCopy} from './page-copy-fixture.js';
+import {regionData} from '../src/regions-data.js';
 const origin='https://gongsa8282.xyz';
+test('custom title region and a long full keyword survive save, photo writing, reopening and publication',async()=>{
+ const f=await fixture();try{
+  const keyword='방충망 교체 및 창틀 레일 손잡이 점검과 설치 공간 확인을 포함한 방문 상담';assert.ok(keyword.length>40);
+  const dong=regionData.dongs['11110'].find(item=>item.name==='부암동');assert.ok(dong);
+  const before=await f.row(),fields={simple_editor:'1',company_id:1,region_mode:'catalog',province:'11',district:'11110',dong:dong.code,search_region:'서울종로',search_keyword:keyword,title:before.title,content:JSON.parse(before.content).join('\n\n'),version:before.version};
+  const saved=await f.call('/admin/posts/'+f.id+'/',fields,{'x-editor-save':'1'});assert.equal(saved.status,200,await saved.clone().text());
+  let post=await f.row();assert.equal(post.search_region,'서울종로');assert.equal(post.search_keyword,keyword);assert.equal(post.title,'서울종로 '+keyword);const region=await f.DB.prepare('SELECT * FROM regions WHERE id=?').bind(post.region_id).first();assert.equal(region.admin_code,dong.code);
+  let writingInput;
+  f.env.AI.run=async(model,payload)=>{if(model===writingModel)writingInput=JSON.parse(payload.messages[1].content);return {response:JSON.stringify({...output,photos:[{...output.photos[0],id:9001}]})};};
+  const generated=await f.generate();assert.equal(generated.status,200,await generated.clone().text());post=await f.row();assert.equal(writingInput.requested_service,keyword);assert.equal(writingInput.requested_service_area,'서울종로');assert.ok(post.title.startsWith('서울종로 '+keyword));assert.equal(post.search_keyword,keyword);
+  const reopened=await(await f.call('/admin/posts/'+f.id+'/')).text();assert.ok(reopened.includes('name="search_region" value="서울종로"'));assert.ok(reopened.includes('value="'+keyword+'"'));assert.match(reopened,/class="cms-home" href="\/"/);assert.match(reopened,/cms-home-icon/);assert.match(reopened,/>홈으로 가기</);assert.doesNotMatch(reopened,/포털 보기/);
+  await f.DB.prepare("UPDATE users SET role='ADMIN' WHERE id=1").run();
+  const published=await f.call('/admin/posts/'+f.id+'/',{...fields,region_mode:'keep',region_id:post.region_id,title:post.title,content:JSON.parse(post.content).join('\n\n'),version:post.version,confirm_publish:'1'});assert.equal(published.status,303,await published.clone().text());
+  const path=(await f.DB.prepare('SELECT path FROM post_urls WHERE post_id=?').bind(f.id).first()).path;assert.ok(decodeURIComponent(path).includes('/부암동/부암동-'));assert.ok(!decodeURIComponent(path).includes('/서울종로/'));
+  const html=await(await f.call(path)).text();assert.ok(html.includes(keyword));assert.ok(html.includes('서울종로'));assert.equal((await f.row()).search_keyword,keyword);
+ }finally{f.DB.close();}
+});
+
+test('long keyword limits reject excessive or unsafe input without silently shortening accepted text',()=>{
+ const keyword='가'.repeat(80);assert.equal(searchFields(new URLSearchParams({search_region:'서울종로',search_keyword:keyword})).search_keyword,keyword);
+ assert.throws(()=>searchFields(new URLSearchParams({search_region:'서울종로',search_keyword:keyword+'나'})),/2~80/);
+ assert.throws(()=>searchFields(new URLSearchParams({search_region:'서울종로',search_keyword:'<script>업무</script>'})));
+ assert.equal(searchFields(new URLSearchParams({search_region:'서울종로',search_keyword:'유리문 설치 / 샷시, 방충망 교체'})).search_keyword,'유리문 설치 / 샷시, 방충망 교체');
+});
 function priorCopyExceptClosing(){const prior=structuredClone(windowCopy);for(const key of Object.keys(prior))if(typeof prior[key]==='string')prior[key]=('이전 자료의 '+prior[key]).slice(0,key.endsWith('_heading')?85:key==='title_suffix'?55:750);prior.related_keyword='이전 창문';prior.closing=windowCopy.closing;return prior;}
 const page={copy:windowCopy,overview:'흰색 창틀 안에 보이는 망과 테두리를 중심으로 상담할 항목을 안내합니다. 창문을 여는 방향과 틀 주변의 공간을 함께 설명하면 망 교체와 개폐 부품 점검을 구분하는 데 도움이 됩니다. 사진에서 확인되지 않는 재질이나 치수는 업체와 별도로 확인해야 합니다.',preparation:'창 전체를 담은 사진과 테두리, 손잡이 부분을 가까이 찍은 사진을 함께 준비하세요. 망에 틈이 생기는 위치와 창문을 움직일 때 걸리는 방향을 알려주면 상담 내용을 정리하기 쉽습니다. 높거나 위험한 위치는 직접 분리하지 말고 업체에 확인을 요청하세요.',details:['틀과 망의 상태','개폐 방향과 주변 공간','측정과 방문 조건'].map(title=>({title,text:'사진에 보이는 흰색 프레임과 망의 연결 부분을 기준으로 상담 내용을 정리합니다. 틈이 보이는 위치와 사용 중 불편한 점을 설명하고, 망만 교체할지 틀이나 부품도 점검할지는 전체 모습과 현장 상태를 확인한 뒤 상담하세요.'})),faq:['틀은 어떤 사진으로 보여주면 좋나요?','망만 교체할 수 있는지 어떻게 확인하나요?','높은 곳의 창문은 어떻게 상담하나요?'].map(question=>({question,answer:'창문의 전체 모습과 테두리, 불편한 부위를 가까이 찍은 사진을 함께 보여주세요. 크기와 여는 방향, 사용 중 관찰한 점을 전달하고 현장에서 추가로 확인할 범위를 업체에 상담해 주세요.'}))};
 const output={page,title_suffix:'창틀과 망 상태를 사진으로 살펴보기',summary:'사진에 보이는 창틀과 망의 상태를 살펴보고 상담 준비에 필요한 사항을 안내합니다.',intro:'사진 속 창문과 망을 살펴보며 **방충망 교체** 상담에 필요한 확인 사항을 정리합니다.',photos:[{id:1,description:'흰색 틀 안에 망이 보입니다. 사진만으로 재질과 손상 여부를 단정하기는 어렵습니다.',advice:'**창틀의 가로·세로 크기**와 열리는 방향을 확인해 상담할 때 알려주세요.'}],closing:'문의할 창문 전체 모습과 불편한 부분을 가까이 찍어 함께 전달해 주세요.'};

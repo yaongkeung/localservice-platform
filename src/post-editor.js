@@ -7,7 +7,6 @@ import {cmsRegionPicker} from './cms-regions.js';
 import {photoPanel} from './uploads.js';
 import {initialDraftText,waitingForPhotos} from './draft-state.js';
 import {postArticle} from './post-article.js';
-import {titleRegionForCode} from './title-region.js';
 import {withRegionTitle} from './post-title.js';
 import {workNotesField} from './editorial-text.js';
 import {pageTitles} from './page-titles.js';
@@ -15,8 +14,7 @@ export function editPage(user,data,post={},message='',status=200){
  post=withRegionTitle(post,data.regions.find(region=>region.id===Number(post.region_id)));
  const titles=pageTitles(post,data.regions.find(region=>region.id===Number(post.region_id)),data.services.find(service=>service.id===Number(post.service_id)));
  const editable=!post.id||post.status==='DRAFT',content=Array.isArray(post.content)?post.content.join('\n\n'):post.content;
- const selectedRegion=data.regions.find(item=>item.id===Number(post.region_id)),qualifiedRegion=titleRegionForCode(selectedRegion?.group_key||selectedRegion?.admin_code);
- const inputRegion=post.search_region&&!post.search_region.includes(' ')&&qualifiedRegion?.split(' ').at(-1)===post.search_region?qualifiedRegion:post.search_region;
+ const inputRegion=post.search_region||'';
  const ready=!!post.id&&!waitingForPhotos(post),company=data.companies.find(item=>item.id===Number(post.company_id))||{};
  const view={...post,content:Array.isArray(post.content)?post.content:String(post.content||'').split(/\n\s*\n/).filter(Boolean)};
  const sample=!!company.sample||!!post.sample;
@@ -25,11 +23,11 @@ export function editPage(user,data,post={},message='',status=200){
  const fields=editable?`<form id="post-editor" method="post" action="/admin/posts/${post.id?post.id+'/':'new/'}" data-simple-editor data-region-autofilled="${inputRegion!==post.search_region?'1':'0'}" ${post.id?`data-post-id="${post.id}"`:''}>
  ${csrf(user)}<input type="hidden" name="simple_editor" value="1">${!post.id?'<input type="hidden" name="action" value="prepare">':''}<input type="hidden" name="version" value="${post.version||0}">
  <section class="panel cms-grid">${customerSelect(data.companies,post)}${phoneField(post,company)}${cmsRegionPicker(post,data.regions)}
- <label>제목에 쓸 지역명<input name="search_region" value="${e(inputRegion)}" placeholder="예: 서울시 은평구 응암동" minlength="2" maxlength="40" required></label>
- <label>대표 업무 키워드<input name="search_keyword" value="${e(post.search_keyword)}" placeholder="예: 유리시공" minlength="2" maxlength="40" required></label>
+ <label>제목에 쓸 지역명<input name="search_region" value="${e(inputRegion)}" placeholder="예: 서울종로" minlength="2" maxlength="40" required><span class="cms-help">지역 선택 후 자동 입력되며, 서울종로처럼 직접 바꿀 수 있습니다.</span></label>
+ <label>대표 업무 키워드<input name="search_keyword" value="${e(post.search_keyword)}" placeholder="예: 강화유리 상가유리문 설치 및 힌지 교체" minlength="2" maxlength="80" required></label>
  <label class="full">자동 연관 키워드<input data-related-keyword value="${e(post.related_keyword)}" placeholder="사진 분석 후 자동 추천" readonly></label>
- <label class="full">화면 제목 (자동)<input data-page-heading value="${e(titles.heading)}" readonly><span class="cms-help">페이지의 큰 제목은 읍·면·동과 대표 업무로 간단하게 표시합니다.</span></label>
- <label class="full">검색용 제목<input name="title" value="${e(titles.search)}" minlength="5" maxlength="120" required><span class="cms-help">전체 지역명과 대표 업무 뒤에 | 구분자로 이 글의 설명을 붙입니다. 검색결과의 최종 표시는 검색엔진이 결정합니다.</span></label>
+ <label class="full">화면 제목 (자동)<input data-page-heading value="${e(titles.heading)}" readonly><span class="cms-help">페이지의 큰 제목에도 입력한 업무 키워드 전체를 표시합니다.</span></label>
+ <label class="full">검색용 제목<input name="title" value="${e(titles.search)}" minlength="5" maxlength="200" required><span class="cms-help">전체 지역명과 대표 업무 뒤에 | 구분자로 이 글의 설명을 붙입니다. 검색결과의 최종 표시는 검색엔진이 결정합니다.</span></label>
  ${workNotesField(post.work_notes||'',e)}
  ${!ready?`<input type="hidden" name="content" value="${e(content||initialDraftText)}">`:''}</section>
  ${!post.id?'<div class="cms-actions"><button>사진 첨부로 이동 →</button></div>':''}</form>`:`<article class="panel prose"><h2>${e(titles.heading)}</h2><p class="cms-help">검색용 제목: ${e(titles.search)}</p>${postArticle(view,data.images||[],company,isAdmin(user))}</article>`;

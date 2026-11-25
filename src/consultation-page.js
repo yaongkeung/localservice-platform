@@ -5,7 +5,6 @@ import {servicePlan,consultationSteps} from './service-plan.js';
 import {pagePhone,prettyPhone} from './page-contact.js';
 import {pageCopy} from './page-copy.js';
 import {searchDescription} from './search-metadata.js';
-import {primaryWorkKeyword} from './work-keyword.js';
 import {relatedPosts} from './related-posts.js';
 const e=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function contentSections(post){
@@ -17,7 +16,7 @@ export function confirmedReviews(company){
 }
 export const contactGraphic=promotionGraphic;
 export function consultationPage(post,images,company,info,context={}){
- const region=post.search_region||context.region?.name||'',keyword=primaryWorkKeyword(post.search_keyword||context.service?.name||'서비스'),phone=pagePhone(post,company),display=prettyPhone(phone),own=images.filter(image=>image.post_id===post.id&&!image.excluded),reviews=confirmedReviews(company);
+ const region=post.search_region||context.region?.name||'',keyword=String(post.search_keyword||context.service?.name||'서비스').trim(),phone=pagePhone(post,company),display=prettyPhone(phone),own=images.filter(image=>image.post_id===post.id&&!image.excluded),reviews=confirmedReviews(company);
  const call=(label,cls='')=>phone?`<a class="${cls}" href="tel:${e(phone)}">${cls==='consultation-call'?`<span class="consultation-call-icon" aria-hidden="true">☎</span><span class="consultation-call-copy">${label}</span><span class="consultation-call-arrow" aria-hidden="true">↗</span>`:label}</a>`:'<span class="contact-unavailable">상담 연락처 준비 중</span>';
  const rendered=new Set();
  const copy=pageCopy(post),sections=contentSections(post);

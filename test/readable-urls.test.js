@@ -22,7 +22,7 @@ test('readable paths use service, province and chosen locality, with a reserved 
  const paths=readablePostPaths(post,regions,services);assert.equal(decodeURIComponent(paths.base),'/배관/인천/원당동/원당동-옥상누수.html');assert.equal(decodeURIComponent(paths.collision),'/배관/인천/원당동/원당동-옥상누수--120.html');assert.equal(postUrl({...post,public_path:paths.base}),paths.base);
  assert.equal(normalizedPath(paths.base.toLowerCase()),paths.base);assert.equal(normalizedPath('/%broken'),null);
  const hostile=readablePostPaths({...post,search_region:'../원당동?x=<script>',search_keyword:'//옥상--누수#x'},regions,[{id:1,name:'admin'}]);assert.ok(hostile.base.startsWith('/'+encodeURIComponent('서비스-admin')+'/'));assert.doesNotMatch(decodeURIComponent(hostile.base),/[?<>#]|\.\./);assert.ok(!hostile.base.includes('--'));
- const eup=readablePostPaths({...post,search_region:'강내면'},regions,services);assert.match(decodeURIComponent(eup.base),/강내면\/강내면-/);
+ const eup=readablePostPaths({...post,search_region:'청주강내'},[{...regions[0],name:'강내면'}],services);assert.match(decodeURIComponent(eup.base),/강내면\/강내면-/);
 });
 test('one canonical Korean URL appears in HTML, boards, metadata, sitemap and RSS; numeric GET/HEAD redirect once',async()=>{
  const f=await fixture();try{

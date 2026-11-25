@@ -14,7 +14,7 @@ import {titleFor} from './editor-title.js';
 import {postArticle} from './post-article.js';
 import {sortServices} from './services.js';
 import {searchReadiness} from './search-readiness.js';
-import {searchFields,composePage,generateDraft,targetRegionMatches} from './draft-assistant.js';
+import {searchFields,composePage,generateDraft} from './draft-assistant.js';
 import {accountPage,resetWorkerPassword} from './account.js';
 import {registerRegion} from './cms-regions.js';
 import {all,first,run,decodePost} from './store.js';
@@ -39,7 +39,7 @@ const normalize=text=>text.normalize('NFKC').replace(/\s+/g,'').toLowerCase();
 export async function postValues(form){
  const title=cleanEditorialText(form.get('title')),summary=cleanEditorialText(form.get('summary')),text=cleanEditorialText(form.get('content')),work_notes=(form.get('work_notes')||'').trim();
  if(work_notes.length>2000)throw Error('본문 작업 메모는 2,000자 이내로 입력해 주세요.');
- if(title.length<5||title.length>120)throw Error('제목은 5~120자로 입력해 주세요.');
+ if(title.length<5||title.length>200)throw Error('제목은 5~200자로 입력해 주세요.');
  if(summary.length<10||summary.length>240)throw Error('요약은 10~240자로 입력해 주세요.');
  if(text.length<50||text.length>20000)throw Error('본문은 50~20,000자로 입력해 주세요.');
  const post_type=form.get('post_type');if(!kinds.includes(post_type))throw Error('글 종류를 선택해 주세요.');
@@ -51,7 +51,6 @@ async function choices(db,user){
 async function canAccess(db,user,post){return isAdmin(user)||post.writer_id===user.id&&!!await first(db,'SELECT id FROM company_assignments WHERE user_id=? AND company_id=?',user.id,post.company_id);}
 async function validateRelations(db,user,values,post={}){
  const data=await choices(db,user);
- if(values.search_region&&!targetRegionMatches(values.search_region,data.regions.find(r=>r.id===values.region_id)||{},data.companies.find(c=>c.id===values.company_id)||{}))throw Error('지역명은 선택한 작업 지역 안에서 입력해 주세요.');
  for(const [key,list] of [['company_id','companies'],['region_id','regions'],['service_id','services']])if(!data[list].some(x=>x.id===values[key]))throw Error('접근 가능한 업체·지역·업종을 선택해 주세요.');
 }
 async function duplicate(db,post){

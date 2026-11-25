@@ -20,7 +20,7 @@ export function serviceForKeyword(keyword,services,current,company={}){
 export function simplePostForm(form,data,post={}){
  const companyId=Number(form.get('company_id')),company=data.companies.find(item=>item.id===companyId)||{};
  let region=String(form.get('search_region')||'').trim();const keyword=String(form.get('search_keyword')||'').trim();
- if(form.get('region_mode')==='catalog'){const formatted=titleRegionForCode(form.get('dong')||form.get('district')||form.get('province'));if(formatted&&(!region||region===formatted.split(' ').at(-1))){region=formatted;form.set('search_region',region);}}
+ if(!region&&form.get('region_mode')==='catalog'){const formatted=titleRegionForCode(form.get('dong')||form.get('district')||form.get('province'));if(formatted){region=formatted;form.set('search_region',region);}}
  if(!region||!keyword)throw Error('지역명과 대표 업무 키워드를 입력해 주세요.');
  const sameCompany=companyId===post.company_id;
  const serviceId=serviceForKeyword(keyword,data.services,sameCompany?post.service_id:null,company);
