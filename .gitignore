@@ -1,0 +1,9 @@
+node_modules/
+.wrangler/
+.dev.vars
+.env*
+coverage/
+.local/
+
+wrangler.staging.jsonc
+wrangler.production.jsonc

@@ -1,0 +1,9 @@
+ALTER TABLE users ADD COLUMN credential_version INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN password_changed_at TEXT;
+ALTER TABLE sessions ADD COLUMN credential_version INTEGER NOT NULL DEFAULT 1;
+CREATE TABLE credential_events (
+ id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), actor_id INTEGER NOT NULL REFERENCES users(id),
+ action TEXT NOT NULL CHECK(action IN ('CHANGE','RESET','RECOVER')), credential_version INTEGER NOT NULL,
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
