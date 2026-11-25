@@ -4,8 +4,8 @@ import {portalHeader} from './home.js';
 import {siteOrigin,absolute,breadcrumbSchema} from './seo.js';
 import {searchDescription} from './search-metadata.js';
 const e=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-export function pageShell({title,description,path,body,status=200,noindex=false,schema,params=new URLSearchParams(),sampleOnly=true,breadcrumbs=[],image,preview=true,verification='',googleVerification=''}){
- const canonical=absolute(path),snippet=searchDescription(description),logo=absolute('/media/dongnepin-symbol.png');
+export function pageShell({title,description,path,canonicalPath=path,body,status=200,noindex=false,schema,params=new URLSearchParams(),sampleOnly=true,breadcrumbs=[],image,preview=true,verification='',googleVerification=''}){
+ const canonical=absolute(canonicalPath),snippet=searchDescription(description),logo=absolute('/media/dongnepin-symbol.png');
  const publisher={'@type':'Organization','@id':siteOrigin+'/#organization',name:siteName,url:siteOrigin+'/',logo:{'@type':'ImageObject',url:logo,width:192,height:192}};
  const structured=schema?{...schema,description:snippet,inLanguage:'ko-KR',publisher:{'@id':publisher['@id']}}:path==='/'?{'@type':'WebSite','@id':siteOrigin+'/#website',name:siteName,url:siteOrigin+'/',description:snippet,inLanguage:'ko-KR',publisher:{'@id':publisher['@id']}}:{'@type':'WebPage','@id':canonical,name:title,url:canonical,description:snippet,inLanguage:'ko-KR',isPartOf:{'@id':siteOrigin+'/#website'}};
  const graph={'@context':'https://schema.org','@graph':[structured,publisher,...(breadcrumbs.length>1?[breadcrumbSchema(breadcrumbs)]:[])]};

@@ -1,6 +1,6 @@
 import {postUrl} from './post-urls.js';
 import {feedBody} from './feed-body.js';
-import {descendantServiceIds} from './services.js';
+import {collectionIndex,boardPageSize} from './collection-index.js';
 import {siteName} from './brand.js';
 import {postImage} from './photos.js';
 export const siteOrigin='https://gongsa8282.xyz';
@@ -14,10 +14,10 @@ export function isoDate(value){
 export function breadcrumbSchema(items){return {'@context':'https://schema.org','@type':'BreadcrumbList',itemListElement:items.map((item,i)=>({'@type':'ListItem',position:i+1,name:item.name,item:absolute(item.url)}))};}
 export function sitemapEntries(data){
  const entries=[{path:'/'},{path:'/about/'}];
+ for(let page=2;page<=Math.ceil(data.published.length/boardPageSize);page++)entries.push({path:`/?page=${page}`});
  for(const p of data.published)entries.push({path:postUrl(p),lastmod:isoDate(p.updated_at||p.published_at)});
  for(const c of data.companies)if(data.published.some(p=>p.company_id===c.id))entries.push({path:'/company/'+c.id+'/'});
- for(const r of data.regions)if(data.published.some(p=>{const area=data.regions.find(a=>a.id===p.region_id);return area&&(area.id===r.id||area.slug.startsWith(r.slug+'/'));}))entries.push({path:'/region/'+r.slug+'/'});
- for(const s of data.services)if(data.published.some(p=>descendantServiceIds(s,data.services).includes(p.service_id)))entries.push({path:'/service/'+s.slug+'/'});
+ for(const item of collectionIndex(data).values())if(item.posts.length&&item.path===item.canonical)entries.push({path:item.path});
  return entries;
 }
 export function sitemap(data){

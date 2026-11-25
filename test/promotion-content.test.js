@@ -42,6 +42,6 @@ test('writing receives previous substantive excerpts, not only recycled headings
 
 test('large main boards show twenty rows per page and filters reset pagination',()=>{
  const data=sampleDataset(),posts=Array.from({length:44},(_,i)=>({...data.published[0],id:400+i,title:'시험 목록 '+i,published_at:'2026-11-17'})),render=params=>homePage(new URLSearchParams(params),posts,{...data,published:posts}).match(/<div class="post-board">[\s\S]*?<\/table><\/div>/)[0];
- const first=render(''),second=render('page=2');assert.equal((first.match(/class="post-date"/g)||[]).length,20);assert.match(first,/href="\/post\/400\/"/);assert.doesNotMatch(first,/href="\/post\/420\/"/);assert.match(second,/href="\/post\/420\/"/);assert.doesNotMatch(second,/href="\/post\/400\/"/);assert.equal((render('page=999').match(/class="post-date"/g)||[]).length,4);
+ const first=render(''),second=render('page=2');assert.equal((first.match(/class="post-date"/g)||[]).length,20);assert.match(first,/href="\/post\/443\/"/);assert.doesNotMatch(first,/href="\/post\/423\/"/);assert.match(second,/href="\/post\/423\/"/);assert.doesNotMatch(second,/href="\/post\/443\/"/);assert.equal((render('page=999').match(/class="post-date"/g)||[]).length,4);
  assert.equal(filterUrl(new URLSearchParams('page=3&kind=guide'),{service:'plumbing'}),'/?kind=guide&service=plumbing#cases');assert.match(homePage(new URLSearchParams('kind=guide&page=2'),posts,{...data,published:posts}),/kind=guide&amp;page=3#cases/);
 });

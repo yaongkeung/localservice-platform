@@ -1,4 +1,5 @@
 import {postUrl} from './post-urls.js';
+import {boardPageSize} from './collection-index.js';
 import {populatedServices} from './public-catalog.js';
 import {descendantServiceIds,sortServices} from './services.js';
 import {registeredCompanies} from './companies.js';
@@ -48,7 +49,7 @@ function board(posts,data){
 }
 export function homePage(params,posts,data=sampleDataset()){
   const services=sortServices(data.services),{published}=data;
-  const pageSize=20,pageCount=Math.max(1,Math.ceil(posts.length/pageSize)),currentPage=Math.min(pageCount,Math.max(1,Number.parseInt(params.get('page'),10)||1)),pagePosts=[...posts].sort((a,b)=>b.published_at.localeCompare(a.published_at)).slice((currentPage-1)*pageSize,currentPage*pageSize);
+  const pageSize=boardPageSize,pageCount=Math.max(1,Math.ceil(posts.length/pageSize)),currentPage=Math.min(pageCount,Math.max(1,Number.parseInt(params.get('page'),10)||1)),pagePosts=[...posts].sort((a,b)=>b.published_at.localeCompare(a.published_at)||b.id-a.id).slice((currentPage-1)*pageSize,currentPage*pageSize);
   const firstPage=Math.max(1,Math.min(currentPage-2,pageCount-4)),pageNumbers=Array.from({length:Math.min(5,pageCount)},(_,i)=>firstPage+i);
   const pageLink=(number,label)=>`<a href="${e(filterUrl(params,{page:number===1?'':String(number)}))}" aria-label="${number}페이지">${label}</a>`;
   const pager=`<nav class="board-pagination" aria-label="게시글 페이지">${currentPage>1?pageLink(currentPage-1,'이전'):''}${pageNumbers.map(number=>number===currentPage?`<span class="page-current" aria-current="page">${number}</span>`:pageLink(number,number)).join('')}${currentPage<pageCount?pageLink(currentPage+1,'다음'):''}</nav>`;
